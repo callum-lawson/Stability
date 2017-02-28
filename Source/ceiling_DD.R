@@ -1,6 +1,6 @@
-###############################################################
-### Exploration of DD relationship based on "ceiling" model ###
-###############################################################
+###########################################################
+# Exploration of DD relationship based on "ceiling" model #
+###########################################################
 
 # Life-cycle:
 # In summer, have births (b) according to climate
