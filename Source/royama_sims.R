@@ -1,8 +1,6 @@
-### Examining ideas behind "nonlinear perturbatios" in Royama (1992) p38-40
-# mainwd <- "D:/Users/calluml/Dropbox/NIOO/"
-# mainwd <- "C:/Users/Callum/Documents/My Dropbox/NIOO/"
-
-setwd(paste0(mainwd,"Analyses/Synthesis"))
+##############################################################################
+### Examine ideas behind "nonlinear perturbations" in Royama (1992) p38-40 ###
+##############################################################################
 
 psurv <- function(fpi) 1-exp(-fpi) # food per indiv; taken from hole example
 Tsize <- 100
@@ -38,7 +36,7 @@ for(i in 1:nn){
 		}
 	}
 
-pdf(paste0("royama_nonlin_peturb_",format(Sys.Date(),"%d%b%Y"),".pdf"),width=5.25,height=5.5)
+pdf(paste0("Plots/royama_nonlin_peturb_",format(Sys.Date(),"%d%b%Y"),".pdf"),width=5.25,height=5.5)
 mycols <- 1:nf
 matplot(log(nsvec),nfinmat/nsvec,type="l",col=mycols,lty=1,
 	xlab="start N (log scale)",ylab="prop surv",bty="l")

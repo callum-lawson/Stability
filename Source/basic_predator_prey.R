@@ -1,3 +1,7 @@
+##################################################################################
+### Exploratory time-series plots of predator-prey dynamics in continuous time ###
+##################################################################################
+
 alpha <- 10  # prey growth
 beta <- 0.1    # meeting rate
 gamma <- 0.1   # prey to predator conversion
