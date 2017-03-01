@@ -7,3 +7,6 @@ Theoretical work on density-dependence and population stability under climate ch
 *ceiling_DD*: Exploration of DD relationship based on "ceiling" model.
 *royama_sims*: Examine ideas behind "nonlinear perturbations" in Royama (1992) p38-40.
 *space_time_lat_horiz_peturb*: Population simulations under different climate DD effects, for grant proposal.
+*carrying_capacity_nonlinear_climate*: How do nonlinear population growth responses to climate affect carrying capacity?
+*royama_functions*: Functions to simulate and plot population dynamics with Gompertz density-dependence.
+*DD_functionalforms*: Royama plots for different forms of density-dependence.
