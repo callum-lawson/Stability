@@ -52,7 +52,7 @@ popsim <- function(zmat,lN0,nt,b0,b1,b2,b3,b4,warmup){
 # no noise (eps term)
 # assumes zsd is fixed
 
-xsim <- function(zmat,pars,nt=nt,lN0=7,warmup=100,outmat=T,matchedpars=F){
+xsim <- function(zmat,pars,nt=nt,lN0=7,warmup=100,outmat=F){
   
   require(reshape2)
   
@@ -76,15 +76,6 @@ xsim <- function(zmat,pars,nt=nt,lN0=7,warmup=100,outmat=T,matchedpars=F){
     }
   }
   
-  if(matchedpars==T){
-    if(nz!=np) warning("clim and par dims differ")
-    xarr <- array(NA,dim=c(nt-warmup,nz)) # nz=np
-    for(i in 1:np){
-      xarr[,i] <- with(pars[i,], popsim(zmat=cbind(zmat[,i]),lN0=lN0,nt=nt,b0,b1,b2,b3,b4,warmup=warmup)
-      )
-    }
-    return(xarr)
-  }
 }
 
 # Results-plotting functions ----------------------------------------------
