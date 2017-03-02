@@ -13,7 +13,7 @@ mymult <- 0.8
 
 # Simulation functions ----------------------------------------------------
 
-mymatplot <- function(m,...) matplot(m,type="l",col=cseq,lty=lseq,...)
+mymatplot <- function(m,...) matplot(m,type="l",...)
 
 rcalc <- function(z,lN,b0,b1,b2,b3,b4){
   b0 + b1*z + b2*z^2 + b3*lN + b4*z*lN
@@ -38,6 +38,32 @@ Kcalc <- function(z,pars){
   with(pars, - (b0+b1*z+b2*z^2) / (b3+b4*z) )
 }
 # slope scales rate of change in K:  (b3+b4*z)
+
+rplot_3eg <- function(zmu,zsd,pars,xmin,xmax,nx=10^4,...){
+  zmu <- zmu[1]
+  zsd <- zsd[1]
+    # using first climate mean and sd as example
+  zseq <- c(zmu-zsd,zmu,zmu+zsd)
+  nz <- length(zseq)
+  np <- nrow(pars)
+  cseq <- rep(c("red","blue","black"),each=nz)
+  lseq <- rep(c(2,1,2),times=np)
+  xseq <- seq(xmin,xmax,length.out=nx)
+  rarr <- array(NA,dim=c(nx,nz,np))
+  karr <- array(NA,dim=c(1,nz,np))
+  for(i in 1:np){
+    for(j in 1:nz){
+      rarr[,j,i] <- with(pars[i,], rcalc(z=zseq[j],xseq,b0,b1,b2,b3,b4))
+      karr[1,j,i] <- Kcalc(zmu[j],pars[i,])
+    }
+  }
+  
+  rmat <- acast(melt(rarr,varnames=c("x","p","z")), x ~ z + p)
+  kmat <- acast(melt(karr,varnames=c("x","p","z")), x ~ z + p)
+  
+  mymatplot(xseq,rmat,xlab="",ylab="",col=cseq,lty=lseq,...)
+  
+}
 
 rplot <- function(zmu,pars,xmin=myxmin,xmax=myxmax,sarr,yval,nx=10^4,...){
   nz <- length(zmu)
