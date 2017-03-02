@@ -37,7 +37,6 @@ Kcalc <- function(z,pars){
 
 # Simulation functions ----------------------------------------------------
 
-
 popsim <- function(zmat,lN0,nt,b0,b1,b2,b3,b4,warmup){
   nz <- ncol(zmat)
   lNt <- matrix(NA,nr=nt,nc=nz)
@@ -69,7 +68,7 @@ xsim <- function(zmat,pars,nt=nt,lN0=7,warmup=100,outmat=T,matchedpars=F){
     }
     # zmu (but not pars) handled simultaneously
     if(outmat==T){
-      xmat <- acast(melt(xarr,varnames=c("x","p","z")), x ~ z + p)
+      xmat <- acast(melt(xarr,varnames=c("t","p","z")), t ~ z + p)
       return(xmat)
     }
     else{
@@ -81,8 +80,7 @@ xsim <- function(zmat,pars,nt=nt,lN0=7,warmup=100,outmat=T,matchedpars=F){
     if(nz!=np) warning("clim and par dims differ")
     xarr <- array(NA,dim=c(nt-warmup,nz)) # nz=np
     for(i in 1:np){
-      xarr[,i] <- with(pars[i,], 
-                       popsim(zmat=cbind(zmat[,i]),lN0=lN0,nt=nt,b0,b1,b2,b3,b4,warmup=warmup)
+      xarr[,i] <- with(pars[i,], popsim(zmat=cbind(zmat[,i]),lN0=lN0,nt=nt,b0,b1,b2,b3,b4,warmup=warmup)
       )
     }
     return(xarr)
@@ -91,14 +89,14 @@ xsim <- function(zmat,pars,nt=nt,lN0=7,warmup=100,outmat=T,matchedpars=F){
 
 # Results-plotting functions ----------------------------------------------
 
-rplot_3eg <- function(zmu,zsd,pars,xmin=myxmin,xmax=myxmax,mycols,nx=10^4,...){
+rplot_3eg <- function(zmu,zsd,pars,xmin=myxmin,xmax=myxmax,nx=10^4,...){
   zmu <- zmu[1]
   zsd <- zsd[1]
   # using first climate mean and sd as example
   zseq <- c(zmu-zsd,zmu,zmu+zsd)
   nz <- length(zseq)
   np <- nrow(pars)
-  cseq <- rep(mycols,each=nz)
+  cseq <- rep(c("blue","red","black")[1:np],each=3) # up to three line types
   lseq <- rep(c(2,1,2),times=np)
   xseq <- seq(xmin,xmax,length.out=nx)
   rarr <- array(NA,dim=c(nx,nz,np))
@@ -110,17 +108,18 @@ rplot_3eg <- function(zmu,zsd,pars,xmin=myxmin,xmax=myxmax,mycols,nx=10^4,...){
     }
   }
   
-  rmat <- acast(melt(rarr,varnames=c("x","p","z")), x ~ z + p)
-  kmat <- acast(melt(karr,varnames=c("x","p","z")), x ~ z + p)
+  rmat <- acast(melt(rarr,varnames=c("t","p","z")), t ~ z + p)
+  kmat <- acast(melt(karr,varnames=c("t","p","z")), t ~ z + p)
   
   mymatplot(xseq,rmat,xlab="",ylab="",col=cseq,lty=lseq,...)
   
 }
 
-dplot <- function(xmat,K,xmin=myxmin,xmax=myxmax,harr,sarr,ndens=2^9,...){
+dplot <- function(xmat,K,xmin=myxmin,xmax=myxmax,harr,sarr,bw=NULL,ndens=2^9,...){
   xplot <- seq(xmin,xmax,length.out=ndens)
   xdens <- apply(xmat,2,function(x){
-    density(x,from=xmin,to=xmax,n=ndens,na.rm=T)$y
+    if(is.null(bw)) density(x,from=xmin,to=xmax,n=ndens,na.rm=T)$y
+    if(!is.null(bw)) density(x,from=xmin,to=xmax,n=ndens,bw=bw,na.rm=T)$y
   })
   matplot(xplot,xdens,type="l",...)
 
