@@ -80,7 +80,7 @@ xsdc[6]/xsdc[5]
 # Continuous range - squared climate --------------------------------------
 
 nz <- 100
-nt <- 1000
+nt <- 10000
 np <- 100
 
 zsd_min <- 0
@@ -101,6 +101,7 @@ xpars <- data.frame(
 )
 xmat <- xsim(zsim,xpars,nt=nt)
 xmed <- apply(xmat,c(2,3),median)
+
 library(fields)
 matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1)
 matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1,ylim=c(0,1))
@@ -110,9 +111,14 @@ matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1,ylim=c(0,1))
   # - therefore, stronger influence of (non-linear effects of) variability
   # - therefore, also bigger effects of variability increase
   # - but negligible effects of non-linearity once DD becomes over-compensating
+  # - median X increases *exponentially* with zsd, suggesting even greater effects
+  # than on population growth rate
 
-# Continuous range - squared climate, non-linear DD -----------------------
+# Extinction risk
 
-
-
+xtau <- apply(xmat,c(2,3),function(x,tau=-0.05) sum(x<tau)/length(x))
+matplot(zsd,xtau,type="l",col=tim.colors(np),lty=1)
+  # - non-linear effects of climate variability on extinction risk
+  # - stronger density-dependence -> maximum extinction risk occurs at higher 
+  # climate variabilty value
 

@@ -8,6 +8,7 @@ r_expsurv <- function(X,z,Smax=0.25,d=0.05,B=10){
   # Barraquand & Yoccoz 2013, equation (6)
   # S decreases exponentially with population size (rate d)
   # B increases exponentially [my choice] with climate
+  # z and X effects are separable
 
 curve(r_expsurv(x,z=0),xlim=c(-0.5,5))
 curve(r_expsurv(x,z=-1),add=T,col="blue")
