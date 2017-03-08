@@ -79,7 +79,7 @@ xsdc[6]/xsdc[5]
 
 # Continuous range - squared climate --------------------------------------
 
-nz <- 100
+nz <- 50
 nt <- 10000
 np <- 100
 
@@ -97,14 +97,14 @@ b3_min <- -0.05
 b3_max <- -1.5
 b3seq <- seq(b3_min,b3_max,length.out=np)
 xpars <- data.frame(
-  b0=rep(0,np),b1=rep(0.5,np),b2=rep(0.75,np),b3=b3seq,b4=rep(0,np)
+  b0=rep(0,np),b1=rep(1,np),b2=rep(0.1,np),b3=b3seq,b4=rep(0,np)
 )
 xmat <- xsim(zsim,xpars,nt=nt)
 xmed <- apply(xmat,c(2,3),median)
 
 library(fields)
 matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1,xlab="zsd")
-matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1,ylim=c(0,1),xlab="zsd")
+matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1,ylim=c(0,0.1),xlab="zsd")
 
   # weaker DD ->
   # - stronger influence of environment
@@ -112,8 +112,11 @@ matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1,ylim=c(0,1),xlab="zsd")
   # - therefore, also bigger effects of variability increase
   # - but negligible effects of climate non-linearity once DD becomes over-compensating
   # (dark red lines in same place as lighter red)
+  # - (median N still increases with clim sd, but not much)
   # - median X increases *exponentially* with zsd, suggesting even greater effects
   # than on population growth rate
+  # - however, with overcompensating DD and nonlinear clim, zsd can actually reduce
+  # median population size (massive increase -> disproportional decrease)
 
 # Extinction risk
 
@@ -122,4 +125,13 @@ matplot(zsd,xtau,type="l",col=tim.colors(np),lty=1)
   # - non-linear effects of climate variability on extinction risk
   # - stronger density-dependence -> maximum extinction risk occurs at higher 
   # climate variabilty value
+  # - extinction can be highest at intermediate zsd for weak DD 
+  # (i.e., at some point, increasing zsd reduces extinction risk), 
+  # but at max zsd for strong DD (i.e., zsd always increases extinction risk)
+
+# Distributions
+b3eg <- c(1,33,66,100)
+b3seq[b3eg]
+dplot(xmat[,50,b3eg],nz=1,np=2,bw=0.1,xmin=-5,xmax=7.5,lty=1,
+      col=tim.colors(length(b3eg)))
 

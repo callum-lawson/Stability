@@ -106,9 +106,9 @@ rplot_3eg <- function(zmu,zsd,pars,xmin=myxmin,xmax=myxmax,nx=10^4,...){
   
 }
 
-dplot <- function(xmat,K,xmin=myxmin,xmax=myxmax,harr,sarr,bw=NULL,ndens=2^9,...){
-  nz <- length(grep("1_",colnames(xmat)))
-  np <- ncol(xmat)/nz
+dplot <- function(xmat,nz,np,xmin=myxmin,xmax=myxmax,harr,sarr,bw=NULL,ndens=2^9,...){
+  # nz <- length(grep("1_",colnames(xmat)))
+  # np <- ncol(xmat)/nz
   xplot <- seq(xmin,xmax,length.out=ndens)
   xdens <- apply(xmat,2,function(x){
     if(is.null(bw)) density(x,from=xmin,to=xmax,n=ndens,na.rm=T)$y
@@ -117,6 +117,5 @@ dplot <- function(xmat,K,xmin=myxmin,xmax=myxmax,harr,sarr,bw=NULL,ndens=2^9,...
   matplot(xplot,xdens,type="l",
           ...
           )
-
 }
 
