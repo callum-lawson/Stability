@@ -110,7 +110,7 @@ matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1,ylim=c(0,1),xlab="zsd")
   # - stronger influence of environment
   # - therefore, stronger influence of (non-linear effects of) variability
   # - therefore, also bigger effects of variability increase
-  # - but negligible effects of climt non-linearity once DD becomes over-compensating
+  # - but negligible effects of climate non-linearity once DD becomes over-compensating
   # (dark red lines in same place as lighter red)
   # - median X increases *exponentially* with zsd, suggesting even greater effects
   # than on population growth rate
