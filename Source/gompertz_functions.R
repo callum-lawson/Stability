@@ -52,7 +52,7 @@ popsim <- function(zmat,lN0,nt,b0,b1,b2,b3,b4,warmup){
 # no noise (eps term)
 # assumes zsd is fixed
 
-xsim <- function(zmat,pars,nt=nt,lN0=7,warmup=100,outmat=F){
+xsim <- function(zmat,pars,nt=nt,lN0=7,warmup=100,outmat=F,matchedpars=F){
   
   require(reshape2)
   
@@ -115,8 +115,6 @@ dplot <- function(xmat,K,xmin=myxmin,xmax=myxmax,harr,sarr,bw=NULL,ndens=2^9,...
     if(!is.null(bw)) density(x,from=xmin,to=xmax,n=ndens,bw=bw,na.rm=T)$y
   })
   matplot(xplot,xdens,type="l",
-          lty=rep(1:2,times=np),
-          col=rep(c("blue","red","black")[1:np],each=2),
           ...
           )
 

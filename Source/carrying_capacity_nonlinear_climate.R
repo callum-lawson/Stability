@@ -71,7 +71,7 @@ Kcalc(z=zmu[1],pars=xpars)
 # K1 <- Kcalc(z=zmu,pars=pars1)
 # K2 <- Kcalc(z=zmu,pars=pars2)
 
-xsdc <- apply(xmatc,2,sd)
+xsdc <- apply(xmat,2,sd)
 xsdc[2]/xsdc[1]
 xsdc[4]/xsdc[3]
 xsdc[6]/xsdc[5]
@@ -103,14 +103,15 @@ xmat <- xsim(zsim,xpars,nt=nt)
 xmed <- apply(xmat,c(2,3),median)
 
 library(fields)
-matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1)
-matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1,ylim=c(0,1))
+matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1,xlab="zsd")
+matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1,ylim=c(0,1),xlab="zsd")
 
   # weaker DD ->
   # - stronger influence of environment
   # - therefore, stronger influence of (non-linear effects of) variability
   # - therefore, also bigger effects of variability increase
-  # - but negligible effects of non-linearity once DD becomes over-compensating
+  # - but negligible effects of climt non-linearity once DD becomes over-compensating
+  # (dark red lines in same place as lighter red)
   # - median X increases *exponentially* with zsd, suggesting even greater effects
   # than on population growth rate
 
