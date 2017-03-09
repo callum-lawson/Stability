@@ -48,17 +48,17 @@ source("Source/gompertz_functions.R")
 
 xpars <- rbind(
   #data.frame(b0=0,b1=0.5,b2=0.75,b3=-0.1,b4=0),
-  data.frame(b0=0,b1=0.5,b2=0.75,b3=-0.75,b4=0),
+  data.frame(b0=0,b1=0.5,b2=0.75,b3=-0.1,b4=0),
   #data.frame(b0=0,b1=0.5,b2=0.75,b3=-1.5,b4=0),
-  data.frame(b0=0,b1=0.5,b2=0.75,b3=-2,b4=0)
+  data.frame(b0=0,b1=0.5,b2=0.75,b3=-0.5,b4=0)
 )
 # try intercept 0.1
 
-xarr <- xsim(zsim,xpars,nt=nt,outmat=T)
+xmat <- xsim(zsim,xpars,nt=nt,outmat=T)
 
 rplot_3eg(zmu,zsd,xpars,xmin=-1,xmax=1)
 abline(v=0,lty=3)
-dplot(xmat,bw=0.1)
+dplot(xmat,bw=0.1,col=rep(c("blue","red"),each=2),lty=rep(1:2,times=2),xmin=-1,xmax=3)
   # stronger effects of nonlinearity when DD weaker
   # but DD strength > 1, may help less to have nonlinear effects
   # when DD strength > 2, continually climbs to higher population sizes and never comes back
