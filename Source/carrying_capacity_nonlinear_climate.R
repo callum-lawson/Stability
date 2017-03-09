@@ -105,6 +105,7 @@ xmed <- apply(xmat,c(2,3),median)
 library(fields)
 matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1,xlab="zsd")
 matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1,ylim=c(0,0.1),xlab="zsd")
+matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1,ylim=c(-0.015,0.015),xlab="zsd")
 
   # weaker DD ->
   # - stronger influence of environment
@@ -112,11 +113,13 @@ matplot(zsd,xmed,type="l",col=tim.colors(np),lty=1,ylim=c(0,0.1),xlab="zsd")
   # - therefore, also bigger effects of variability increase
   # - but negligible effects of climate non-linearity once DD becomes over-compensating
   # (dark red lines in same place as lighter red)
-  # - (median N still increases with clim sd, but not much)
+  # (median N can still increase with clim sd, but not much, and may decline)
   # - median X increases *exponentially* with zsd, suggesting even greater effects
   # than on population growth rate
   # - however, with overcompensating DD and nonlinear clim, zsd can actually reduce
   # median population size (massive increase -> disproportional decrease)
+  # - with overcompensating DD, no clear ordering of DD strength effects on clim sd
+  # effects (i.e., stronger DD doesn't mean weaker clim sd effects)
 
 # Extinction risk
 
@@ -135,3 +138,14 @@ b3seq[b3eg]
 dplot(xmat[,50,b3eg],nz=1,np=2,bw=0.1,xmin=-5,xmax=7.5,lty=1,
       col=tim.colors(length(b3eg)))
 
+# Example time series
+matplot(xmat[9000:9900,50,b3eg],type="l",col=tim.colors(length(b3eg)),lty=1)
+plot(xmat[9000:9900,50,min(b3eg)],type="l")
+plot(xmat[9000:9900,50,max(b3eg)],type="l")
+  # weak DD -> really autocorrelated
+
+acf(xmat[9000:9900,50,b3eg[1]])
+acf(xmat[9000:9900,50,b3eg[2]])
+acf(xmat[9000:9900,50,b3eg[3]])
+acf(xmat[9000:9900,50,b3eg[4]])
+  # weak DD -> positive lag-1 ac; overcompensating -> negative lag-1 ac
