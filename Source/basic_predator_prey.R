@@ -2,10 +2,10 @@
 ### Exploratory time-series plots of predator-prey dynamics in continuous time ###
 ##################################################################################
 
-alpha <- 10  # prey growth
-beta <- 0.1    # meeting rate
-gamma <- 0.1   # prey to predator conversion
-delta <- 0.1   # death of predator
+alpha <- 10 # prey growth
+beta <- 0.1 # encounter rate
+gamma <- 0.1  # prey to predator conversion
+delta <- 0.1  # death of predator
   
 dx <- function(x,y,alpha,beta,abiotic=F){
   if(abiotic==F) return(alpha*x - beta*x*y)
@@ -28,8 +28,8 @@ steplen <- 10^-3
 #iota <- i0*rep(1,nt)
 
 for(t in 2:nt){
-  x[t] <- x[t-1] + dx(x[t-1],y[t-1],alpha,beta,abiotic=T)*steplen # + iota[t-1]
-  y[t] <- y[t-1] + dy(x[t-1],y[t-1],beta,gamma,delta)*steplen
+  x[t] <- x[t-1] + dx(x[t-1],y[t-1],alpha=1,beta=0.1,abiotic=F)*steplen # + iota[t-1]
+  y[t] <- y[t-1] + dy(x[t-1],y[t-1],beta=0.1,gamma,delta)*steplen
   }
 
 matplot(1:nt,log(cbind(x,y)),type="l")
