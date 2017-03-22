@@ -11,3 +11,4 @@ Theoretical work on density-dependence and population stability under climate ch
 *gompertz_functions*: Functions to simulate and plot population dynamics with Gompertz density-dependence.
 *DD_functionalforms*: Royama plots for different forms of density-dependence.
 *royama_butterfly_grant_figure*: Population simulations under different climate DD effects, for grant proposal.
+*autocorrelation_example*: Simple simulation of population fluctuations under autocorrelated climates.
