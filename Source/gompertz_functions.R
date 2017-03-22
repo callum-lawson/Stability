@@ -103,6 +103,7 @@ rplot_3eg <- function(zmu,zsd,pars,xmin=myxmin,xmax=myxmax,nx=10^4,...){
   kmat <- acast(melt(karr,varnames=c("t","p","z")), t ~ z + p)
   
   mymatplot(xseq,rmat,xlab="",ylab="",col=cseq,lty=lseq,...)
+  abline(h=0,lty=3)
   
 }
 
