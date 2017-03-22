@@ -54,3 +54,43 @@ dplot(xmat,bw=0.001,col=mycols,lty=mylty,xmin=-3,xmax=3)
 # - But when clim is positively autocorrelated, can have bigger variation in 
 # population sizes with weak DD, because K varies more in that case
 
+
+# Simulations without autocorrelation -------------------------------------
+
+xpars <- rbind(
+  data.frame(b0=0,b1=1,b2=0,b3=-1,b4=0),
+  data.frame(b0=0,b1=1,b2=0,b3=-0.1,b4=0)
+)
+
+set.seed(1)
+zmu <- 0
+zsd <- 1
+nz <- length(zmu)
+nt <- 10^4
+zsim <- matrix(NA,nr=nt,nc=nz)
+zsim[] <- rnorm(nt*nz,rep(zmu,each=nt),sd=rep(zsd,each=nt))
+
+xmat <- xsim(zsim,xpars,nt=nt,outmat=T)
+matplot(xmat[990:1000,],type="l",col=c("blue","red"),ylab="ln N")
+dplot(xmat,bw=0.1,col=c("blue","red"),xmin=-10,xmax=10)
+
+# Over-compensation -------------------------------------------------------
+
+xpars <- rbind(
+  data.frame(b0=0,b1=1,b2=0,b3=-1.9,b4=0),
+  data.frame(b0=0,b1=1,b2=0,b3=-1.1,b4=0)
+)
+
+set.seed(1)
+zmu <- 0
+zsd <- 1
+nz <- length(zmu)
+nt <- 10^4
+zsim <- matrix(NA,nr=nt,nc=nz)
+zsim[] <- rnorm(nt*nz,rep(zmu,each=nt),sd=rep(zsd,each=nt))
+
+xmat <- xsim(zsim,xpars,nt=nt,outmat=T)
+matplot(xmat[990:1000,],type="l",col=c("blue","red"),ylab="ln N")
+dplot(xmat,bw=0.1,col=c("blue","red"),xmin=-10,xmax=10)
+
+
