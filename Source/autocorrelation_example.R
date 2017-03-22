@@ -35,8 +35,8 @@ dplot(xmat,bw=0.001,col=mycols,lty=mylty,xmin=-3,xmax=3)
 # Different K (same resistance) -------------------------------------------
 
 xpars <- rbind(
-  data.frame(b0=0,b1=1,b2=0,b3=-0.75,b4=0),
-  data.frame(b0=0,b1=1,b2=0,b3=-0.25,b4=0)
+  data.frame(b0=0,b1=1,b2=0,b3=-1,b4=0),
+  data.frame(b0=0,b1=1,b2=0,b3=-0.1,b4=0)
 )
 
 rplot_3eg(0,1,xpars,xmin=-1,xmax=1)
