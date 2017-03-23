@@ -81,6 +81,8 @@ xsim <- function(zmat,pars,nt=nt,lN0=7,warmup=100,outmat=F,matchedpars=F){
 # Results-plotting functions ----------------------------------------------
 
 rplot_3eg <- function(zmu,zsd,pars,xmin=myxmin,xmax=myxmax,nx=10^4,...){
+  require(reshape2)
+  
   zmu <- zmu[1]
   zsd <- zsd[1]
   # using first climate mean and sd as example

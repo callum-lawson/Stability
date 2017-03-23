@@ -23,6 +23,7 @@ xpars <- rbind(
 rplot_3eg(0,1,xpars,xmin=-1,xmax=1)
 Kcalc(z=zvals[1],pars=xpars)
 Kcalc(z=zvals[2],pars=xpars)
+# keeps K constant for all values of z
 
 xmat <- xsim(zsim,xpars,nt=nt,outmat=T,warmup=100,lN0=0)
 matplot(xmat[990:1000,],type="l",col=mycols,lty=mylty,ylab="ln N")
@@ -54,7 +55,6 @@ dplot(xmat,bw=0.001,col=mycols,lty=mylty,xmin=-3,xmax=3)
 # - But when clim is positively autocorrelated, can have bigger variation in 
 # population sizes with weak DD, because K varies more in that case
 
-
 # Simulations without autocorrelation -------------------------------------
 
 xpars <- rbind(
@@ -70,7 +70,7 @@ nt <- 10^4
 zsim <- matrix(NA,nr=nt,nc=nz)
 zsim[] <- rnorm(nt*nz,rep(zmu,each=nt),sd=rep(zsd,each=nt))
 
-xmat <- xsim(zsim,xpars,nt=nt,outmat=T)
+xmat <- xsim(zsim,xpars,lN0=0,warmup=1000,nt=nt,outmat=T)
 matplot(xmat[990:1000,],type="l",col=c("blue","red"),ylab="ln N")
 dplot(xmat,bw=0.1,col=c("blue","red"),xmin=-10,xmax=10)
 
@@ -93,4 +93,49 @@ xmat <- xsim(zsim,xpars,nt=nt,outmat=T)
 matplot(xmat[990:1000,],type="l",col=c("blue","red"),ylab="ln N")
 dplot(xmat,bw=0.1,col=c("blue","red"),xmin=-10,xmax=10)
 
+# Autocorrelation vs DD strength plots ------------------------------------
 
+acts <- function(alpha,nt){
+  y <- arima.sim(model=list(ar=alpha),n=nt)
+  sy <- scale(y)
+  return(sy)
+}
+
+nac <- 11
+acseq <- seq(-0.99,0.99,length.out=nac)
+
+np <- 50 
+dmin <- -0.1
+dmax <- -1.99
+dseq <- seq(dmin,dmax,length.out=np)
+
+nt <- 10^5
+zsim <- matrix(NA,nr=nt,nc=nac)
+for(i in 1:nac){
+  if(acseq[i]!=0) zsim[,i] <- acts(acseq[i],nt)
+  else zsim[,i] <- rnorm(nt,0,1)
+}
+
+xpars <- data.frame(
+  b0=rep(0,np),b1=rep(1,np),b2=rep(0,np),b3=dseq,b4=rep(0,np)
+)
+xmat <- xsim(zsim,xpars,nt=nt,lN0=0,warmup=10^4)
+
+xmed <- t(apply(xmat,c(2,3),median))
+xsd <- t(apply(xmat,c(2,3),sd))
+
+library(fields)
+matplot(dseq,xmed,type="l",col=tim.colors(nac),lty=1,xlab="DD")
+matplot(dseq,log10(xsd),type="l",col=tim.colors(nac),lty=1,xlab="DD")
+
+plot(dseq,log10(xsd[,6]),type="l",lty=1,xlab="DD")
+
+apply(zsim,2,mean)
+plot(zsim[1:100,1],type="l")
+plot(zsim[1:100,nac],type="l")
+plot(density(zsim[,1]))
+plot(xmat[1:100,1,1],type="l")
+plot(density(xmat[,1,1]),type="l")
+lines(density(xmat[,1,nac]),type="l")
+
+dim(zsim)
