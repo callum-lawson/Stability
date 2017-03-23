@@ -108,6 +108,9 @@ np <- 50
 dmin <- -0.1
 dmax <- -1.99
 dseq <- seq(dmin,dmax,length.out=np)
+xpars <- data.frame(
+  b0=rep(0,np),b1=rep(1,np),b2=rep(0,np),b3=dseq,b4=rep(0,np)
+)
 
 nt <- 10^5
 zsim <- matrix(NA,nr=nt,nc=nac)
@@ -115,10 +118,6 @@ for(i in 1:nac){
   if(acseq[i]!=0) zsim[,i] <- acts(acseq[i],nt)
   else zsim[,i] <- rnorm(nt,0,1)
 }
-
-xpars <- data.frame(
-  b0=rep(0,np),b1=rep(1,np),b2=rep(0,np),b3=dseq,b4=rep(0,np)
-)
 xmat <- xsim(zsim,xpars,nt=nt,lN0=0,warmup=10^4)
 
 xmed <- t(apply(xmat,c(2,3),median))
@@ -127,15 +126,21 @@ xsd <- t(apply(xmat,c(2,3),sd))
 library(fields)
 matplot(dseq,xmed,type="l",col=tim.colors(nac),lty=1,xlab="DD")
 matplot(dseq,log10(xsd),type="l",col=tim.colors(nac),lty=1,xlab="DD")
-
 plot(dseq,log10(xsd[,6]),type="l",lty=1,xlab="DD")
 
-apply(zsim,2,mean)
-plot(zsim[1:100,1],type="l")
-plot(zsim[1:100,nac],type="l")
-plot(density(zsim[,1]))
-plot(xmat[1:100,1,1],type="l")
-plot(density(xmat[,1,1]),type="l")
-lines(density(xmat[,1,nac]),type="l")
+# Autocorrelation vs DD strength: same K ----------------------------------
 
-dim(zsim)
+xpars <- data.frame(
+  b0=rep(0,np),b1=-dseq,b2=rep(0,np),b3=dseq,b4=rep(0,np)
+  )
+# -b1 = a*b31, where a=K/z
+
+xmat <- xsim(zsim,xpars,nt=nt,lN0=0,warmup=10^4)
+
+xmed <- t(apply(xmat,c(2,3),median))
+xsd <- t(apply(xmat,c(2,3),sd))
+
+matplot(dseq,xmed,type="l",col=tim.colors(nac),lty=1,xlab="DD")
+matplot(dseq,log10(xsd),type="l",col=tim.colors(nac),lty=1,xlab="DD")
+plot(dseq,log10(xsd[,6]),type="l",lty=1,xlab="DD")
+  # better to be resistant than resilient, especially in neg-autocor envs

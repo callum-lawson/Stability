@@ -34,7 +34,6 @@ Kcalc <- function(z,pars){
 }
 # slope scales rate of change in K:  (b3+b4*z)
 
-
 # Simulation functions ----------------------------------------------------
 
 popsim <- function(zmat,lN0,nt,b0,b1,b2,b3,b4,warmup){
