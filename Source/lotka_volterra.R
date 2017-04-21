@@ -1,6 +1,6 @@
-##################################################################################
-### Exploratory time-series plots of predator-prey dynamics in continuous time ###
-##################################################################################
+##########################################################################
+# Continuous time-series plots of Lotka-Volterra predator-prey dynamics  #
+##########################################################################
 
 alpha <- 10 # prey growth
 beta <- 0.1 # encounter rate
