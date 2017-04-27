@@ -64,7 +64,7 @@ m0 <- 1.1
 m1 <- 0.1
 curve(lnbh(x,m0,m1),col="blue",xlim=c(1,3))
 m1 <- 0.01
-curve(lnbh(x,m0,m1),col="red",add=T)
+curve(lnbh(x,m0,m1)-2.3,col="red",add=T)
 # changing c2 only changes equilibrium N by constant factor (shifts intercept)
 
 m0 <- 1
@@ -76,9 +76,7 @@ m0 <- 0.5
 c1 <- exp(-m0)
 c2 <- (1-exp(-m0))*m1/m0
 curve(log((exp(x)*c1-1)/(c2*exp(x))),col="red",add=T)
-# drop-off occurs earlier at *lower* K
-
-# Y is just scaling up and down, changing c2 does the same thing?
+# changing c1 -> drop-off occurs *earlier* at lower K
 
 ### With seed dormancy
 
@@ -104,7 +102,6 @@ BH <- function(n_in,m0,m1){
   return(n_out)
 }
 
-
 y <- 3 # log scale
 m0 <- 1
 curve(log(BH(exp(x+y),m0,m1)),col="blue",xlim=c(-1,5))
@@ -113,6 +110,50 @@ m0 <- 2
 curve(log(BH(exp(x+y),m0,m1)),col="blue",add=T,lty=2)
 curve(log(BH(exp(x+y-0.5),m0,m1)),col="red",add=T,lty=2)
 abline(0,1,lty=3)
-  # -0.5 -> exp(0.5) decrease in y
-  # decrease in y reduces equilibrium N *faster* when max popsize (K) is lower
+  # -0.5 -> reduce y by a freaction of exp(0.5)=1.6
+  # decrease in y reduces equilibrium N by *more* when max popsize (K) is lower
+
+# Y is just scaling up and down, changing c2 does the same thing?
+
+# How does G affect BH curve? ---------------------------------------------
+
+m0 <- 0.1
+m1 <- 0.01
+curve(lnbhdor(x,m0,m1,g=0.75),col="blue",xlim=c(0,5),ylim=c(-0.5,5))
+curve(lnbhdor(x,m0,m1,g=0.5),col="red",add=T)
+curve(lnbhdor(x,m0,m1,g=0.25),col="green",add=T)
+  # above a certain Y, get more pop with high G, but as Y decreases, better to have low G
+
+m0 <- 0.1
+m1 <- 0.01
+curve(lnbhdor(exp(x),m0,m1,g=0.75),col="blue",xlim=c(0,1.5),ylim=c(-0.5,5))
+curve(lnbhdor(exp(x),m0,m1,g=0.25),col="red",add=T)
+m0 <- 0.2
+m1 <- 0.01
+curve(lnbhdor(exp(x),m0,m1,g=0.75),col="blue",lty=2,add=T)
+curve(lnbhdor(exp(x),m0,m1,g=0.25),col="red",lty=2,add=T)
+  # When G is lower, reducing K has bigger effect on drop-off threshold for Y
+  # (but will still always reduce it, so doesn't explain positive correlations)
+
+m0 <- 0.1
+m1 <- 0.01
+curve(lnbhdor(x,m0,m1,g=0.75)-lnbhdor(x,m0,m1,g=0.25),col="blue",xlim=c(0,10))
+m0 <- 0.2
+m1 <- 0.01
+curve(lnbhdor(x,m0,m1,g=0.75)-lnbhdor(x,m0,m1,g=0.25),col="red",add=T)
+m0 <- 0.3
+m1 <- 0.01
+curve(lnbhdor(x,m0,m1,g=0.75)-lnbhdor(x,m0,m1,g=0.25),col="green",add=T)
+abline(h=0,lty=3)
+  # m1 -> lower germination favoured for given Y 
+
+m0 <- 0.1
+m1 <- 0.01
+curve(lnbhdor(x,m0,m1,g=0.75)-lnbhdor(x,m0,m1,g=0.25),col="blue",xlim=c(0,10))
+m0 <- 0.1
+m1 <- 0.015
+curve(lnbhdor(x,m0,m1,g=0.75)-lnbhdor(x,m0,m1,g=0.25),col="red",add=T)
+abline(h=0,lty=3)
+  # m2 -> proportional effect of G on dK is the same
+
 
