@@ -171,7 +171,7 @@ curve(Kcalc(exp(x),2),col="red",add=T)
 
 # maximise population size (ignoring extinction)
 
-np <- 50
+np <- 10
 yarr <- m0arr <- m1arr <- garr <- array(dim=rep(np,4))
 yarr[] <- exp(seq(0,3,length.out=np))
 m0arr[] <- exp(seq(-3,0,length.out=np))
@@ -193,3 +193,82 @@ matplot(garr[1,1,1,],t(lKarr[,50,1,]),type="l",lty=1,col=tim.colors(np))
   # m1 has no impact on optimal phenotype (only affects value of K)
   # G=0 is never optimal
   # S0/Y ratio high -> low G is optimal; So/Y ratio low -> G=1 is optimal
+
+# Optimal G - variable environment ----------------------------------------
+
+sgbh <- function(n_in,y,m0,m1,G,T3=0.3){
+  So <- exp(-m0)
+  Sn <- exp(-m0*T3)
+  n_in*((1-G)*So + G*y*Sn / (1 + (1-Sn)*(m1/m0)*n_in))
+}
+
+nb <- 100
+nt <- 1000 + nb
+ns <- 5 # n y sig
+narr <- yarr2 <- array(dim=c(nt,dim(garr),ns))
+ysig <- exp(seq(-1,1,length.out=np))
+
+yarr2[] <- exp(rnorm(
+  n=nt*np^4*ns,
+  mean=rep(rep(log(yarr),each=nt),times=ns),
+  sd=rep(ysig,each=nt*np^4)
+  ))
+
+m0arr2 <- m1arr2 <- garr2 <- array(dim=c(dim(garr),ns))
+m0arr2[] <- m0arr
+m1arr2[] <- m1arr
+garr2[] <- garr
+
+N0 <- 1000
+narr[1,,,,,] <- N0
+
+for(t in 2:nt){
+  narr[t,,,,,] <- sgbh(narr[t-1,,,,,],yarr2[t,,,,,],m0arr2,m1arr2,garr2)
+}
+  
+lnarr <- log(narr)
+muarr <- apply(lnarr[-(1:nb),,,,,],2:6,mean)
+sdarr <- apply(lnarr[-(1:nb),,,,,],2:6,sd)
+
+par(mfrow=c(2,2))
+matplot(garr2[1,1,1,,1],muarr[5,2,5,,],type="l",lty=1,col=tim.colors(ns),
+  ylim=c(2,5))
+matplot(garr2[1,1,1,,1],muarr[5,4,5,,],type="l",lty=1,col=tim.colors(ns),
+  ylim=c(2,5))
+matplot(garr2[1,1,1,,1],muarr[5,6,5,,],type="l",lty=1,col=tim.colors(ns),
+  ylim=c(2,5))
+matplot(garr2[1,1,1,,1],muarr[5,8,5,,],type="l",lty=1,col=tim.colors(ns),
+  ylim=c(2,5))
+  # fluctuations favour G<1
+
+ylim <- c(2,5)
+par(mfrow=c(2,2))
+matplot(garr2[1,1,1,,1],t(muarr[5,,5,,1]),type="l",lty=1,col=tim.colors(np),
+  ylim=ylim)
+matplot(garr2[1,1,1,,1],t(muarr[5,,5,,2]),type="l",lty=1,col=tim.colors(np),
+  ylim=ylim)
+matplot(garr2[1,1,1,,1],t(muarr[5,,5,,3]),type="l",lty=1,col=tim.colors(np),
+  ylim=ylim)
+matplot(garr2[1,1,1,,1],t(muarr[5,,5,,4]),type="l",lty=1,col=tim.colors(np),
+  ylim=ylim)
+
+ylim <- c(2,5)
+par(mfrow=c(2,2))
+matplot(garr2[1,1,1,,1],t(muarr[5,5,,,1]),type="l",lty=1,col=tim.colors(np),
+  ylim=ylim)
+matplot(garr2[1,1,1,,1],t(muarr[5,5,,,2]),type="l",lty=1,col=tim.colors(np),
+  ylim=ylim)
+matplot(garr2[1,1,1,,1],t(muarr[5,5,,,3]),type="l",lty=1,col=tim.colors(np),
+  ylim=ylim)
+matplot(garr2[1,1,1,,1],t(muarr[5,5,,,4]),type="l",lty=1,col=tim.colors(np),
+  ylim=ylim)
+  # m2 still shifting intercept but not optimal G?
+
+# Optimal plastic G - variable environment --------------------------------
+
+
+
+
+
+
+
