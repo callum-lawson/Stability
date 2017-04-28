@@ -156,4 +156,40 @@ curve(lnbhdor(x,m0,m1,g=0.75)-lnbhdor(x,m0,m1,g=0.25),col="red",add=T)
 abline(h=0,lty=3)
   # m2 -> proportional effect of G on dK is the same
 
+# How does DI mortality relate to K? --------------------------------------
 
+Kcalc <- function(m0,m1){
+  exp(-m0)/( (1-exp(-m0)) * (m1/m0) )
+} 
+  # assuming T=1
+
+curve(Kcalc(exp(x),1),xlim=c(-5,5))
+curve(Kcalc(exp(x),2),col="red",add=T)
+  # higher m0 -> lower K
+
+# Optimal G - constant environment ----------------------------------------
+
+# maximise population size (ignoring extinction)
+
+np <- 50
+yarr <- m0arr <- m1arr <- garr <- array(dim=rep(np,4))
+yarr[] <- exp(seq(0,3,length.out=np))
+m0arr[] <- exp(seq(-3,0,length.out=np))
+m1arr[] <- exp(seq(-3,0,length.out=np))
+garr[] <- plogis(seq(-5,5,length.out=np))
+
+m0arr <- aperm(m0arr,c(2,1,3,4))
+m1arr <- aperm(m1arr,c(3,2,1,4))
+garr <- aperm(garr,c(4,2,3,1))
+
+lKarr <- lnbhdor(yarr,m0arr,m1arr,garr,T3=0.3)
+plot(lKarr[np,np,np,]~garr[np,np,np,],type="l")
+require(fields)
+par(mfrow=c(2,2))
+matplot(garr[1,1,1,],t(lKarr[,5,1,]),type="l",lty=1,col=tim.colors(np))
+matplot(garr[1,1,1,],t(lKarr[,15,1,]),type="l",lty=1,col=tim.colors(np))
+matplot(garr[1,1,1,],t(lKarr[,35,1,]),type="l",lty=1,col=tim.colors(np))
+matplot(garr[1,1,1,],t(lKarr[,50,1,]),type="l",lty=1,col=tim.colors(np))
+  # m1 has no impact on optimal phenotype (only affects value of K)
+  # G=0 is never optimal
+  # S0/Y ratio high -> low G is optimal; So/Y ratio low -> G=1 is optimal
