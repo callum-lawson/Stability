@@ -80,19 +80,19 @@ curve(log((exp(x)*c1-1)/(c2*exp(x))),col="red",add=T)
 
 ### With seed dormancy
 
-lnbhdor <- function(y,m0,m1,g,T3=0.3){
-  s0 <- exp(-m0)
+lnbhdor <- function(Y,m0,m1,G,T3=0.3){
+  S0 <- exp(-m0)
   c1 <- exp(-m0*T3)
   c2 <- (1-exp(-m0)*T3)*m1/m0
-  log((c1*g*y-g*s0+s0-1) / (c2*g*y*((g-1)*s0+1)))
+  log((c1*G*Y-G*S0+S0-1) / (c2*G*Y*((G-1)*S0+1)))
 }
 
-g <- 0.4
+G <- 0.4
 m0 <- 1
 m1 <- 0.01
-curve(lnbhdor(x,m0,m1,g),col="blue",xlim=c(1,3))
+curve(lnbhdor(x,m0,m1,G),col="blue",xlim=c(1,3))
 m0 <- 0.5
-curve(lnbhdor(x,m0,m1,g),col="red",add=T)
+curve(lnbhdor(x,m0,m1,G),col="red",add=T)
   # Same result with G - drop-off earlier for lower K
 
 # How does Y affect BH curve? ---------------------------------------------
@@ -102,13 +102,13 @@ BH <- function(n_in,m0,m1){
   return(n_out)
 }
 
-y <- 3 # log scale
+Y <- 3 # log scale
 m0 <- 1
-curve(log(BH(exp(x+y),m0,m1)),col="blue",xlim=c(-1,5))
-curve(log(BH(exp(x+y-0.5),m0,m1)),col="red",add=T)
+curve(log(BH(exp(x+Y),m0,m1)),col="blue",xlim=c(-1,5))
+curve(log(BH(exp(x+Y-0.5),m0,m1)),col="red",add=T)
 m0 <- 2
-curve(log(BH(exp(x+y),m0,m1)),col="blue",add=T,lty=2)
-curve(log(BH(exp(x+y-0.5),m0,m1)),col="red",add=T,lty=2)
+curve(log(BH(exp(x+Y),m0,m1)),col="blue",add=T,lty=2)
+curve(log(BH(exp(x+Y-0.5),m0,m1)),col="red",add=T,lty=2)
 abline(0,1,lty=3)
   # -0.5 -> reduce y by a freaction of exp(0.5)=1.6
   # decrease in y reduces equilibrium N by *more* when max popsize (K) is lower
@@ -119,40 +119,40 @@ abline(0,1,lty=3)
 
 m0 <- 0.1
 m1 <- 0.01
-curve(lnbhdor(x,m0,m1,g=0.75),col="blue",xlim=c(0,5),ylim=c(-0.5,5))
-curve(lnbhdor(x,m0,m1,g=0.5),col="red",add=T)
-curve(lnbhdor(x,m0,m1,g=0.25),col="green",add=T)
+curve(lnbhdor(x,m0,m1,G=0.75),col="blue",xlim=c(0,5),ylim=c(-0.5,5))
+curve(lnbhdor(x,m0,m1,G=0.5),col="red",add=T)
+curve(lnbhdor(x,m0,m1,G=0.25),col="green",add=T)
   # above a certain Y, get more pop with high G, but as Y decreases, better to have low G
 
 m0 <- 0.1
 m1 <- 0.01
-curve(lnbhdor(exp(x),m0,m1,g=0.75),col="blue",xlim=c(0,1.5),ylim=c(-0.5,5))
-curve(lnbhdor(exp(x),m0,m1,g=0.25),col="red",add=T)
+curve(lnbhdor(exp(x),m0,m1,G=0.75),col="blue",xlim=c(0,1.5),ylim=c(-0.5,5))
+curve(lnbhdor(exp(x),m0,m1,G=0.25),col="red",add=T)
 m0 <- 0.2
 m1 <- 0.01
-curve(lnbhdor(exp(x),m0,m1,g=0.75),col="blue",lty=2,add=T)
-curve(lnbhdor(exp(x),m0,m1,g=0.25),col="red",lty=2,add=T)
+curve(lnbhdor(exp(x),m0,m1,G=0.75),col="blue",lty=2,add=T)
+curve(lnbhdor(exp(x),m0,m1,G=0.25),col="red",lty=2,add=T)
   # When G is lower, reducing K has bigger effect on drop-off threshold for Y
   # (but will still always reduce it, so doesn't explain positive correlations)
 
 m0 <- 0.1
 m1 <- 0.01
-curve(lnbhdor(x,m0,m1,g=0.75)-lnbhdor(x,m0,m1,g=0.25),col="blue",xlim=c(0,10))
+curve(lnbhdor(x,m0,m1,G=0.75)-lnbhdor(x,m0,m1,G=0.25),col="blue",xlim=c(0,10))
 m0 <- 0.2
 m1 <- 0.01
-curve(lnbhdor(x,m0,m1,g=0.75)-lnbhdor(x,m0,m1,g=0.25),col="red",add=T)
+curve(lnbhdor(x,m0,m1,G=0.75)-lnbhdor(x,m0,m1,G=0.25),col="red",add=T)
 m0 <- 0.3
 m1 <- 0.01
-curve(lnbhdor(x,m0,m1,g=0.75)-lnbhdor(x,m0,m1,g=0.25),col="green",add=T)
+curve(lnbhdor(x,m0,m1,G=0.75)-lnbhdor(x,m0,m1,G=0.25),col="green",add=T)
 abline(h=0,lty=3)
   # m1 -> lower germination favoured for given Y 
 
 m0 <- 0.1
 m1 <- 0.01
-curve(lnbhdor(x,m0,m1,g=0.75)-lnbhdor(x,m0,m1,g=0.25),col="blue",xlim=c(0,10))
+curve(lnbhdor(x,m0,m1,G=0.75)-lnbhdor(x,m0,m1,G=0.25),col="blue",xlim=c(0,10))
 m0 <- 0.1
 m1 <- 0.015
-curve(lnbhdor(x,m0,m1,g=0.75)-lnbhdor(x,m0,m1,g=0.25),col="red",add=T)
+curve(lnbhdor(x,m0,m1,G=0.75)-lnbhdor(x,m0,m1,G=0.25),col="red",add=T)
 abline(h=0,lty=3)
   # m2 -> proportional effect of G on dK is the same
 
@@ -171,28 +171,54 @@ curve(Kcalc(exp(x),2),col="red",add=T)
 
 # maximise population size (ignoring extinction)
 
-np <- 10
-yarr <- m0arr <- m1arr <- garr <- array(dim=rep(np,4))
-yarr[] <- exp(seq(0,3,length.out=np))
-m0arr[] <- exp(seq(-3,0,length.out=np))
-m1arr[] <- exp(seq(-3,0,length.out=np))
-garr[] <- plogis(seq(-5,5,length.out=np))
+nY <- 10
+nm0 <- 5
+nm1 <- 5
+nG <- 50
 
-m0arr <- aperm(m0arr,c(2,1,3,4))
-m1arr <- aperm(m1arr,c(3,2,1,4))
-garr <- aperm(garr,c(4,2,3,1))
+Yseq <- exp(seq(0,5,length.out=nY))
+m0seq <- exp(seq(-3,0,length.out=nm0))
+m1seq <- exp(seq(-3,0,length.out=nm1))
+Gseq <- plogis(seq(-5,5,length.out=nG))
 
-lKarr <- lnbhdor(yarr,m0arr,m1arr,garr,T3=0.3)
-plot(lKarr[np,np,np,]~garr[np,np,np,],type="l")
-require(fields)
-par(mfrow=c(2,2))
-matplot(garr[1,1,1,],t(lKarr[,5,1,]),type="l",lty=1,col=tim.colors(np))
-matplot(garr[1,1,1,],t(lKarr[,15,1,]),type="l",lty=1,col=tim.colors(np))
-matplot(garr[1,1,1,],t(lKarr[,35,1,]),type="l",lty=1,col=tim.colors(np))
-matplot(garr[1,1,1,],t(lKarr[,50,1,]),type="l",lty=1,col=tim.colors(np))
+pd <- expand.grid(Y=Yseq,m0=m0seq,m1=m1seq,G=Gseq) # parameter data
+
+lK_GY_plot <- function(m){
+  require(reshape2)
+  require(fields)
+  pd$lK <- with(pd, lnbhdor(Y,m0,m1,G,T3=0.3))
+  plotvars <- c("Y","G")
+  pd1 <- subset(pd,m0==m & m1==m1seq[2],select=c(plotvars,"lK"))
+  plotmat <- acast(melt(pd1,id=plotvars),G~Y)
+  matplot(Gseq,plotmat,type="l",lty=1,col=tim.colors(nY))
+}
+
+par(mfrow=c(2,2),mar=c(3,3,2,2))
+lK_GY_plot(m0seq[1])  
+lK_GY_plot(m0seq[2])  
+lK_GY_plot(m0seq[3])  
+lK_GY_plot(m0seq[4])  
+
   # m1 has no impact on optimal phenotype (only affects value of K)
   # G=0 is never optimal
   # S0/Y ratio high -> low G is optimal; So/Y ratio low -> G=1 is optimal
+
+lK_YG_plot <- function(m){
+  require(reshape2)
+  require(fields)
+  pd$lK <- with(pd, lnbhdor(Y,m0,m1,G,T3=0.3))
+  plotvars <- c("Y","G")
+  pd1 <- subset(pd,m0==m & m1==m1seq[2],select=c(plotvars,"lK"))
+  plotmat <- acast(melt(pd1,id=plotvars),Y~G)
+  matplot(log(Yseq),plotmat,type="l",lty=1,col=tim.colors(nG))
+}
+
+par(mfrow=c(2,2),mar=c(3,3,2,2))
+lK_YG_plot(m0seq[1])  
+lK_YG_plot(m0seq[2])  
+lK_YG_plot(m0seq[3])  
+lK_YG_plot(m0seq[4])  
+  # low G -> earlier drop-off in N with Y
 
 # Optimal G - variable environment ----------------------------------------
 
