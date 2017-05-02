@@ -198,10 +198,10 @@ lK_GY_plot(m0seq[1])
 lK_GY_plot(m0seq[2])  
 lK_GY_plot(m0seq[3])  
 lK_GY_plot(m0seq[4])  
-
   # m1 has no impact on optimal phenotype (only affects value of K)
   # G=0 is never optimal
-  # S0/Y ratio high -> low G is optimal; So/Y ratio low -> G=1 is optimal
+  # Lower Y favours *higher* G
+  # Higher m0 favours higher G
 
 lK_YG_plot <- function(m){
   require(reshape2)
