@@ -6,7 +6,7 @@ arrhenius <- function(Tt,E0,E1,T0=293.15,k=8.617*10^-5){
   E0 * exp( E1*(Tt-T0) / (k*Tt*T0) )
 }
 
-cr <- function(t,y,parms){
+cr <- function(t,y,parms=NULL){
   
   tpos <- which(tseq>=t)[1]
   # use params from *element* number matching end of time interval
@@ -57,14 +57,14 @@ bE1 <- -0.678
 xE1 <- 0.428
   # From Fig. S1
 
-nt <- 100 # number of timesteps to calculate densities for
-tmax <- 10^5 * 60^2  # maximum length of time in seconds
+nt <- 10000 # number of timesteps to calculate densities for
+tmax <- 10^4 * 60^2  # maximum length of time in seconds
 tseq <- seq(0,tmax,length.out=nt)
-nP <- 75 # number of perturbations over time series
-lP <- nt/nP # perturbation length in nt units
+nP <- 1000 # number of perturbations over time series
+lP <- nt/nP # perturbation length in nt units - has to be whole number
 
-Tmu <- 10
-Psd <- 10
+Tmu <- 20
+Psd <- 5
 Pvals <- rnorm(nP,mean=0,sd=Psd)
 Pt <- rep(Pvals,each=lP)
 Tt <- rep(Tmu + 293.15,nt) + Pt
@@ -81,11 +81,44 @@ eps <- 0.85
 R0 <- 1
 C0 <- 1
 
+### Numerical integration
+
 library(deSolve)
-ode1 <- rk(y=c(R0=R0,C0=C0),times=tseq,func=cr,parms=NULL)
+ode1 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=cr,parms=NULL,rtol=0)
 matplot(tseq,log(ode1[,-1]),type="l")
 abline(v=seq(0,tmax,length.out=nP+1),col="blue",lty=3)  
   # +1 accounts for t=0
+
+### Euler's approximation at small timsteps
+
+nf <- 10^3
+Nt <- data.frame(R=rep(NA,nt),C=rep(NA,nt))
+
+dt_i <- tseq[2]-tseq[1]
+dt_j <- tint/nf
+
+for(i in 1:nt){
+  for(j in 1:nf){
+    tcur <- (i-1)*dt_i + (j-1)*dt_j
+    if(j==1){
+      if(i==1){
+        Ntcur <- c(R0,C0) + unlist(cr(tcur,y=c(R0,C0)))*dt_j
+      }
+      if(i>1){
+        Ntcur <- c(Nt[i-1,1],Nt[i-1,2]) + unlist(cr(tcur,y=c(Nt[i-1,1],Nt[i-1,2])))*dt_j
+      }
+    }
+    if(j>1){
+      Ntcur <- c(Ntcur[1],Ntcur[2]) + unlist(cr(tcur,y=c(Ntcur[1],Ntcur[2])))*dt_j
+    }
+  }
+  Nt[i,] <- Ntcur
+    # i indexes *end* of time interval
+}
+      
+matplot(tseq,log(Nt),type="l")
+
+### Brief results summary
 
   # - sometimes transient dynamics persist for ages; other times, snaps straight into 
   # new regime 
