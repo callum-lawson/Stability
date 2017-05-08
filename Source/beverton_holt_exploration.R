@@ -11,6 +11,24 @@ BH <- function(n_in,m0,m1){
 }
 # assuming T = 1
 
+lnbh <- function(y,m0,m1,T3=0.3){
+  c1 <- exp(-m0*T3)
+  c2 <- (1-exp(-m0)*T3)*m1/m0
+  log((y*c1-1)/(c2*y))
+}
+
+lnbhdor <- function(Y,m0,m1,G,T3=0.3){
+  S0 <- exp(-m0)
+  c1 <- exp(-m0*T3)
+  c2 <- (1-exp(-m0)*T3)*m1/m0
+  log((c1*G*Y-G*S0+S0-1) / (c2*G*Y*((G-1)*S0+1)))
+}
+
+Kcalc <- function(m0,m1){
+  exp(-m0)/( (1-exp(-m0)) * (m1/m0) )
+} 
+# assuming T=1
+
 # Exploration -------------------------------------------------------------
 
 ln0_min <- -5
@@ -46,19 +64,13 @@ abline(0,1,col="purple",lty=3)
 (K <- BH(10^10,m0[1,],m1[1,]))
 
 # Plant example -----------------------------------------------------------
-# From Yodzis and work on desert annuals
+  # From Yodzis and work on desert annuals
 
 ### Without seed dormancy
 
 curve(log(1-1/exp(x)),col="red",xlim=c(0,0.5))
 curve(log(0.9-1/exp(x)),col="blue",add=T)
 # drop-off occurs earlier at lower K
-
-lnbh <- function(y,m0,m1,T3=0.3){
-  c1 <- exp(-m0*T3)
-  c2 <- (1-exp(-m0)*T3)*m1/m0
-  log((y*c1-1)/(c2*y))
-}
 
 m0 <- 1.1
 m1 <- 0.1
@@ -80,13 +92,6 @@ curve(log((exp(x)*c1-1)/(c2*exp(x))),col="red",add=T)
 
 ### With seed dormancy
 
-lnbhdor <- function(Y,m0,m1,G,T3=0.3){
-  S0 <- exp(-m0)
-  c1 <- exp(-m0*T3)
-  c2 <- (1-exp(-m0)*T3)*m1/m0
-  log((c1*G*Y-G*S0+S0-1) / (c2*G*Y*((G-1)*S0+1)))
-}
-
 G <- 0.4
 m0 <- 1
 m1 <- 0.01
@@ -96,11 +101,6 @@ curve(lnbhdor(x,m0,m1,G),col="red",add=T)
   # Same result with G - drop-off earlier for lower K
 
 # How does Y affect BH curve? ---------------------------------------------
-
-BH <- function(n_in,m0,m1){
-  n_out <- n_in * exp(-m0) / ( 1 + (m1/m0)*(1-exp(-m0))*n_in )
-  return(n_out)
-}
 
 Y <- 3 # log scale
 m0 <- 1
@@ -158,18 +158,13 @@ abline(h=0,lty=3)
 
 # How does DI mortality relate to K? --------------------------------------
 
-Kcalc <- function(m0,m1){
-  exp(-m0)/( (1-exp(-m0)) * (m1/m0) )
-} 
-  # assuming T=1
-
 curve(Kcalc(exp(x),1),xlim=c(-5,5))
 curve(Kcalc(exp(x),2),col="red",add=T)
   # higher m0 -> lower K
 
 # Optimal G - constant environment ----------------------------------------
 
-# maximise population size (ignoring extinction)
+  # maximise population size (ignoring extinction)
 
 nY <- 10
 nm0 <- 5
@@ -217,54 +212,70 @@ par(mfrow=c(2,2),mar=c(3,3,2,2))
 lK_YG_plot(m0seq[1])  
 lK_YG_plot(m0seq[2])  
 lK_YG_plot(m0seq[3])  
-lK_YG_plot(m0seq[4])  
-  # low G -> earlier drop-off in N with Y
+lK_YG_plot(m0seq[4])
+  # low G -> 
+  # - earlier drop-off in N with Y
+  # - larger proportional drop-offs in N with Y
 
 # Optimal G - variable environment ----------------------------------------
 
-sgbh <- function(n_in,y,m0,m1,G,T3=0.3){
+sGBH <- function(n_in,Y,m0,m1,G,T3=0.3){
   So <- exp(-m0)
   Sn <- exp(-m0*T3)
-  n_in*((1-G)*So + G*y*Sn / (1 + (1-Sn)*(m1/m0)*n_in))
+  n_in*((1-G)*So + G*Y*Sn / (1 + G*Y*(1-Sn)*(m1/m0)*n_in))
 }
 
+np <- nrow(pd) # number of parameter combinations
 nb <- 100
 nt <- 1000 + nb
-ns <- 5 # n y sig
-narr <- yarr2 <- array(dim=c(nt,dim(garr),ns))
-ysig <- exp(seq(-1,1,length.out=np))
-
-yarr2[] <- exp(rnorm(
-  n=nt*np^4*ns,
-  mean=rep(rep(log(yarr),each=nt),times=ns),
-  sd=rep(ysig,each=nt*np^4)
-  ))
-
-m0arr2 <- m1arr2 <- garr2 <- array(dim=c(dim(garr),ns))
-m0arr2[] <- m0arr
-m1arr2[] <- m1arr
-garr2[] <- garr
-
+ns <- 10 # n y sig
+Ysigseq <- exp(seq(-1,1,length.out=ns))
 N0 <- 1000
-narr[1,,,,,] <- N0
+
+Narr <- Yarr <- array(dim=c(nt,ns,np))
+m0arr <- m1arr <- Garr <- array(dim=c(ns,np))
+m0arr[] <- rep(pd$m0,each=ns)
+m1arr[] <- rep(pd$m1,each=ns)
+Garr[] <- rep(pd$G,each=ns)
+
+Yarr[] <- exp(
+  rep(log(pd$Y),each=nt*ns)
+  + rep(outer(rnorm(n=nt,mean=0,sd=1),Ysigseq),times=np)
+) # only works because Y varies the fastest of all params in pd
+
+Narr[1,,] <- N0
 
 for(t in 2:nt){
-  narr[t,,,,,] <- sgbh(narr[t-1,,,,,],yarr2[t,,,,,],m0arr2,m1arr2,garr2)
+  Narr[t,,] <- sgbh(Narr[t-1,,],Yarr[t,,],m0arr,m1arr,Garr)
 }
-  
-lnarr <- log(narr)
-muarr <- apply(lnarr[-(1:nb),,,,,],2:6,mean)
-sdarr <- apply(lnarr[-(1:nb),,,,,],2:6,sd)
+
+lNarr <- log(Narr)
+lNmuarr <- apply(lNarr[-(1:nb),,],2:3,mean)
+lNsdarr <- apply(lNarr[-(1:nb),,],2:3,sd)
+
+Nd <- expand.grid(Ysig=Ysigseq,Y=Yseq,m0=m0seq,m1=m1seq,G=Gseq)
+Nd$lNmu <- as.vector(lNmuarr)
+Nd$lNsd <- as.vector(lNsdarr)
+
+lmu_Ysig_G_plot <- function(pY,pm0,pm1){
+  require(reshape2)
+  require(fields)
+  plotvars <- c("Ysig","G")
+  Nd1 <- subset(Nd,Y==pY & m0==pm0 & m1==pm1,select=c(plotvars,"lNmu"))
+  plotmat <- acast(melt(Nd1,id=plotvars),G~Ysig)
+  matplot(Gseq,plotmat,type="l",lty=1,col=tim.colors(ns),ylim=c(1,4))
+  }
 
 par(mfrow=c(2,2))
-matplot(garr2[1,1,1,,1],muarr[5,2,5,,],type="l",lty=1,col=tim.colors(ns),
-  ylim=c(2,5))
-matplot(garr2[1,1,1,,1],muarr[5,4,5,,],type="l",lty=1,col=tim.colors(ns),
-  ylim=c(2,5))
-matplot(garr2[1,1,1,,1],muarr[5,6,5,,],type="l",lty=1,col=tim.colors(ns),
-  ylim=c(2,5))
-matplot(garr2[1,1,1,,1],muarr[5,8,5,,],type="l",lty=1,col=tim.colors(ns),
-  ylim=c(2,5))
+lmu_Ysig_G_plot(pY=Yseq[5],pm0=m0seq[3],pm1=m1seq[3])
+lmu_Ysig_G_plot(pY=Yseq[5],pm0=m0seq[5],pm1=m1seq[3])
+lmu_Ysig_G_plot(pY=Yseq[5],pm0=m0seq[3],pm1=m1seq[5])
+lmu_Ysig_G_plot(pY=Yseq[2],pm0=m0seq[3],pm1=m1seq[3])
+  # - high m0 reduces effect of variance on optimal G, 
+  # possibly even leads to env var favouring high G?
+  # - m1 again just shifts population size without changing optimum
+  # - low Y accentuates effects of env var on G?  
+
   # fluctuations favour G<1
 
 ylim <- c(2,5)
