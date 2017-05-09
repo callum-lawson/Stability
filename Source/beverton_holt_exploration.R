@@ -171,7 +171,7 @@ curve(Kcalc(exp(x),2),col="red",add=T)
 
 # Optimal G - constant environment ----------------------------------------
 
-  # maximise population size (ignoring extinction)
+  # maximise equilibrium population size (ignoring extinction)
 
 nY <- 5
 nm0 <- 5
@@ -223,6 +223,8 @@ lK_YG_plot(m0seq[4])
   # low G -> 
   # - earlier drop-off in N with Y
   # - larger proportional drop-offs in N with Y
+  # so *more* affected by CC if lower G (even without plasticity)
+  # this tallies with "lower Y -> higher optimal G" results
 
 # Optimal G - variable environment ----------------------------------------
 
@@ -306,12 +308,12 @@ r_sGBH_seq <- function(Y,m0,m1,G){
   log(sGBH(Nseq,Y,m0,m1,G)/Nseq)
 }
 
-Royama_matplot <- function(ppd){
+Royama_matplot <- function(ppd,...){
   colourvar <- ppd[,which(sapply(ppd,function(x) length(unique(x)))>1)]
   ncolours <- length(colourvar)
   rd <- mdply(ppd, r_sGBH_seq)
   rarr <- t(as.matrix(subset(rd,select=names(rd)[!names(rd) %in% names(pd)])))
-  matplot(log(Nseq),rarr,type="l",lty=1,col=tim.colors(ncolours))
+  matplot(log(Nseq),rarr,type="l",lty=1,col=tim.colors(ncolours),...)
   abline(h=0,col="black",lty=3)
 }
 
@@ -323,12 +325,13 @@ Royama_matplot(subset(pd, Y==Yseq[3] & m0==m0seq[3] & m1==m1seq[5]))
   # - increasing G increases stability but generally reduces K (unless at low G)
   # - when seed mortatlity is high, G doesn't affect K much
 
-Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[5]))
-Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[20]))
-Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[35]))
-Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[50]))
-  # - env var has more positive effects when G is low (expected) and when population
+Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[5]),ylim=c(-1,2))
+Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[20]),ylim=c(-1,2))
+Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[30]),ylim=c(-1,2))
+Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[50]),ylim=c(-1,2))
+  # - env var has more positive effects when G is low and when population
   # size is low (DD-clim interaction)
+  # - declines in reproduction can have *less* severe effects when G is high?
 
   # (for squared rainfall, can just compare what happens if return to low Y again)
 
@@ -347,9 +350,10 @@ Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[5] & G==Gseq[25]))
 
 # Optimal plastic G - variable environment --------------------------------
 
+  # (no need for plasticity in constant environment)
 
-
-
-
-
+alpha_G <- beta_Gz <- matrix(NA,nr=np,nc=np) 
+alpha_G[] <- -tau_mu*sqrt(pi^2/(3*tau_sd^2))
+beta_Gz[] <- sqrt(pi^2/(3*tau_sd^2))
+# based on Godfray & Rees 2002
 
