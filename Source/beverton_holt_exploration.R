@@ -29,6 +29,13 @@ Kcalc <- function(m0,m1){
 } 
 # assuming T=1
 
+
+sGBH <- function(n_in,Y,m0,m1,G,T3=0.3){
+  So <- exp(-m0)
+  Sn <- exp(-m0*T3)
+  n_in*((1-G)*So + G*Y*Sn / (1 + G*Y*(1-Sn)*(m1/m0)*n_in))
+}
+
 # Exploration -------------------------------------------------------------
 
 ln0_min <- -5
@@ -166,7 +173,7 @@ curve(Kcalc(exp(x),2),col="red",add=T)
 
   # maximise population size (ignoring extinction)
 
-nY <- 10
+nY <- 5
 nm0 <- 5
 nm1 <- 5
 nG <- 50
@@ -219,12 +226,6 @@ lK_YG_plot(m0seq[4])
 
 # Optimal G - variable environment ----------------------------------------
 
-sGBH <- function(n_in,Y,m0,m1,G,T3=0.3){
-  So <- exp(-m0)
-  Sn <- exp(-m0*T3)
-  n_in*((1-G)*So + G*Y*Sn / (1 + G*Y*(1-Sn)*(m1/m0)*n_in))
-}
-
 np <- nrow(pd) # number of parameter combinations
 nb <- 100
 nt <- 1000 + nb
@@ -246,7 +247,7 @@ Yarr[] <- exp(
 Narr[1,,] <- N0
 
 for(t in 2:nt){
-  Narr[t,,] <- sgbh(Narr[t-1,,],Yarr[t,,],m0arr,m1arr,Garr)
+  Narr[t,,] <- sGBH(Narr[t-1,,],Yarr[t,,],m0arr,m1arr,Garr)
 }
 
 lNarr <- log(Narr)
@@ -257,14 +258,20 @@ Nd <- expand.grid(Ysig=Ysigseq,Y=Yseq,m0=m0seq,m1=m1seq,G=Gseq)
 Nd$lNmu <- as.vector(lNmuarr)
 Nd$lNsd <- as.vector(lNsdarr)
 
-lmu_Ysig_G_plot <- function(pY,pm0,pm1){
+lmu_Ysig_G_plot <- function(pY,pm0,pm1,xvar="G"){
   require(reshape2)
   require(fields)
   plotvars <- c("Ysig","G")
   Nd1 <- subset(Nd,Y==pY & m0==pm0 & m1==pm1,select=c(plotvars,"lNmu"))
-  plotmat <- acast(melt(Nd1,id=plotvars),G~Ysig)
-  matplot(Gseq,plotmat,type="l",lty=1,col=tim.colors(ns),ylim=c(1,4))
+  if(xvar=="G"){
+    plotmat <- acast(melt(Nd1,id=plotvars),G~Ysig)
+    matplot(Gseq,plotmat,type="l",lty=1,col=tim.colors(ns),ylim=c(1,4))
   }
+  if(xvar=="Ysig"){
+    plotmat <- acast(melt(Nd1,id=plotvars),Ysig~G)
+    matplot(Ysigseq,plotmat,type="l",lty=1,col=tim.colors(nG),ylim=c(1,4))
+  }
+}
 
 par(mfrow=c(2,2))
 lmu_Ysig_G_plot(pY=Yseq[5],pm0=m0seq[3],pm1=m1seq[3])
@@ -275,31 +282,68 @@ lmu_Ysig_G_plot(pY=Yseq[2],pm0=m0seq[3],pm1=m1seq[3])
   # possibly even leads to env var favouring high G?
   # - m1 again just shifts population size without changing optimum
   # - low Y accentuates effects of env var on G?  
+  # - low Y seems to favour higher G (again)
 
   # fluctuations favour G<1
 
-ylim <- c(2,5)
 par(mfrow=c(2,2))
-matplot(garr2[1,1,1,,1],t(muarr[5,,5,,1]),type="l",lty=1,col=tim.colors(np),
-  ylim=ylim)
-matplot(garr2[1,1,1,,1],t(muarr[5,,5,,2]),type="l",lty=1,col=tim.colors(np),
-  ylim=ylim)
-matplot(garr2[1,1,1,,1],t(muarr[5,,5,,3]),type="l",lty=1,col=tim.colors(np),
-  ylim=ylim)
-matplot(garr2[1,1,1,,1],t(muarr[5,,5,,4]),type="l",lty=1,col=tim.colors(np),
-  ylim=ylim)
+lmu_Ysig_G_plot(pY=Yseq[5],pm0=m0seq[3],pm1=m1seq[3],xvar="Ysig")
+lmu_Ysig_G_plot(pY=Yseq[5],pm0=m0seq[5],pm1=m1seq[3],xvar="Ysig")
+lmu_Ysig_G_plot(pY=Yseq[5],pm0=m0seq[3],pm1=m1seq[5],xvar="Ysig")
+lmu_Ysig_G_plot(pY=Yseq[2],pm0=m0seq[3],pm1=m1seq[3],xvar="Ysig")
 
-ylim <- c(2,5)
+
+# Royama plots ------------------------------------------------------------
+
+require(image.plot)
+require(plyr)
+
 par(mfrow=c(2,2))
-matplot(garr2[1,1,1,,1],t(muarr[5,5,,,1]),type="l",lty=1,col=tim.colors(np),
-  ylim=ylim)
-matplot(garr2[1,1,1,,1],t(muarr[5,5,,,2]),type="l",lty=1,col=tim.colors(np),
-  ylim=ylim)
-matplot(garr2[1,1,1,,1],t(muarr[5,5,,,3]),type="l",lty=1,col=tim.colors(np),
-  ylim=ylim)
-matplot(garr2[1,1,1,,1],t(muarr[5,5,,,4]),type="l",lty=1,col=tim.colors(np),
-  ylim=ylim)
-  # m2 still shifting intercept but not optimal G?
+nN <- 100
+Nseq <- exp(seq(0,5,length.out=nN))
+
+r_sGBH_seq <- function(Y,m0,m1,G){
+  log(sGBH(Nseq,Y,m0,m1,G)/Nseq)
+}
+
+Royama_matplot <- function(ppd){
+  colourvar <- ppd[,which(sapply(ppd,function(x) length(unique(x)))>1)]
+  ncolours <- length(colourvar)
+  rd <- mdply(ppd, r_sGBH_seq)
+  rarr <- t(as.matrix(subset(rd,select=names(rd)[!names(rd) %in% names(pd)])))
+  matplot(log(Nseq),rarr,type="l",lty=1,col=tim.colors(ncolours))
+  abline(h=0,col="black",lty=3)
+}
+
+par(mfrow=c(2,2))
+Royama_matplot(subset(pd, Y==Yseq[3] & m0==m0seq[3] & m1==m1seq[3]))
+Royama_matplot(subset(pd, Y==Yseq[5] & m0==m0seq[3] & m1==m1seq[3]))
+Royama_matplot(subset(pd, Y==Yseq[3] & m0==m0seq[5] & m1==m1seq[3]))
+Royama_matplot(subset(pd, Y==Yseq[3] & m0==m0seq[3] & m1==m1seq[5]))
+  # - increasing G increases stability but generally reduces K (unless at low G)
+  # - when seed mortatlity is high, G doesn't affect K much
+
+Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[5]))
+Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[20]))
+Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[35]))
+Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[50]))
+  # - env var has more positive effects when G is low (expected) and when population
+  # size is low (DD-clim interaction)
+
+  # (for squared rainfall, can just compare what happens if return to low Y again)
+
+Royama_matplot(subset(pd, m0==m0seq[2] & m1==m1seq[3] & G==Gseq[25]))
+Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[25]))
+Royama_matplot(subset(pd, m0==m0seq[4] & m1==m1seq[3] & G==Gseq[25]))
+Royama_matplot(subset(pd, m0==m0seq[5] & m1==m1seq[3] & G==Gseq[25]))
+  # higher mortality -> lower K but overall patterns pretty similar?
+
+Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[2] & G==Gseq[25]))
+Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[25]))
+Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[4] & G==Gseq[25]))
+Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[5] & G==Gseq[25]))
+  # higher m2 -> higher stability, lower K 
+  # (just shifts intercept, effect happens because of non-linear DD?)
 
 # Optimal plastic G - variable environment --------------------------------
 
