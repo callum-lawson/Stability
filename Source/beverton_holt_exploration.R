@@ -202,7 +202,8 @@ lK_GY_plot(m0seq[3])
 lK_GY_plot(m0seq[4])  
   # m1 has no impact on optimal phenotype (only affects value of K)
   # G=0 is never optimal
-  # Lower Y favours *higher* G
+  # Lower Y favours *higher* G -> should have negative G~z relationship?
+  # (These plots show optimal G in years with different Y?)
   # Higher m0 favours higher G
 
 lK_YG_plot <- function(m){
@@ -294,11 +295,7 @@ lmu_Ysig_G_plot(pY=Yseq[5],pm0=m0seq[5],pm1=m1seq[3],xvar="Ysig")
 lmu_Ysig_G_plot(pY=Yseq[5],pm0=m0seq[3],pm1=m1seq[5],xvar="Ysig")
 lmu_Ysig_G_plot(pY=Yseq[2],pm0=m0seq[3],pm1=m1seq[3],xvar="Ysig")
 
-
 # Royama plots ------------------------------------------------------------
-
-require(image.plot)
-require(plyr)
 
 par(mfrow=c(2,2))
 nN <- 100
@@ -309,6 +306,8 @@ r_sGBH_seq <- function(Y,m0,m1,G){
 }
 
 Royama_matplot <- function(ppd,...){
+  require(fields)
+  require(plyr)
   colourvar <- ppd[,which(sapply(ppd,function(x) length(unique(x)))>1)]
   ncolours <- length(colourvar)
   rd <- mdply(ppd, r_sGBH_seq)
@@ -357,3 +356,8 @@ alpha_G[] <- -tau_mu*sqrt(pi^2/(3*tau_sd^2))
 beta_Gz[] <- sqrt(pi^2/(3*tau_sd^2))
 # based on Godfray & Rees 2002
 
+  # - plot fitness distribution over different environments, calculate width to
+  # quantify degree of bet-hedging
+  # - can also infer effects of plasticity by looking at plots showing response 
+  # to environment for different germination fractions (effectively 3d plots for
+  # cue / environment)
