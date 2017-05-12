@@ -12,3 +12,4 @@ Theoretical work on density-dependence and population stability under climate ch
 *DD_functionalforms*: Royama plots for different forms of density-dependence.
 *royama_butterfly_grant_figure*: Population simulations under different climate DD effects, for grant proposal.
 *autocorrelation_example*: Simple simulation of population fluctuations under autocorrelated climates.
+*predprey_functions*: Numerical simulators for predator-prey dynamics.
