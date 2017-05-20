@@ -81,6 +81,7 @@ curve(log(0.9-1/exp(x)),col="blue",add=T)
 
 m0 <- 1.1
 m1 <- 0.1
+par(mfrow=c(1,1),mar=c(4,4,1,1))
 curve(lnbh(x,m0,m1),col="blue",xlim=c(1,3))
 m1 <- 0.01
 curve(lnbh(x,m0,m1)-2.3,col="red",add=T)
@@ -111,7 +112,8 @@ curve(lnbhdor(x,m0,m1,G),col="red",add=T)
 
 Y <- 3 # log scale
 m0 <- 1
-curve(log(BH(exp(x+Y),m0,m1)),col="blue",xlim=c(-1,5))
+curve(log(BH(exp(x+Y),m0,m1)),col="blue",xlim=c(-1,5),
+  xlab=expression(N[g]),ylab=expression(N[s])) # ignores dormancy
 curve(log(BH(exp(x+Y-0.5),m0,m1)),col="red",add=T)
 m0 <- 2
 curve(log(BH(exp(x+Y),m0,m1)),col="blue",add=T,lty=2)
@@ -119,6 +121,14 @@ curve(log(BH(exp(x+Y-0.5),m0,m1)),col="red",add=T,lty=2)
 abline(0,1,lty=3)
   # -0.5 -> reduce y by a freaction of exp(0.5)=1.6
   # decrease in y reduces equilibrium N by *more* when max popsize (K) is lower
+  # Explantion:
+  # - increasing Y makes a bigger difference to Ns when few seeds are being 
+  # produced (bigger difference in [blue - red] at lower Ng (or Y)) 
+  # - increasing m0 -> fewer seeds survive -> lower reproduction next year
+  # -> bigger effect of change in Y
+  # (but assumes that general shape of function stays the same? 
+  # Increasing m0 makes curve steeper too, but this isn't important here,
+  # as doesn't affect difference between blue and red much?)
 
 # Y is just scaling up and down, changing c2 does the same thing?
 
