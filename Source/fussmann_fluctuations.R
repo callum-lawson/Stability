@@ -2,6 +2,8 @@
 # Include temperature fluctuations in pred-prey models from Fussmann et al. (2014) #
 ####################################################################################
 
+require(deSolve)
+require(fields)
 source("Source/predprey_functions.R")
 
 # Species parameters ------------------------------------------------------
@@ -56,7 +58,6 @@ C0 <- 1
 
 ### Numerical integration
 
-library(deSolve)
 ode1 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=romac_dis,parms=NULL)
 matplot(tseq,log(ode1[,-1]),type="l")
 abline(v=seq(0,tmax,length.out=nP+1),col="blue",lty=3)  
@@ -162,7 +163,6 @@ ode40 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
 Tmu <- 50
 ode50 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
 
-require(fields)
 par(mfrow=c(1,2))
 matplot(tseq,
         log(cbind(ode0[,2],ode10[,2],ode20[,2],ode30[,2],ode40[,2],ode50[,2])),
@@ -233,7 +233,6 @@ ode40 <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
 Tmu <- 50
 ode50 <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
 
-require(fields)
 par(mfrow=c(1,2))
 matplot(tseq,
         log(cbind(ode0[,2],ode10[,2],ode20[,2],ode30[,2],ode40[,2],ode50[,2])),
@@ -255,7 +254,6 @@ ode40v <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
 Tmu <- 50
 ode50v <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
 
-require(fields)
 par(mfrow=c(1,2))
 matplot(tseq,
         log(cbind(ode0v[,2],ode10v[,2],ode20v[,2],ode30v[,2],ode40v[,2],ode50v[,2])),
