@@ -4,6 +4,7 @@ Theoretical work on density-dependence and population stability under climate ch
 ## Source
 *basic_predator_prey*: Exploratory time-series plots of predator-prey dynamics in continuous time.
 *beverton_hold_exploration*: Explore how random variation in Beverton-Holt mortality function affects the distribution of population sizes.
+*case_phasespace_fluctuating*: Phase-space plots when underlying predator or prey paramaters are fluctuating
 *ceiling_DD*: Exploration of DD relationship based on "ceiling" model.
 *royama_sims*: Examine ideas behind "nonlinear perturbations" in Royama (1992) p38-40.
 *space_time_lat_horiz_peturb*:More complicated sims from Royama function (to be completed).
