@@ -2,36 +2,48 @@
 # Phase-space plots when underlying predator or prey paramaters are fluctuating # 
 #################################################################################
 
-# Turchin 2003 p. 98
-# N = prey
-# P = predator
-# r0 = prey intrinsic rate of increase (low density, absence of predator)
-# k = prey carrying capacity (absence of predators)
-# c = rate at which predator encounters prey
-# d = prey density at which predator is feeding at 1/2 max capacity
-# chi = number of predators produced for each prey eaten
-# mu = consumption rate required for predator to sustain itself
-
 require(rootSolve)
+require(phaseR)
 
-r0 <- 10
-k <- 100
-# c <- 1000
-d <- 1000
-chi <- 0.5
-mu <- 1
+source("Source/predprey_functions.R")
 
-dN_dt_f <- function(N,P,c){
-  N*( r0*(1-N/k) - c*P/(d+N) )
+# Species parameters ------------------------------------------------------
+
+rE0 <- 8.715*10^-7
+KE0 <- 5.623
+aE0 <- 8.408*10^-6
+bE0 <- 3.664
+xE0 <- 2.689*10^-6
+
+# rE1 <- 0.84
+# KE1 <- -0.772
+# aE1 <- 0.467
+# bE1 <- -0.114
+# xE1 <- 0.639
+# From species-level averages
+# change slopes later
+# r units are per SECOND; pop more than triples every 24h
+
+rE1 <- 0.84
+KE1 <- -0.508
+aE1 <- 0.708
+bE1 <- -0.678
+xE1 <- 0.428
+# From Fig. S1
+
+# Functions ---------------------------------------------------------------
+
+dR_dt_f <- function(R,C,r,K,a,b){
+  R * ( r*(1-R/K) - a*C/(b+R) )
+  } 
+
+dC_dt_f <- function(R,C,a,b,x,eps=0.85){
+  C * ( eps*a*R/(b+R) - x )
 } 
 
-dP_dt_f <- function(N,P,c){
-  P*( chi*(c*N/(d+N) - mu) )
-} 
-
-Nstar_f <- function(P,c){
+Rstar_f <- function(C,...){
   e <- try( 
-    d <- uniroot(dN_dt_f, P=P, c=c, lower=10^-100, upper=10^100), 
+    d <- uniroot(dR_dt_f, C=C, lower=10^-100, upper=10^100, ...), 
     silent = TRUE 
   ) 
   if(class(e)=="try-error") { 
@@ -42,40 +54,122 @@ Nstar_f <- function(P,c){
   } 
 }
 
-c1 <- 1000
-c2 <- 2000
+romac_phaser <- function(t, y, parameters){
+  r <- parameters$r
+  K <- parameters$K
+  a <- parameters$a
+  b <- parameters$b
+  x <- parameters$x
+  eps <- parameters$eps
+  dy <- numeric(2)
+  dy[1] <- y[1] * ( r*(1-y[1]/K) - a*y[2]/(b+y[1]) )
+  dy[2] <- y[2] * ( eps*a*y[1]/(b+y[1]) - x )   
+  return(list(dy))
+}
 
-nP <- 100
-Pmin <- 0
-Pmax <- 10
-Pseq <- seq(Pmin,Pmax,length.out=nP)
+case_phaser <- function(t, y, parameters){
+  r <- parameters$r
+  K <- parameters$K
+  a <- parameters$a
+  x <- parameters$x
+  eps <- parameters$eps
+  dy <- numeric(2)
+  dy[1] <- y[1] * ( r*(1-y[1]/K) - a*y[2] )
+  dy[2] <- y[2] * ( eps*a*y[1] - x )   
+  return(list(dy))
+}
 
-Nstar1 <- sapply(Pseq,Nstar_f,c=c1)
-Nstar2 <- sapply(Pseq,Nstar_f,c=c2)
+Tseq <- c(15,25) + 293.15
+nT <- length(Tseq)
+pd <- data.frame(
+  T = Tseq,
+  r = arrhenius(Tseq,rE0,rE1),
+  K = arrhenius(Tseq,KE0,KE1),
+  a = arrhenius(Tseq,aE0,aE1),
+  b = arrhenius(Tseq,bE0,bE1),
+  x = arrhenius(Tseq,xE0,xE1),
+  eps = 0.85
+  )
 
-Ndash1 <- uniroot(dP_dt_f, P=1, c=c1, lower=10^-100, upper=10^100)$root
-Ndash2 <- uniroot(dP_dt_f, P=1, c=c2, lower=10^-100, upper=10^100)$root 
-  # P=arbitrary
+parameters <- pd[i,]
 
-Pstar1 <- uniroot(dN_dt_f, N=Ndash1, c=c1, lower=10^-100, upper=10^100)$root
-Pstar2 <- uniroot(dN_dt_f, N=Ndash1, c=c2, lower=10^-100, upper=10^100)$root
 
-plot(Pseq~Nstar1,type="l",col="red",xlab="N",ylab="P")
-lines(Pseq~Nstar2,col="blue")
-abline(v=Ndash1,col="red",lty=2)
-abline(v=Ndash2,col="blue",lty=2)
-abline(h=Pstar1,col="red",lty=3)
-abline(h=Pstar2,col="blue",lty=3)
+# Rosenzweig-MacArthur ----------------------------------------------------
 
-### When have predator DD (e.g. interference):
+cxlim <- c(0,1.5)
+cylim <- c(0,0.2)
 
-Nmin <- min(c(Nstar1,Nstar2),na.rm=T)
-Nmax <- max(c(Nstar1,Nstar2),na.rm=T)
-Nseq <- seq(Nmin,Nmax,length.out=nP)
+flowField(romac_phaser, x.lim=cxlim,y.lim=cylim,parameters=pd[1,],points=15,add=FALSE)
+clines <- list()
+clines[[1]] <- nullclines(romac_phaser,x.lim = cxlim,y.lim = cylim,
+                          parameters = pd[1,], points = 100,
+                          colour=rep("blue",2)
+                          )
+clines[[2]] <- nullclines(romac_phaser,x.lim = cxlim,y.lim = cylim,
+                          parameters = pd[2,], points = 100,
+                          colour=rep("red",2)
+                          )
 
-Pstar_f <- function(N,c){
+# Case zero-handling time model -------------------------------------------
+
+cxlim <- c(0,1)
+cylim <- c(0,0.2)
+
+flowField(case_phaser, 
+          x.lim = cxlim,
+          y.lim = cylim,
+          parameters = pd[1,],
+          points = 15, add = FALSE)
+# plot(1,1,type="n",xlim=cxlim,ylim=cylim,xlab="R",ylab="C")
+clines <- list()
+clines[[1]] <- nullclines(case_phaser,x.lim = cxlim, y.lim = cylim,
+                          parameters = pd[1,], points = 100,
+                          colour=rep("blue",2)
+)
+clines[[2]] <- nullclines(case_phaser,x.lim = cxlim, y.lim = cylim,
+                          parameters = pd[2,], points = 100,
+                          colour=rep("red",2)
+)
+
+# Manual phase plot construction ------------------------------------------
+
+# Uses uniroot - but doesn't work well when more than one equilibrium resource
+# density for a given consumer density
+
+nC <- 1000
+Cmin <- 0
+Cmax <- 0.25
+Cseq <- seq(Cmin,Cmax,length.out=nC)
+
+Rstar <- matrix(nr=nC,nc=nT)
+Rdash <- Cstar <- vector(length=nT)
+for(i in 1:nT){
+  Rstar[,i] <- with(pd[i,], sapply(Cseq,Rstar_f,r=r,K=K,a=a,b=b))
+  Rdash[i] <- with(pd[i,], 
+                   uniroot(dC_dt_f,C=1,a=a,b=b,x=x,lower=10^-10,upper=10^10)$root
+  )
+  Cstar[i] <- with(pd[i,],
+                   uniroot(dR_dt_f,R=Rdash[i],r=r,K=K,a=a,b=b,lower=10^-100,upper=10^100)$root
+  )
+}
+
+lcols <- c("blue","red")
+matplot(Rstar,Cseq,type="l",xlab="R",ylab="C",lty=1,col=lcols)
+abline(v=Rdash,col=lcols,lty=2)
+abline(h=Cstar,col=lcols,lty=3)
+
+with(pd[i,], dR_dt_f(R=seq(0,0.25,length.out=100),C=0.1,r=r,K=K,a=a,b=b))
+with(pd[i,], dC_dt_f(R=seq(0,0.25,length.out=100),C=0.1,r=r,K=K,a=a,b=b))
+
+# Predator density-dependence ---------------------------------------------
+
+Rmin <- min(c(Rstar1,Rstar2),na.rm=T)
+Rmax <- max(c(Rstar1,Rstar2),na.rm=T)
+Rseq <- seq(Rmin,Rmax,length.out=nC)
+
+Cstar_f <- function(R,a){
   e <- try( 
-    d <- uniroot(dP_dt_f, N=N, c=c, lower=10^-100, upper=10^100), 
+    d <- uniroot(dC_dt_f, R=R, a=a, lower=10^-100, upper=10^100), 
     silent = TRUE 
   ) 
   if(class(e)=="try-error") { 
