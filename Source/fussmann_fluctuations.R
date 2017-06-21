@@ -35,7 +35,7 @@ xE1 <- 0.428
 nt <- 1000 # number of timesteps to calculate densities for
 tmax <- 10^4 * 60^2  # maximum length of time in seconds
 tseq <- seq(0,tmax,length.out=nt)
-nP <- 1000 # number of perturbations over time series
+nP <- 2 # number of perturbations over time series
 lP <- nt/nP # perturbation length in nt units - has to be whole number
 
 Tmu <- 20
@@ -166,13 +166,19 @@ ode50 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
 par(mfrow=c(1,2))
 matplot(tseq,
         log(cbind(ode0[,2],ode10[,2],ode20[,2],ode30[,2],ode40[,2],ode50[,2])),
-        type="l",lty=1,col=tim.colors(6)
+        type="l",lty=1,col=tim.colors(6),xlab="t",ylab="R"
         )
 matplot(tseq,
         log(cbind(ode0[,3],ode10[,3],ode20[,3],ode30[,3],ode40[,3],ode50[,3])),
-        type="l",lty=1,col=tim.colors(6)
+        type="l",lty=1,col=tim.colors(6),xlab="t",ylab="C"
         )
   # K of both prey and pred decreases at higher temps (but faster to reach K)
+
+### Extinction?
+
+Tmu <- 25
+ode25 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
+matplot(tseq,log(ode25[,2:3]),type="l")
 
 ### Fluctuating temperature
 
@@ -193,11 +199,11 @@ ode50v <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
 par(mfrow=c(1,2))
 matplot(tseq,
         log(cbind(ode0v[,2],ode10v[,2],ode20v[,2],ode30v[,2],ode40v[,2],ode50v[,2])),
-        type="l",lty=1,col=tim.colors(6)
+        type="l",lty=1,col=tim.colors(6),xlab="t",ylab="R"
         )
 matplot(tseq,
         log(cbind(ode0v[,3],ode10v[,3],ode20v[,3],ode30v[,3],ode40v[,3],ode50v[,3])),
-        type="l",lty=1,col=tim.colors(6),ylim=c(10,14)
+        type="l",lty=1,col=tim.colors(6),ylim=c(-2,2.5),xlab="t",ylab="C"
         )
   # resource follows sin fluctuations (driven by sin fluctuations in pred feeding)
   # at low temps, predator fluctuations:

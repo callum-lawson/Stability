@@ -20,9 +20,9 @@ xE0 <- 2.689*10^-6
 # cE1 <- 0.467
 # dE1 <- -0.114
 # xE1 <- 0.639
-# From species-level averages
-# change slopes later
-# r units are per SECOND; pop more than triples every 24h
+  # From species-level averages
+  # change slopes later
+  # r units are per SECOND; pop more than triples every 24h
 
 rE1 <- 0.84
 KE1 <- -0.508
@@ -89,7 +89,7 @@ chemo_phaser <- function(t, y, parameters){
   x <- parameters$x
   eps <- parameters$eps
   dy <- numeric(2)
-  dy[1] <- y[1] * ( i - e*y[1] - a*y[2]/(1+a*h*y[1]) )
+  dy[1] <- i - y[1] * ( e + a*y[2]/(1+a*h*y[1]) )
   dy[2] <- y[2] * ( eps*a*y[1]/(1+a*h*y[1]) - x )   
   return(list(dy))
 }
@@ -122,7 +122,7 @@ pd0$h <- 0
 cxlim <- c(0,1.5)
 cylim <- c(0,0.2)
 
-flowField(romac_phaser, x.lim=cxlim,y.lim=cylim,parameters=pd[1,],points=15,add=FALSE)
+flowField(romac_phaser,x.lim=cxlim,y.lim=cylim,parameters=pd[2,],points=30,add=FALSE)
 clines <- list()
 clines[[1]] <- nullclines(romac_phaser,x.lim = cxlim,y.lim = cylim,
                           parameters = pd[1,], points = 100,
@@ -138,11 +138,7 @@ clines[[2]] <- nullclines(romac_phaser,x.lim = cxlim,y.lim = cylim,
 cxlim <- c(0,1)
 cylim <- c(0,0.2)
 
-flowField(romac_phaser, 
-          x.lim = cxlim,
-          y.lim = cylim,
-          parameters = pd0[1,],
-          points = 15, add = FALSE)
+flowField(romac_phaser,x.lim=cxlim,y.lim=cylim,parameters=pd0[2,],points=30,add=FALSE)
 # plot(1,1,type="n",xlim=cxlim,ylim=cylim,xlab="R",ylab="C")
 clines <- list()
 clines[[1]] <- nullclines(romac_phaser, x.lim=cxlim, y.lim=cylim,
@@ -159,57 +155,45 @@ clines[[2]] <- nullclines(romac_phaser, x.lim=cxlim, y.lim=cylim,
 cxlim <- c(0,1.5)
 cylim <- c(0,0.2)
 
-flowField(deang_phaser, x.lim=cxlim,y.lim=cylim,parameters=pd[1,],points=15,add=FALSE)
+flowField(deang_phaser, x.lim=cxlim,y.lim=cylim,parameters=pd[2,],points=30,add=FALSE)
 clines <- list()
-clines[[1]] <- nullclines(deang_phaser,x.lim = cxlim,y.lim = cylim,
-                          parameters = pd[1,], points = 100,
+clines[[1]] <- nullclines(deang_phaser, x.lim=cxlim, y.lim=cylim,
+                          parameters=pd[1,], points=100,
                           colour=rep("blue",2)
 )
-clines[[2]] <- nullclines(deang_phaser,x.lim = cxlim,y.lim = cylim,
-                          parameters = pd[2,], points = 100,
+clines[[2]] <- nullclines(deang_phaser, x.lim = cxlim, y.lim = cylim,
+                          parameters=pd[2,], points=100,
                           colour=rep("red",2)
 )
 
 # Chemostat ---------------------------------------------------------------
 
-cxlim <- c(0,1)
-cylim <- c(0,5)
+cxlim <- c(0,0.5)
+cylim <- c(0,20)
 
-flowField(chemo_phaser, x.lim=cxlim,y.lim=cylim,parameters=pd[1,],points=15,add=FALSE)
+flowField(chemo_phaser, x.lim=cxlim, y.lim=cylim, parameters=pd[2,], points=30, add=FALSE)
 clines <- list()
-clines[[1]] <- nullclines(chemo_phaser,x.lim = cxlim,y.lim = cylim,
-                          parameters = pd[1,], points = 100,
+clines[[1]] <- nullclines(chemo_phaser, x.lim=cxlim, y.lim=cylim,
+                          parameters=pd[1,], points=100,
                           colour=rep("blue",2)
 )
-clines[[2]] <- nullclines(chemo_phaser,x.lim = cxlim,y.lim = cylim,
-                          parameters = pd[2,], points = 100,
+clines[[2]] <- nullclines(chemo_phaser, x.lim=cxlim, y.lim=cylim,
+                          parameters=pd[2,], points=100,
                           colour=rep("red",2)
 )
 
 # Chemostat - zero handling time ------------------------------------------
 
-cxlim <- c(0,1)
-cylim <- c(0,5)
+cxlim <- c(0,0.5)
+cylim <- c(0,20)
 
-clines <- list()
-flowField(chemo_phaser, x.lim=cxlim,y.lim=cylim,parameters=pd0[1,],points=30,add=FALSE)
-clines[[1]] <- nullclines(chemo_phaser,x.lim = cxlim,y.lim = cylim,
-                          parameters = pd0[1,], points = 100,
+flowField(chemo_phaser, x.lim=cxlim, y.lim=cylim, parameters=pd0[2,], points=30, add=FALSE)
+clines[[1]] <- nullclines(chemo_phaser ,x.lim=cxlim, y.lim=cylim,
+                          parameters=pd0[1,], points=100,
                           colour=rep("blue",2)
 )
-clines[[2]] <- nullclines(chemo_phaser,x.lim = cxlim,y.lim = cylim,
-                          parameters = pd0[2,], points = 100,
-                          colour=rep("red",2)
-)
-
-flowField(chemo_phaser, x.lim=cxlim,y.lim=cylim,parameters=pd0[1,],points=30,add=FALSE)
-clines[[1]] <- nullclines(chemo_phaser,x.lim = cxlim,y.lim = cylim,
-                          parameters = pd0[1,], points = 100,
-                          colour=rep("blue",2)
-)
-flowField(chemo_phaser, x.lim=cxlim,y.lim=cylim,parameters=pd0[2,],points=30,add=FALSE)
-clines[[2]] <- nullclines(chemo_phaser,x.lim = cxlim,y.lim = cylim,
-                          parameters = pd0[2,], points = 100,
+clines[[2]] <- nullclines(chemo_phaser, x.lim=cxlim, y.lim=cylim,
+                          parameters=pd0[2,], points=100,
                           colour=rep("red",2)
 )
 

@@ -57,7 +57,7 @@ romac_sin <- function(t,y,parms=NULL){
 
 # Chemostat ---------------------------------------------------------------
 
-chemo <- function(y,c,d,x,eps=0.85,i=5,e=1){
+chemo <- function(y,c,d,x,eps=0.85,i=0.0001,e=0.0001){
   R <- y[1]
   C <- y[2]
   dR <- i - R * ( e + c*C/(d+R) )
