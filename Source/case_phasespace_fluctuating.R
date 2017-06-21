@@ -57,25 +57,40 @@ Rstar_f <- function(C,...){
 romac_phaser <- function(t, y, parameters){
   r <- parameters$r
   K <- parameters$K
-  c <- parameters$c
-  d <- parameters$d
+  a <- parameters$a
+  h <- parameters$h
   x <- parameters$x
   eps <- parameters$eps
   dy <- numeric(2)
-  dy[1] <- y[1] * ( r*(1-y[1]/K) - c*y[2]/(d+y[1]) )
-  dy[2] <- y[2] * ( eps*c*y[1]/(d+y[1]) - x )   
+  dy[1] <- y[1] * ( r*(1-y[1]/K) - a*y[2]/(1+a*h*y[1]) )
+  dy[2] <- y[2] * ( eps*a*y[1]/(1+a*h*y[1]) - x )   
   return(list(dy))
 }
 
-case_phaser <- function(t, y, parameters){
+deang_phaser <- function(t, y, parameters){
   r <- parameters$r
   K <- parameters$K
-  c <- parameters$c
+  a <- parameters$a
+  h <- w <- parameters$h # special case where pred and prey time loss are equal
   x <- parameters$x
   eps <- parameters$eps
   dy <- numeric(2)
-  dy[1] <- y[1] * ( r*(1-y[1]/K) - c*y[2] )
-  dy[2] <- y[2] * ( eps*c*y[1] - x )   
+  dy[1] <- y[1] * ( r*(1-y[1]/K) - a*y[2]/(1+a*(w*y[2] + h*y[1])) )
+  dy[2] <- y[2] * ( eps*a*y[1]/(1+a*(w*y[2] + h*y[1])) - x )   
+  return(list(dy))
+}
+  # predators encounter each other at the same rate as prey (=a)
+
+chemo_phaser <- function(t, y, parameters){
+  i <- parameters$i
+  e <- parameters$e
+  a <- parameters$a
+  h <- parameters$h
+  x <- parameters$x
+  eps <- parameters$eps
+  dy <- numeric(2)
+  dy[1] <- y[1] * ( i - e*y[1] - a*y[2]/(1+a*h*y[1]) )
+  dy[2] <- y[2] * ( eps*a*y[1]/(1+a*h*y[1]) - x )   
   return(list(dy))
 }
 
@@ -91,8 +106,16 @@ pd <- data.frame(
   eps = 0.85
   )
 
-parameters <- pd[i,]
+pd$h <- with(pd, 1/c) # handling time
+pd$a <- with(pd, 1/(d*h)) # attack rate
+  # Turchin 2003 p82
 
+pd$i <- 0.0001 # resource inflow
+pd$e <- 0.0001 # resource decay
+# Reynolds & Brassil 2013
+
+pd0 <- pd
+pd0$h <- 0
 
 # Rosenzweig-MacArthur ----------------------------------------------------
 
@@ -110,24 +133,83 @@ clines[[2]] <- nullclines(romac_phaser,x.lim = cxlim,y.lim = cylim,
                           colour=rep("red",2)
                           )
 
-# Case zero-handling time model -------------------------------------------
+# Zero handling time ------------------------------------------------------
 
 cxlim <- c(0,1)
 cylim <- c(0,0.2)
 
-flowField(case_phaser, 
+flowField(romac_phaser, 
           x.lim = cxlim,
           y.lim = cylim,
-          parameters = pd[1,],
+          parameters = pd0[1,],
           points = 15, add = FALSE)
 # plot(1,1,type="n",xlim=cxlim,ylim=cylim,xlab="R",ylab="C")
 clines <- list()
-clines[[1]] <- nullclines(case_phaser,x.lim = cxlim, y.lim = cylim,
+clines[[1]] <- nullclines(romac_phaser, x.lim=cxlim, y.lim=cylim,
+                          parameters = pd0[1,], points = 100,
+                          colour=rep("blue",2)
+)
+clines[[2]] <- nullclines(romac_phaser, x.lim=cxlim, y.lim=cylim,
+                          parameters=pd0[2,], points=100,
+                          colour=rep("red",2)
+)
+
+# DeAngelis ---------------------------------------------------------------
+
+cxlim <- c(0,1.5)
+cylim <- c(0,0.2)
+
+flowField(deang_phaser, x.lim=cxlim,y.lim=cylim,parameters=pd[1,],points=15,add=FALSE)
+clines <- list()
+clines[[1]] <- nullclines(deang_phaser,x.lim = cxlim,y.lim = cylim,
                           parameters = pd[1,], points = 100,
                           colour=rep("blue",2)
 )
-clines[[2]] <- nullclines(case_phaser,x.lim = cxlim, y.lim = cylim,
+clines[[2]] <- nullclines(deang_phaser,x.lim = cxlim,y.lim = cylim,
                           parameters = pd[2,], points = 100,
+                          colour=rep("red",2)
+)
+
+# Chemostat ---------------------------------------------------------------
+
+cxlim <- c(0,1)
+cylim <- c(0,5)
+
+flowField(chemo_phaser, x.lim=cxlim,y.lim=cylim,parameters=pd[1,],points=15,add=FALSE)
+clines <- list()
+clines[[1]] <- nullclines(chemo_phaser,x.lim = cxlim,y.lim = cylim,
+                          parameters = pd[1,], points = 100,
+                          colour=rep("blue",2)
+)
+clines[[2]] <- nullclines(chemo_phaser,x.lim = cxlim,y.lim = cylim,
+                          parameters = pd[2,], points = 100,
+                          colour=rep("red",2)
+)
+
+# Chemostat - zero handling time ------------------------------------------
+
+cxlim <- c(0,1)
+cylim <- c(0,5)
+
+clines <- list()
+flowField(chemo_phaser, x.lim=cxlim,y.lim=cylim,parameters=pd0[1,],points=30,add=FALSE)
+clines[[1]] <- nullclines(chemo_phaser,x.lim = cxlim,y.lim = cylim,
+                          parameters = pd0[1,], points = 100,
+                          colour=rep("blue",2)
+)
+clines[[2]] <- nullclines(chemo_phaser,x.lim = cxlim,y.lim = cylim,
+                          parameters = pd0[2,], points = 100,
+                          colour=rep("red",2)
+)
+
+flowField(chemo_phaser, x.lim=cxlim,y.lim=cylim,parameters=pd0[1,],points=30,add=FALSE)
+clines[[1]] <- nullclines(chemo_phaser,x.lim = cxlim,y.lim = cylim,
+                          parameters = pd0[1,], points = 100,
+                          colour=rep("blue",2)
+)
+flowField(chemo_phaser, x.lim=cxlim,y.lim=cylim,parameters=pd0[2,],points=30,add=FALSE)
+clines[[2]] <- nullclines(chemo_phaser,x.lim = cxlim,y.lim = cylim,
+                          parameters = pd0[2,], points = 100,
                           colour=rep("red",2)
 )
 
