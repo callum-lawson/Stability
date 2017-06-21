@@ -10,14 +10,14 @@ source("Source/predprey_functions.R")
 
 rE0 <- 8.715*10^-7
 KE0 <- 5.623
-aE0 <- 8.408*10^-6
-bE0 <- 3.664
+cE0 <- 8.408*10^-6
+dE0 <- 3.664
 xE0 <- 2.689*10^-6
 
 # rE1 <- 0.84
 # KE1 <- -0.772
-# aE1 <- 0.467
-# bE1 <- -0.114
+# cE1 <- 0.467
+# dE1 <- -0.114
 # xE1 <- 0.639
   # From species-level averages
   # change slopes later
@@ -25,8 +25,8 @@ xE0 <- 2.689*10^-6
 
 rE1 <- 0.84
 KE1 <- -0.508
-aE1 <- 0.708
-bE1 <- -0.678
+cE1 <- 0.708
+dE1 <- -0.678
 xE1 <- 0.428
   # From Fig. S1
 
@@ -46,8 +46,8 @@ Ttseq <- rep(Tmu + 293.15,nt) + Pt
 
 rseq <- arrhenius(Ttseq,rE0,rE1)
 Kseq <- arrhenius(Ttseq,KE0,KE1)
-aseq <- arrhenius(Ttseq,aE0,aE1)
-bseq <- arrhenius(Ttseq,bE0,bE1)
+cseq <- arrhenius(Ttseq,cE0,cE1)
+dseq <- arrhenius(Ttseq,dE0,dE1)
 xseq <- arrhenius(Ttseq,xE0,xE1)
 eps <- 0.85
   # will have to hold each of these constant for multiple timesteps

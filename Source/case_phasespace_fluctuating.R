@@ -11,14 +11,14 @@ source("Source/predprey_functions.R")
 
 rE0 <- 8.715*10^-7
 KE0 <- 5.623
-aE0 <- 8.408*10^-6
-bE0 <- 3.664
+cE0 <- 8.408*10^-6
+dE0 <- 3.664
 xE0 <- 2.689*10^-6
 
 # rE1 <- 0.84
 # KE1 <- -0.772
-# aE1 <- 0.467
-# bE1 <- -0.114
+# cE1 <- 0.467
+# dE1 <- -0.114
 # xE1 <- 0.639
 # From species-level averages
 # change slopes later
@@ -26,19 +26,19 @@ xE0 <- 2.689*10^-6
 
 rE1 <- 0.84
 KE1 <- -0.508
-aE1 <- 0.708
-bE1 <- -0.678
+cE1 <- 0.708
+dE1 <- -0.678
 xE1 <- 0.428
 # From Fig. S1
 
 # Functions ---------------------------------------------------------------
 
-dR_dt_f <- function(R,C,r,K,a,b){
-  R * ( r*(1-R/K) - a*C/(b+R) )
+dR_dt_f <- function(R,C,r,K,c,d){
+  R * ( r*(1-R/K) - c*C/(d+R) )
   } 
 
-dC_dt_f <- function(R,C,a,b,x,eps=0.85){
-  C * ( eps*a*R/(b+R) - x )
+dC_dt_f <- function(R,C,c,d,x,eps=0.85){
+  C * ( eps*c*R/(d+R) - x )
 } 
 
 Rstar_f <- function(C,...){
@@ -57,25 +57,25 @@ Rstar_f <- function(C,...){
 romac_phaser <- function(t, y, parameters){
   r <- parameters$r
   K <- parameters$K
-  a <- parameters$a
-  b <- parameters$b
+  c <- parameters$c
+  d <- parameters$d
   x <- parameters$x
   eps <- parameters$eps
   dy <- numeric(2)
-  dy[1] <- y[1] * ( r*(1-y[1]/K) - a*y[2]/(b+y[1]) )
-  dy[2] <- y[2] * ( eps*a*y[1]/(b+y[1]) - x )   
+  dy[1] <- y[1] * ( r*(1-y[1]/K) - c*y[2]/(d+y[1]) )
+  dy[2] <- y[2] * ( eps*c*y[1]/(d+y[1]) - x )   
   return(list(dy))
 }
 
 case_phaser <- function(t, y, parameters){
   r <- parameters$r
   K <- parameters$K
-  a <- parameters$a
+  c <- parameters$c
   x <- parameters$x
   eps <- parameters$eps
   dy <- numeric(2)
-  dy[1] <- y[1] * ( r*(1-y[1]/K) - a*y[2] )
-  dy[2] <- y[2] * ( eps*a*y[1] - x )   
+  dy[1] <- y[1] * ( r*(1-y[1]/K) - c*y[2] )
+  dy[2] <- y[2] * ( eps*c*y[1] - x )   
   return(list(dy))
 }
 
@@ -85,8 +85,8 @@ pd <- data.frame(
   T = Tseq,
   r = arrhenius(Tseq,rE0,rE1),
   K = arrhenius(Tseq,KE0,KE1),
-  a = arrhenius(Tseq,aE0,aE1),
-  b = arrhenius(Tseq,bE0,bE1),
+  c = arrhenius(Tseq,cE0,cE1),
+  d = arrhenius(Tseq,dE0,dE1),
   x = arrhenius(Tseq,xE0,xE1),
   eps = 0.85
   )
@@ -144,12 +144,12 @@ Cseq <- seq(Cmin,Cmax,length.out=nC)
 Rstar <- matrix(nr=nC,nc=nT)
 Rdash <- Cstar <- vector(length=nT)
 for(i in 1:nT){
-  Rstar[,i] <- with(pd[i,], sapply(Cseq,Rstar_f,r=r,K=K,a=a,b=b))
+  Rstar[,i] <- with(pd[i,], sapply(Cseq,Rstar_f,r=r,K=K,a=a,d=d))
   Rdash[i] <- with(pd[i,], 
-                   uniroot(dC_dt_f,C=1,a=a,b=b,x=x,lower=10^-10,upper=10^10)$root
+                   uniroot(dC_dt_f,C=1,c=c,d=d,x=x,lower=10^-10,upper=10^10)$root
   )
   Cstar[i] <- with(pd[i,],
-                   uniroot(dR_dt_f,R=Rdash[i],r=r,K=K,a=a,b=b,lower=10^-100,upper=10^100)$root
+                   uniroot(dR_dt_f,R=Rdash[i],r=r,K=K,c=c,d=d,lower=10^-100,upper=10^100)$root
   )
 }
 
@@ -158,8 +158,8 @@ matplot(Rstar,Cseq,type="l",xlab="R",ylab="C",lty=1,col=lcols)
 abline(v=Rdash,col=lcols,lty=2)
 abline(h=Cstar,col=lcols,lty=3)
 
-with(pd[i,], dR_dt_f(R=seq(0,0.25,length.out=100),C=0.1,r=r,K=K,a=a,b=b))
-with(pd[i,], dC_dt_f(R=seq(0,0.25,length.out=100),C=0.1,r=r,K=K,a=a,b=b))
+with(pd[i,], dR_dt_f(R=seq(0,0.25,length.out=100),C=0.1,r=r,K=K,c=c,d=d))
+with(pd[i,], dC_dt_f(R=seq(0,0.25,length.out=100),C=0.1,r=r,K=K,c=c,d=d))
 
 # Predator density-dependence ---------------------------------------------
 
@@ -167,9 +167,9 @@ Rmin <- min(c(Rstar1,Rstar2),na.rm=T)
 Rmax <- max(c(Rstar1,Rstar2),na.rm=T)
 Rseq <- seq(Rmin,Rmax,length.out=nC)
 
-Cstar_f <- function(R,a){
+Cstar_f <- function(R,c){
   e <- try( 
-    d <- uniroot(dC_dt_f, R=R, a=a, lower=10^-100, upper=10^100), 
+    d <- uniroot(dC_dt_f, R=R, c=c, lower=10^-100, upper=10^100), 
     silent = TRUE 
   ) 
   if(class(e)=="try-error") { 

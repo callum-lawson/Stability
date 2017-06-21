@@ -8,11 +8,11 @@ arrhenius <- function(Tt,E0,E1,T0=293.15,k=8.617*10^-5){
 
 # Rosenzweig-MacArthur ----------------------------------------------------
 
-romac <- function(y,r,K,a,b,x,eps=0.85){
+romac <- function(y,r,K,c,d,x,eps=0.85){
   R <- y[1]
   C <- y[2]
-  dR <- R * ( r*(1-R/K) - a*C/(b+R) )
-  dC <- C * ( eps*a*R/(b+R) - x )
+  dR <- R * ( r*(1-R/K) - c*C/(d+R) )
+  dC <- C * ( eps*c*R/(d+R) - x )
   list(c(dR,dC))
 }
 
@@ -20,8 +20,8 @@ romac <- function(y,r,K,a,b,x,eps=0.85){
 # C = predator biomass (g/m^2)
 # r = prey intrinsic rate of increase (low density, absence of predator)
 # K = prey carrying capacity (absence of predators)
-# a = rate at which predator encounters prey
-# b = prey density at which predator is feeding at 1/2 max capacity
+# c = rate at which predator encounters prey
+# d = prey density at which predator is feeding at 1/2 max capacity
 # eps = number of predators produced for each prey eaten
 # x = consumption rate required for predator to sustain itself
 # tau = step length
@@ -33,11 +33,11 @@ romac_dis <- function(t,y,parms=NULL){
   
   r <- rseq[tpos]
   K <- Kseq[tpos]
-  a <- aseq[tpos]
-  b <- bseq[tpos]
+  c <- cseq[tpos]
+  d <- dseq[tpos]
   x <- xseq[tpos]
   
-  romac(y,r,K,a,b,x)
+  romac(y,r,K,c,d,x)
   
 }
 
@@ -47,21 +47,21 @@ romac_sin <- function(t,y,parms=NULL){
   
   r <- arrhenius(Tt,rE0,rE1)
   K <- arrhenius(Tt,KE0,KE1)
-  a <- arrhenius(Tt,aE0,aE1)
-  b <- arrhenius(Tt,bE0,bE1)
+  c <- arrhenius(Tt,cE0,cE1)
+  d <- arrhenius(Tt,dE0,dE1)
   x <- arrhenius(Tt,xE0,xE1)
   
-  romac(y,r,K,a,b,x)
+  romac(y,r,K,c,d,x)
   
 }
 
 # Chemostat ---------------------------------------------------------------
 
-chemo <- function(y,a,b,x,eps=0.85,i=5,e=1){
+chemo <- function(y,c,d,x,eps=0.85,i=5,e=1){
   R <- y[1]
   C <- y[2]
-  dR <- i - R * ( e + a*C/(b+R) )
-  dC <- C * ( eps*a*R/(b+R) - x )
+  dR <- i - R * ( e + c*C/(d+R) )
+  dC <- C * ( eps*c*R/(d+R) - x )
   list(c(dR,dC))
 }
 # i = immigration rate
@@ -73,11 +73,11 @@ chemo_sin <- function(t,y,parms=NULL){
   # these params defined externally
   # deterministic -> keeps phase the same for different sims
   
-  a <- arrhenius(Tt,aE0,aE1)
-  b <- arrhenius(Tt,bE0,bE1)
+  c <- arrhenius(Tt,cE0,cE1)
+  d <- arrhenius(Tt,dE0,dE1)
   x <- arrhenius(Tt,xE0,xE1)
   
-  chemo(y,a,b,x)
+  chemo(y,c,d,x)
   
 }
 
