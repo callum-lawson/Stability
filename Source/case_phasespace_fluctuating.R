@@ -117,21 +117,34 @@ pd$e <- 0.0001 # resource decay
 pd0 <- pd
 pd0$h <- 0
 
+mult <- 100
+pdm <- pd
+pdm$r <- pd$r*mult
+#pdm$x <- pd$x/mult
+
+# Turchin: decrease d/k or c/x (stabilise)
+# Reynolds: decrease x/r
+
 # Rosenzweig-MacArthur ----------------------------------------------------
 
 cxlim <- c(0,1.5)
-cylim <- c(0,0.2)
+cylim <- c(0,0.2)*mult
 
-flowField(romac_phaser,x.lim=cxlim,y.lim=cylim,parameters=pd[2,],points=30,add=FALSE)
+par(mfrow=c(1,1))
+flowField(romac_phaser,x.lim=cxlim,y.lim=cylim,parameters=pdm[2,],points=30,add=FALSE)
 clines <- list()
 clines[[1]] <- nullclines(romac_phaser,x.lim = cxlim,y.lim = cylim,
-                          parameters = pd[1,], points = 100,
+                          parameters = pdm[1,], points = 100,
                           colour=rep("blue",2)
                           )
 clines[[2]] <- nullclines(romac_phaser,x.lim = cxlim,y.lim = cylim,
-                          parameters = pd[2,], points = 100,
+                          parameters = pdm[2,], points = 100,
                           colour=rep("red",2)
                           )
+
+tradj <- list()
+tradj[[1]] <- trajectory(romac_phaser, y0=c(0.5,0.1), t.step=60, t.end=60*10000, parameters = pdm[1,])
+tradj[[2]] <- trajectory(romac_phaser, y0=c(0.5,0.1), t.step=60, t.end=60*10000, parameters = pdm[2,])
 
 # Zero handling time ------------------------------------------------------
 
@@ -166,6 +179,8 @@ clines[[2]] <- nullclines(deang_phaser, x.lim = cxlim, y.lim = cylim,
                           colour=rep("red",2)
 )
 
+tradj <- trajectory(deang_phaser, y0=c(0.5,0.1), t.step=60*5, t.end=60*100000, parameters = pd[2,])
+
 # Chemostat ---------------------------------------------------------------
 
 cxlim <- c(0,0.5)
@@ -197,6 +212,48 @@ clines[[2]] <- nullclines(chemo_phaser, x.lim=cxlim, y.lim=cylim,
                           colour=rep("red",2)
 )
 
+
+# Constant generalist predator --------------------------------------------
+
+Cslice <- c(0.025,0.05,0.1,0.15)
+nCslice <- length(Cslice)
+nR <- 100
+Rmax <- 2
+Rseq <- seq(0,Rmax,length.out=nR)
+dR_fixC <- matrix(nr=nR,nc=nT)
+
+par(mfrow=c(2,2))
+for(i in 1:nCslice){
+  for(j in 1:nT){
+    dR_fixC[,j] <- with(pd[j,], dR_dt_f(R=Rseq,C=Cslice[i],r=r,K=K,c=c,d=d)/Rseq)
+  }
+  matplot(log(Rseq),dR_fixC,type="l")
+  abline(h=0,lty=2)
+}
+  # when type II generalist predator, can have Allee effect
+  # and possibly multiple stable equilibria
+  # NB: using loop creates conflict with i parameter
+
+# Predator density-dependence ---------------------------------------------
+
+Rmin <- min(c(Rstar1,Rstar2),na.rm=T)
+Rmax <- max(c(Rstar1,Rstar2),na.rm=T)
+Rseq <- seq(Rmin,Rmax,length.out=nC)
+
+Cstar_f <- function(R,c){
+  e <- try( 
+    d <- uniroot(dC_dt_f, R=R, c=c, lower=10^-100, upper=10^100), 
+    silent = TRUE 
+  ) 
+  if(class(e)=="try-error") { 
+    return(NA) 
+  } 
+  else{ 
+    return(d$root)	
+  } 
+}
+
+
 # Manual phase plot construction ------------------------------------------
 
 # Uses uniroot - but doesn't work well when more than one equilibrium resource
@@ -227,21 +284,3 @@ abline(h=Cstar,col=lcols,lty=3)
 with(pd[i,], dR_dt_f(R=seq(0,0.25,length.out=100),C=0.1,r=r,K=K,c=c,d=d))
 with(pd[i,], dC_dt_f(R=seq(0,0.25,length.out=100),C=0.1,r=r,K=K,c=c,d=d))
 
-# Predator density-dependence ---------------------------------------------
-
-Rmin <- min(c(Rstar1,Rstar2),na.rm=T)
-Rmax <- max(c(Rstar1,Rstar2),na.rm=T)
-Rseq <- seq(Rmin,Rmax,length.out=nC)
-
-Cstar_f <- function(R,c){
-  e <- try( 
-    d <- uniroot(dC_dt_f, R=R, c=c, lower=10^-100, upper=10^100), 
-    silent = TRUE 
-  ) 
-  if(class(e)=="try-error") { 
-    return(NA) 
-  } 
-  else{ 
-    return(d$root)	
-  } 
-}
