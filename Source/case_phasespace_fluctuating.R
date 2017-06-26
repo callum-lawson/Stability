@@ -81,6 +81,34 @@ deang_phaser <- function(t, y, parameters){
 }
   # predators encounter each other at the same rate as prey (=a)
 
+bazy_phaser <- function(t, y, parameters){
+  r <- parameters$r
+  K <- parameters$K
+  a <- parameters$a
+  h <- parameters$h
+  x <- parameters$x
+  E <- parameters$E
+  eps <- parameters$eps
+  dy <- numeric(2)
+  dy[1] <- y[1] * ( r*(1-y[1]/K) - a*y[2]/(1+a*h*y[1]) )
+  dy[2] <- y[2] * ( eps*a*y[1]/(1+a*h*y[1]) - x - E*y[2] )   
+  return(list(dy))
+}
+  # E = strength of consumer density-dependence
+
+regrow_phaser <- function(t, y, parameters){
+  r <- parameters$r
+  K <- parameters$K
+  a <- parameters$a
+  h <- parameters$h
+  x <- parameters$x
+  eps <- parameters$eps
+  dy <- numeric(2)
+  dy[1] <- r*(1-y[1]/K) - y[1] * a*y[2]/(1+a*h*y[1])
+  dy[2] <- y[2] * ( eps*a*y[1]/(1+a*h*y[1]) - x )   
+  return(list(dy))
+}
+
 chemo_phaser <- function(t, y, parameters){
   i <- parameters$i
   e <- parameters$e
@@ -117,9 +145,10 @@ pd$e <- 0.0001 # resource decay
 pd0 <- pd
 pd0$h <- 0
 
-mult <- 100
+mult <- 1 # 100
 pdm <- pd
 pdm$r <- pd$r*mult
+
 #pdm$x <- pd$x/mult
 
 # Turchin: decrease d/k or c/x (stabilise)
@@ -143,8 +172,10 @@ clines[[2]] <- nullclines(romac_phaser,x.lim = cxlim,y.lim = cylim,
                           )
 
 tradj <- list()
-tradj[[1]] <- trajectory(romac_phaser, y0=c(0.5,0.1), t.step=60, t.end=60*10000, parameters = pdm[1,])
-tradj[[2]] <- trajectory(romac_phaser, y0=c(0.5,0.1), t.step=60, t.end=60*10000, parameters = pdm[2,])
+
+equil1 <- c(0.275,0.15) # rough case using locator()
+tradj[[1]] <- trajectory(romac_phaser, y0=equil1, t.step=60, t.end=60*10^5, parameters = pdm[1,])
+tradj[[2]] <- trajectory(romac_phaser, y0=equil1, t.step=60, t.end=60*10^5, parameters = pdm[2,])
 
 # Zero handling time ------------------------------------------------------
 
@@ -179,7 +210,9 @@ clines[[2]] <- nullclines(deang_phaser, x.lim = cxlim, y.lim = cylim,
                           colour=rep("red",2)
 )
 
-tradj <- trajectory(deang_phaser, y0=c(0.5,0.1), t.step=60*5, t.end=60*100000, parameters = pd[2,])
+equil1 <- c(0.33,0.17)
+tradj <- trajectory(deang_phaser, y0=equil1, t.step=60, t.end=60*100000, parameters = pd[2,])
+  # damped oscillations
 
 # Chemostat ---------------------------------------------------------------
 
@@ -203,7 +236,7 @@ cxlim <- c(0,0.5)
 cylim <- c(0,20)
 
 flowField(chemo_phaser, x.lim=cxlim, y.lim=cylim, parameters=pd0[2,], points=30, add=FALSE)
-clines[[1]] <- nullclines(chemo_phaser ,x.lim=cxlim, y.lim=cylim,
+clines[[1]] <- nullclines(chemo_phaser,x.lim=cxlim, y.lim=cylim,
                           parameters=pd0[1,], points=100,
                           colour=rep("blue",2)
 )
@@ -212,6 +245,54 @@ clines[[2]] <- nullclines(chemo_phaser, x.lim=cxlim, y.lim=cylim,
                           colour=rep("red",2)
 )
 
+equil1 <- c(0.28,10)
+tradj <- trajectory(chemo_phaser, y0=equil1, t.step=60, t.end=60*10^5, parameters = pd[2,])
+  # separation of timescales looks apt here
+
+# Bazykin model -----------------------------------------------------------
+
+pd$E <- 10^-4 # strength of consumer DD - arbitrarily chosen
+
+cxlim <- c(0,1.5)
+cylim <- c(0,0.2)
+
+flowField(bazy_phaser, x.lim=cxlim,y.lim=cylim,parameters=pd[2,],points=30,add=FALSE)
+clines <- list()
+clines[[1]] <- nullclines(bazy_phaser, x.lim=cxlim, y.lim=cylim,
+                          parameters=pd[1,], points=100,
+                          colour=rep("blue",2)
+)
+clines[[2]] <- nullclines(bazy_phaser, x.lim=cxlim, y.lim=cylim,
+                          parameters=pd[2,], points=100,
+                          colour=rep("red",2)
+)
+
+equil1 <- c(1.44,0.1)
+tradj <- trajectory(bazy_phaser, y0=equil1, t.step=60, t.end=60*10^5, parameters = pd[2,])
+  # damped oscillations
+
+
+# Vegetation regrowth model -----------------------------------------------
+
+cxlim <- c(0,0.5)
+cylim <- c(0,2)
+
+par(mfrow=c(1,1))
+flowField(regrow_phaser,x.lim=cxlim,y.lim=cylim,parameters=pdm[2,],points=30,add=FALSE)
+clines <- list()
+clines[[1]] <- nullclines(regrow_phaser,x.lim = cxlim,y.lim = cylim,
+                          parameters = pdm[1,], points = 100,
+                          colour=rep("blue",2)
+)
+clines[[2]] <- nullclines(regrow_phaser,x.lim = cxlim,y.lim = cylim,
+                          parameters = pdm[2,], points = 100,
+                          colour=rep("red",2)
+)
+
+equil1 <- c(0.275,0.53) # rough case using locator()
+tradj <- list()
+tradj[[1]] <- trajectory(regrow_phaser, y0=equil1, t.step=60, t.end=60*10^5, parameters = pdm[1,])
+tradj[[2]] <- trajectory(regrow_phaser, y0=equil1, t.step=60, t.end=60*10^5, parameters = pdm[2,])
 
 # Constant generalist predator --------------------------------------------
 
@@ -252,7 +333,6 @@ Cstar_f <- function(R,c){
     return(d$root)	
   } 
 }
-
 
 # Manual phase plot construction ------------------------------------------
 
