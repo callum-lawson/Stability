@@ -122,6 +122,24 @@ chemo_phaser <- function(t, y, parameters){
   return(list(dy))
 }
 
+gomp_phaser <- function(t, y, parameters){
+  r <- parameters$r
+  K <- parameters$K
+  a <- parameters$a
+  h <- parameters$h
+  x <- parameters$x
+  eps <- parameters$eps
+  dy <- numeric(2)
+  if(log(y[1])/log(K)>-Inf){
+    dy[1] <- y[1] * ( r*(1-log(y[1])/log(K)) - a*y[2]/(1+a*h*y[1]) )
+  } 
+  else{
+    dy[1] <- 0
+  }
+  dy[2] <- y[2] * ( eps*a*y[1]/(1+a*h*y[1]) - x )   
+  return(list(dy))
+}
+
 Tseq <- c(15,25) + 293.15
 nT <- length(Tseq)
 pd <- data.frame(
@@ -235,6 +253,7 @@ clines[[2]] <- nullclines(chemo_phaser, x.lim=cxlim, y.lim=cylim,
 cxlim <- c(0,0.5)
 cylim <- c(0,20)
 
+clines <- list()
 flowField(chemo_phaser, x.lim=cxlim, y.lim=cylim, parameters=pd0[2,], points=30, add=FALSE)
 clines[[1]] <- nullclines(chemo_phaser,x.lim=cxlim, y.lim=cylim,
                           parameters=pd0[1,], points=100,
@@ -245,8 +264,8 @@ clines[[2]] <- nullclines(chemo_phaser, x.lim=cxlim, y.lim=cylim,
                           colour=rep("red",2)
 )
 
-equil1 <- c(0.28,10)
-tradj <- trajectory(chemo_phaser, y0=equil1, t.step=60, t.end=60*10^5, parameters = pd[2,])
+equil1 <- c(0.22,10.9)
+tradj <- trajectory(chemo_phaser, y0=equil1, t.step=60, t.end=60*10^5, parameters = pd0[2,])
   # separation of timescales looks apt here
 
 # Bazykin model -----------------------------------------------------------
@@ -293,6 +312,29 @@ equil1 <- c(0.275,0.53) # rough case using locator()
 tradj <- list()
 tradj[[1]] <- trajectory(regrow_phaser, y0=equil1, t.step=60, t.end=60*10^5, parameters = pdm[1,])
 tradj[[2]] <- trajectory(regrow_phaser, y0=equil1, t.step=60, t.end=60*10^5, parameters = pdm[2,])
+
+
+# Gompertz prey -----------------------------------------------------------
+
+cxlim <- c(0,1.5)
+cylim <- c(0,2)
+
+par(mfrow=c(1,1))
+flowField(gomp_phaser,x.lim=cxlim,y.lim=cylim,parameters=pdm[2,],points=30,add=FALSE)
+clines <- list()
+clines[[1]] <- nullclines(gomp_phaser,x.lim = cxlim,y.lim = cylim,
+                          parameters = pdm[1,], points = 100,
+                          colour=rep("blue",2)
+)
+clines[[2]] <- nullclines(gomp_phaser,x.lim = cxlim,y.lim = cylim,
+                          parameters = pdm[2,], points = 100,
+                          colour=rep("red",2)
+)
+
+tradj <- list()
+
+equil1 <- c(0.275,0.475) # rough case using locator()
+tradj[[2]] <- trajectory(gomp_phaser, y0=equil1, t.step=60, t.end=60*10^5, parameters = pdm[2,])
 
 # Constant generalist predator --------------------------------------------
 
