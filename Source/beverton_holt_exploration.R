@@ -189,8 +189,8 @@ nm1 <- 5
 nG <- 50
 
 Yseq <- exp(seq(0,5,length.out=nY))
-m0seq <- exp(seq(-3,0,length.out=nm0))
-m1seq <- exp(seq(-3,0,length.out=nm1))
+m0seq <- exp(seq(-1.5,0,length.out=nm0))
+m1seq <- exp(seq(-4,4,length.out=nm1))
 Gseq <- plogis(seq(-5,5,length.out=nG))
 
 pd <- expand.grid(Y=Yseq,m0=m0seq,m1=m1seq,G=Gseq) # parameter data
@@ -202,7 +202,7 @@ lK_GY_plot <- function(m){
   plotvars <- c("Y","G")
   pd1 <- subset(pd,m0==m & m1==m1seq[2],select=c(plotvars,"lK"))
   plotmat <- acast(melt(pd1,id=plotvars),G~Y)
-  matplot(Gseq,plotmat,type="l",lty=1,col=tim.colors(nY))
+  matplot(qlogis(Gseq),plotmat,type="l",lty=1,col=tim.colors(nY))
 }
 
 par(mfrow=c(2,2),mar=c(3,3,2,2))
@@ -243,7 +243,7 @@ np <- nrow(pd) # number of parameter combinations
 nb <- 100
 nt <- 1000 + nb
 ns <- 10 # n y sig
-Ysigseq <- exp(seq(-1,1,length.out=ns))
+Ysigseq <- exp(seq(-2,2,length.out=ns))
 N0 <- 1000
 
 Narr <- Yarr <- array(dim=c(nt,ns,np))
@@ -266,31 +266,57 @@ for(t in 2:nt){
 lNarr <- log(Narr)
 lNmuarr <- apply(lNarr[-(1:nb),,],2:3,mean)
 lNsdarr <- apply(lNarr[-(1:nb),,],2:3,sd)
+lNmedarr <- apply(lNarr[-(1:nb),,],2:3,median)
 
 Nd <- expand.grid(Ysig=Ysigseq,Y=Yseq,m0=m0seq,m1=m1seq,G=Gseq)
 Nd$lNmu <- as.vector(lNmuarr)
 Nd$lNsd <- as.vector(lNsdarr)
+Nd$lNmed <- as.vector(lNmedarr)
 
-lmu_Ysig_G_plot <- function(pY,pm0,pm1,xvar="G"){
+lmu_Ysig_G_plot <- function(pY,pm0,pm1,xvar="G",...){
   require(reshape2)
   require(fields)
   plotvars <- c("Ysig","G")
   Nd1 <- subset(Nd,Y==pY & m0==pm0 & m1==pm1,select=c(plotvars,"lNmu"))
   if(xvar=="G"){
     plotmat <- acast(melt(Nd1,id=plotvars),G~Ysig)
-    matplot(Gseq,plotmat,type="l",lty=1,col=tim.colors(ns),ylim=c(1,4))
+    matplot(qlogis(Gseq),plotmat,type="l",lty=1,col=tim.colors(ns),
+            ylim=c(-2,max(ceiling(plotmat))),
+            ...)
   }
   if(xvar=="Ysig"){
     plotmat <- acast(melt(Nd1,id=plotvars),Ysig~G)
-    matplot(Ysigseq,plotmat,type="l",lty=1,col=tim.colors(nG),ylim=c(1,4))
+    matplot(Ysigseq,plotmat,type="l",lty=1,col=tim.colors(nG),
+            ylim=c(-2,max(ceiling(plotmat))),
+            ...)
   }
 }
 
-par(mfrow=c(2,2))
-lmu_Ysig_G_plot(pY=Yseq[5],pm0=m0seq[3],pm1=m1seq[3])
-lmu_Ysig_G_plot(pY=Yseq[5],pm0=m0seq[5],pm1=m1seq[3])
-lmu_Ysig_G_plot(pY=Yseq[5],pm0=m0seq[3],pm1=m1seq[5])
-lmu_Ysig_G_plot(pY=Yseq[2],pm0=m0seq[3],pm1=m1seq[3])
+pdf(paste0("Plots/lmu_Ysig_G_",format(Sys.Date(),"%d%b%Y"),".pdf"),
+    width=15,height=15)
+iseq <- 1:5
+ni <- length(iseq)
+par(mfrow=c(ni,ni),mar=c(4,4,2,2),las=1,bty="l")
+for(i in iseq){
+  for(j in iseq){
+    for(k in iseq){
+      lmu_Ysig_G_plot(pY=Yseq[i],pm0=m0seq[j],pm1=m1seq[k],xvar="G",
+                      xlab="G",ylab="ln(N)",
+                      main=paste0("Y=",signif(Yseq[i],2),
+                                  " m0=",signif(m0seq[j],2),
+                                  " m1=",signif(m1seq[k],2)
+                                  )
+      )
+    }
+  }
+}
+dev.off()
+
+par(mfrow=c(2,2),mar=c(4,4,2,2),las=1,bty="n")
+lmu_Ysig_G_plot(pY=Yseq[4],pm0=m0seq[2],pm1=m1seq[2],xvar="G")
+lmu_Ysig_G_plot(pY=Yseq[4],pm0=m0seq[4],pm1=m1seq[2],xvar="G")
+lmu_Ysig_G_plot(pY=Yseq[2],pm0=m0seq[2],pm1=m1seq[4],xvar="G")
+lmu_Ysig_G_plot(pY=Yseq[2],pm0=m0seq[2],pm1=m1seq[2],xvar="G")
   # - high m0 reduces effect of variance on optimal G, 
   # possibly even leads to env var favouring high G?
   # - m1 again just shifts population size without changing optimum
@@ -304,6 +330,61 @@ lmu_Ysig_G_plot(pY=Yseq[5],pm0=m0seq[3],pm1=m1seq[3],xvar="Ysig")
 lmu_Ysig_G_plot(pY=Yseq[5],pm0=m0seq[5],pm1=m1seq[3],xvar="Ysig")
 lmu_Ysig_G_plot(pY=Yseq[5],pm0=m0seq[3],pm1=m1seq[5],xvar="Ysig")
 lmu_Ysig_G_plot(pY=Yseq[2],pm0=m0seq[3],pm1=m1seq[3],xvar="Ysig")
+
+lmu_Y_G_plot <- function(pYsig,pm0,pm1,xvar="G",...){
+  require(reshape2)
+  require(fields)
+  plotvars <- c("Y","G")
+  Nd1 <- subset(Nd,Ysig==pYsig & m0==pm0 & m1==pm1,select=c(plotvars,"lNmu"))
+  if(xvar=="G"){
+    plotmat <- acast(melt(Nd1,id=plotvars),G~Y)
+    matplot(qlogis(Gseq),plotmat,type="l",lty=1,col=tim.colors(nY),
+            ylim=c(-2,max(ceiling(plotmat))),
+            ...
+            )
+  }
+  if(xvar=="Y"){
+    plotmat <- acast(melt(Nd1,id=plotvars),Y~G)
+    matplot(Yseq,plotmat,type="l",lty=1,col=tim.colors(nG),
+            ylim=c(-2,max(ceiling(plotmat))),
+            ...
+            )
+  }
+}
+
+pdf(paste0("Plots/lmu_Y_G_",format(Sys.Date(),"%d%b%Y"),".pdf"),
+    width=15,height=15)
+iseq <- 1:5
+ni <- length(iseq)
+par(mfrow=c(ni,ni),mar=c(4,4,2,2),las=1,bty="l")
+for(i in iseq*2){ # Ysig twice as long as others
+  for(j in iseq){
+    for(k in iseq){
+      lmu_Y_G_plot(pYsig=Ysigseq[i],pm0=m0seq[j],pm1=m1seq[k],xvar="G",
+                      xlab="G",ylab="ln(N)",
+                      main=paste0("Ysig=",signif(Ysigseq[i],2),
+                                  " m0=",signif(m0seq[j],2),
+                                  " m1=",signif(m1seq[k],2)
+                      )
+      )
+    }
+  }
+}
+dev.off()
+
+par(mfrow=c(2,2))
+lmu_Y_G_plot(pYsig=Ysigseq[4],pm0=m0seq[2],pm1=m1seq[2],xvar="G")
+lmu_Y_G_plot(pYsig=Ysigseq[4],pm0=m0seq[4],pm1=m1seq[2],xvar="G")
+lmu_Y_G_plot(pYsig=Ysigseq[5],pm0=m0seq[2],pm1=m1seq[4],xvar="G")
+lmu_Y_G_plot(pYsig=Ysigseq[2],pm0=m0seq[2],pm1=m1seq[2],xvar="G")
+  # NB: outcome with median is almost exactly the same
+
+
+# Analysis of high-variance scenario --------------------------------------
+
+matplot(log(Yarr[1000:1100,,3000]),type="l")
+
+
 
 # Royama plots ------------------------------------------------------------
 
