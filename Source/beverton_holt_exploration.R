@@ -379,12 +379,48 @@ lmu_Y_G_plot(pYsig=Ysigseq[5],pm0=m0seq[2],pm1=m1seq[4],xvar="G")
 lmu_Y_G_plot(pYsig=Ysigseq[2],pm0=m0seq[2],pm1=m1seq[2],xvar="G")
   # NB: outcome with median is almost exactly the same
 
-
 # Analysis of high-variance scenario --------------------------------------
 
 matplot(log(Yarr[1000:1100,,3000]),type="l")
 
+Darr <- Yearr <- array(dim=dim(Narr))
+for(i in 2:nt){
+  Darr[i,,] <- log(Narr[i,,]) - log(Narr[i-1,,])
+  Yearr[i,,] <- log(Narr[i,,] - exp(-m0arr)*(1-Garr)*Narr[i-1,,]) - log(Garr*Narr[i-1,,])
+}
 
+pdsel <- with(pd, which(
+  Y %in% Yseq[c(1,5)] & m0==m0seq[5] & m1==m1seq[2] & G %in% Gseq[c(10,20)]
+  ))
+Ysigsel <- 10
+
+scol <- rep(c("blue","red"),each=2) # blue = low G, red = high G
+slty <- rep(1:2,times=2)
+matplot(log(Narr[900:1100,Ysigsel,pdsel]),type="l",col=scol,lty=slty)
+
+plot(density(log(Yarr[,Ysigsel,pdsel[1]])))
+lines(density(log(Yarr[,Ysigsel,pdsel[2]])),lty=2)
+matplot(Darr[900:1100,Ysigsel,pdsel],type="l",col=scol,lty=slty)
+matplot(Yearr[900:1100,Ysigsel,pdsel],type="l",col=scol,lty=slty)
+
+plot(density(log(Narr[100:nt,Ysigsel,pdsel[4]])),col=scol[4],lty=slty[4])
+lines(density(log(Narr[100:nt,Ysigsel,pdsel[2]])),col=scol[2],lty=slty[2])
+plot(density(log(Narr[100:nt,Ysigsel,pdsel[3]])),col=scol[3],lty=slty[3])
+lines(density(log(Narr[100:nt,Ysigsel,pdsel[1]])),col=scol[1],lty=slty[1])
+
+plot(density(Darr[100:nt,Ysigsel,pdsel[4]]),col=scol[4],lty=slty[4])
+lines(density(Darr[100:nt,Ysigsel,pdsel[2]]),col=scol[2],lty=slty[2])
+abline(v=0,lty=3)
+plot(density(Darr[100:nt,Ysigsel,pdsel[3]]),col=scol[3],lty=slty[3])
+lines(density(Darr[100:nt,Ysigsel,pdsel[1]]),col=scol[1],lty=slty[1])
+abline(v=0,lty=3)
+
+plot(density(Yearr[100:nt,Ysigsel,pdsel[4]]),col=scol[4],lty=slty[4])
+lines(density(Yearr[100:nt,Ysigsel,pdsel[2]]),col=scol[2],lty=slty[2])
+abline(v=m0seq[5],lty=3)
+plot(density(Yearr[100:nt,Ysigsel,pdsel[3]]),col=scol[3],lty=slty[3])
+lines(density(Yearr[100:nt,Ysigsel,pdsel[1]]),col=scol[1],lty=slty[1])
+abline(v=m0seq[5],lty=3)
 
 # Royama plots ------------------------------------------------------------
 
