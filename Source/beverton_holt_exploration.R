@@ -24,11 +24,10 @@ lnbhdor <- function(Y,m0,m1,G,T3=0.3){
   log((c1*G*Y-G*S0+S0-1) / (c2*G*Y*((G-1)*S0+1)))
 }
 
-Kcalc <- function(m0,m1){
-  exp(-m0)/( (1-exp(-m0)) * (m1/m0) )
+Kcalc <- function(m0,m1,T=1){
+  exp(-m0*T)/( (1-exp(-m0*T)) * (m1/m0) )
 } 
 # assuming T=1
-
 
 sGBH <- function(n_in,Y,m0,m1,G,T3=0.3){
   So <- exp(-m0)
@@ -395,6 +394,8 @@ lmu_Y_G_plot(pYsig=Ysigseq[2],pm0=m0seq[2],pm1=m1seq[2],xvar="G")
 
 # Analysis of high-variance scenario --------------------------------------
 
+pd$K <- with(pd, Kcalc(m0,m1,T=0.3))
+
 Darr <- Yearr <- array(dim=dim(Narr))
 for(i in 2:nt){
   Darr[i,,] <- log(Narr[i,,]) - log(Narr[i-1,,])
@@ -414,6 +415,17 @@ matplot(log(Narr[900:1100,Ysigsel,pdsel]),type="l",col=scol,lty=slty)
 
 plot(density(log(Yarr[,Ysigsel,pdsel[1]])))
 lines(density(log(Yarr[,Ysigsel,pdsel[2]])),lty=2)
+
+histmax <- 10^4
+mybreaks <- c(seq(0,histmax,length.out=10^3),Inf)
+hist(Yarr[,Ysigsel,pdsel[1]],xlim=c(0,histmax),breaks=mybreaks,col="blue",border=NA)
+hist(Yarr[,Ysigsel,pdsel[2]],breaks=mybreaks,col="red",add=T,border=NA)
+
+table(Yarr[,Ysigsel,pdsel[1]]>1)
+table(Yarr[,Ysigsel,pdsel[2]]>1)
+table(Yarr[,Ysigsel,pdsel[1]]>pd$K[pdsel[1]])
+table(Yarr[,Ysigsel,pdsel[2]]>pd$K[pdsel[2]])
+
 matplot(Darr[900:1100,Ysigsel,pdsel],type="l",col=scol,lty=slty)
 matplot(Yearr[900:1100,Ysigsel,pdsel],type="l",col=scol,lty=slty)
 
