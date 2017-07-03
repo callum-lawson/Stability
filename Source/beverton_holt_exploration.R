@@ -36,6 +36,12 @@ sGBH <- function(n_in,Y,m0,m1,G,T3=0.3){
   n_in*((1-G)*So + G*Y*Sn / (1 + G*Y*(1-Sn)*(m1/m0)*n_in))
 }
 
+rG <- function(Y,m0,G,T3=0.3){
+  So <- exp(-m0)
+  Sn <- exp(-m0*T3)
+  log( (1-G)*So + G*Y*Sn )
+}
+
 # Exploration -------------------------------------------------------------
 
 ln0_min <- -5
@@ -283,6 +289,10 @@ lmu_Ysig_G_plot <- function(pY,pm0,pm1,xvar="G",...){
     matplot(qlogis(Gseq),plotmat,type="l",lty=1,col=tim.colors(ns),
             ylim=c(-2,max(ceiling(plotmat))),
             ...)
+    Gopt <- sapply(split(Nd1,Nd1$Ysig),function(d){
+      qlogis(d$G[which(d$lNmu==max(d$lNmu))])
+    })
+    abline(v=Gopt,col=tim.colors(nY),lty=2)
   }
   if(xvar=="Ysig"){
     plotmat <- acast(melt(Nd1,id=plotvars),Ysig~G)
@@ -342,6 +352,10 @@ lmu_Y_G_plot <- function(pYsig,pm0,pm1,xvar="G",...){
             ylim=c(-2,max(ceiling(plotmat))),
             ...
             )
+    Gopt <- sapply(split(Nd1,Nd1$Y),function(d){
+      qlogis(d$G[which(d$lNmu==max(d$lNmu))])
+    })
+    abline(v=Gopt,col=tim.colors(nY),lty=2)
   }
   if(xvar=="Y"){
     plotmat <- acast(melt(Nd1,id=plotvars),Y~G)
@@ -381,8 +395,6 @@ lmu_Y_G_plot(pYsig=Ysigseq[2],pm0=m0seq[2],pm1=m1seq[2],xvar="G")
 
 # Analysis of high-variance scenario --------------------------------------
 
-matplot(log(Yarr[1000:1100,,3000]),type="l")
-
 Darr <- Yearr <- array(dim=dim(Narr))
 for(i in 2:nt){
   Darr[i,,] <- log(Narr[i,,]) - log(Narr[i-1,,])
@@ -395,7 +407,9 @@ pdsel <- with(pd, which(
 Ysigsel <- 10
 
 scol <- rep(c("blue","red"),each=2) # blue = low G, red = high G
-slty <- rep(1:2,times=2)
+slty <- rep(1:2,times=2) # - = low Y, --- = high Y
+
+par(mfrow=c(1,1),mar=c(2,2,2,2))
 matplot(log(Narr[900:1100,Ysigsel,pdsel]),type="l",col=scol,lty=slty)
 
 plot(density(log(Yarr[,Ysigsel,pdsel[1]])))
@@ -421,6 +435,69 @@ abline(v=m0seq[5],lty=3)
 plot(density(Yearr[100:nt,Ysigsel,pdsel[3]]),col=scol[3],lty=slty[3])
 lines(density(Yearr[100:nt,Ysigsel,pdsel[1]]),col=scol[1],lty=slty[1])
 abline(v=m0seq[5],lty=3)
+
+# Density-independent -----------------------------------------------------
+
+# > dim(lNmuarr)
+# [1]   10 6250
+
+pds <- expand.grid(Y=Yseq,m0=m0seq,G=Gseq) # parameter data
+nps <- nrow(pds)
+
+nlnY <- 10
+lnYseq <- seq(-3,3,length.out=nlnY)
+lnYarr <- rarr <- parr <- array(dim=c(nlnY,ns,nps))
+lnYarr[] <- rep(outer(lnYseq,Ysigseq),times=nps) + rep(log(pds$Y),each=nlnY*ns)
+rarr <- array(dim=c(nlnY,ns,nps))
+rarr[] <- with(pds, rG(Y=exp(lnYarr),
+                      m0=rep(m0,each=nlnY*ns),
+                      G=rep(G,each=nlnY*ns)
+                      ))
+parr[] <- rep(dnorm(lnYseq,mean=0,sd=1),times=ns*nps) 
+  # shape of p(norm) is same regardless of mean
+sump <- sum(parr[,1,1]) 
+  # again, distribution is the same for all, so the sum is too
+rbararr <- apply(parr*rarr,c(2,3),sum)/sump
+
+rd <- expand.grid(Ysig=Ysigseq,Y=Yseq,m0=m0seq,G=Gseq)
+rd$rbar <- as.vector(rbararr)
+
+Gopt_f <- function(d){
+  d$G[which(d$rbar==max(d$rbar))]
+}
+
+rbar_Y_G_plot <- function(pYsig,pm0,xvar="G",...){
+  require(reshape2)
+  require(fields)
+  plotvars <- c("Y","G")
+  rd1 <- subset(rd,Ysig==pYsig & m0==pm0,select=c(plotvars,"rbar"))
+  plotmat <- acast(melt(rd1,id=plotvars),G~Y)
+  matplot(qlogis(Gseq),plotmat,type="l",lty=1,col=tim.colors(nY),
+          # ylim=c(-2,max(ceiling(plotmat))),
+          ...
+          )
+  Gopt <- sapply(split(rd1,rd1$Y),function(d){
+    qlogis(d$G[which(d$rbar==max(d$rbar))])
+  })
+  abline(v=Gopt,col=tim.colors(nY),lty=2)
+}
+  # m1 actually unecessary as no DD
+
+pdf(paste0("Plots/rbar_Y_G_",format(Sys.Date(),"%d%b%Y"),".pdf"),
+    width=15,height=15)
+iseq <- 1:5
+ni <- length(iseq)
+par(mfrow=c(ni,ni),mar=c(4,4,2,2),las=1,bty="l")
+for(i in iseq*2){ # Ysig twice as long as others
+  for(j in iseq){
+    rbar_Y_G_plot(pYsig=Ysigseq[i],pm0=m0seq[j],xvar="G",
+                  xlab="G",ylab="r",
+                  main=paste0("Ysig=",signif(Ysigseq[i],2)," m0=",signif(m0seq[j],2))
+                  )
+    
+  }
+}
+dev.off()
 
 # Royama plots ------------------------------------------------------------
 
