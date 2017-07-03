@@ -511,6 +511,33 @@ for(i in iseq*2){ # Ysig twice as long as others
 }
 dev.off()
 
+
+# Simple Royama plots -----------------------------------------------------
+
+Y1 <- 4 # log scale
+Y2 <- 3.5 # log scale
+m0 <- 1
+par(mfrow=c(1,1))
+G <- 0.25
+curve(log(sGBH(exp(x),exp(Y1),m0,m1,G)/exp(x)),col="red",lty=1,
+      xlim=c(4,7),xlab=expression(ln~N[t-1]),ylab=expression(r[t]))
+curve(log(sGBH(exp(x),exp(Y1-2),m0,m1,G)/exp(x)),col="red",lty=2,add=T)
+curve(log(sGBH(exp(x),exp(Y1+2),m0,m1,G)/exp(x)),col="red",lty=2,add=T)
+curve(log(sGBH(exp(x),exp(Y2),m0,m1,G)/exp(x)),col="blue",lty=1,add=T)
+curve(log(sGBH(exp(x),exp(Y2-2),m0,m1,G)/exp(x)),col="blue",lty=2,add=T)
+curve(log(sGBH(exp(x),exp(Y2+2),m0,m1,G)/exp(x)),col="blue",lty=2,add=T)
+abline(h=0,lty=3)
+
+G <- 0.75
+curve(log(sGBH(exp(x),exp(Y1),m0,m1,G)/exp(x)),col="red",lty=1,
+      xlim=c(4,7),xlab=expression(ln~N[t-1]),ylab=expression(r[t]))
+curve(log(sGBH(exp(x),exp(Y1-2),m0,m1,G)/exp(x)),col="red",lty=2,add=T)
+curve(log(sGBH(exp(x),exp(Y1+2),m0,m1,G)/exp(x)),col="red",lty=2,add=T)
+curve(log(sGBH(exp(x),exp(Y2),m0,m1,G)/exp(x)),col="blue",lty=1,add=T)
+curve(log(sGBH(exp(x),exp(Y2-2),m0,m1,G)/exp(x)),col="blue",lty=2,add=T)
+curve(log(sGBH(exp(x),exp(Y2+2),m0,m1,G)/exp(x)),col="blue",lty=2,add=T)
+abline(h=0,lty=3)
+
 # Royama plots ------------------------------------------------------------
 
 par(mfrow=c(2,2))
@@ -532,34 +559,36 @@ Royama_matplot <- function(ppd,...){
   abline(h=0,col="black",lty=3)
 }
 
+pdr <- pd[,names(pd)!="K"]
+
 par(mfrow=c(2,2))
-Royama_matplot(subset(pd, Y==Yseq[3] & m0==m0seq[3] & m1==m1seq[3]))
-Royama_matplot(subset(pd, Y==Yseq[5] & m0==m0seq[3] & m1==m1seq[3]))
-Royama_matplot(subset(pd, Y==Yseq[3] & m0==m0seq[5] & m1==m1seq[3]))
-Royama_matplot(subset(pd, Y==Yseq[3] & m0==m0seq[3] & m1==m1seq[5]))
+Royama_matplot(subset(pdr[,names(pd)!="K"], Y==Yseq[3] & m0==m0seq[3] & m1==m1seq[3]))
+Royama_matplot(subset(pdr[,names(pd)!="K"], Y==Yseq[5] & m0==m0seq[3] & m1==m1seq[3]))
+Royama_matplot(subset(pdr[,names(pd)!="K"], Y==Yseq[3] & m0==m0seq[5] & m1==m1seq[3]))
+Royama_matplot(subset(pdr[,names(pd)!="K"], Y==Yseq[3] & m0==m0seq[3] & m1==m1seq[5]))
   # - increasing G increases stability but generally reduces K (unless at low G)
   # - when seed mortatlity is high, G doesn't affect K much
 
-Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[5]),ylim=c(-1,2))
-Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[20]),ylim=c(-1,2))
-Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[30]),ylim=c(-1,2))
-Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[50]),ylim=c(-1,2))
+Royama_matplot(subset(pdr, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[5]),ylim=c(-1,2))
+Royama_matplot(subset(pdr, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[20]),ylim=c(-1,2))
+Royama_matplot(subset(pdr, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[30]),ylim=c(-1,2))
+Royama_matplot(subset(pdr, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[50]),ylim=c(-1,2))
   # - env var has more positive effects when G is low and when population
   # size is low (DD-clim interaction)
   # - declines in reproduction can have *less* severe effects when G is high?
 
   # (for squared rainfall, can just compare what happens if return to low Y again)
 
-Royama_matplot(subset(pd, m0==m0seq[2] & m1==m1seq[3] & G==Gseq[25]))
-Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[25]))
-Royama_matplot(subset(pd, m0==m0seq[4] & m1==m1seq[3] & G==Gseq[25]))
-Royama_matplot(subset(pd, m0==m0seq[5] & m1==m1seq[3] & G==Gseq[25]))
+Royama_matplot(subset(pdr, m0==m0seq[2] & m1==m1seq[3] & G==Gseq[25]))
+Royama_matplot(subset(pdr, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[25]))
+Royama_matplot(subset(pdr, m0==m0seq[4] & m1==m1seq[3] & G==Gseq[25]))
+Royama_matplot(subset(pdr, m0==m0seq[5] & m1==m1seq[3] & G==Gseq[25]))
   # higher mortality -> lower K but overall patterns pretty similar?
 
-Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[2] & G==Gseq[25]))
-Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[25]))
-Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[4] & G==Gseq[25]))
-Royama_matplot(subset(pd, m0==m0seq[3] & m1==m1seq[5] & G==Gseq[25]))
+Royama_matplot(subset(pdr, m0==m0seq[3] & m1==m1seq[2] & G==Gseq[25]))
+Royama_matplot(subset(pdr, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[25]))
+Royama_matplot(subset(pdr, m0==m0seq[3] & m1==m1seq[4] & G==Gseq[25]))
+Royama_matplot(subset(pdr, m0==m0seq[3] & m1==m1seq[5] & G==Gseq[25]))
   # higher m2 -> higher stability, lower K 
   # (just shifts intercept, effect happens because of non-linear DD?)
 
