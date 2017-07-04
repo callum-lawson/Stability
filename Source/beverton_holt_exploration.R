@@ -511,14 +511,14 @@ for(i in iseq*2){ # Ysig twice as long as others
 }
 dev.off()
 
-
 # Simple Royama plots -----------------------------------------------------
 
-RoyBH <- function(G,lNmin,lNmax){
+RoyBH <- function(G,lNmin,lNmax,...){
   Y1 <- 5 # 4 # log scale
   Y2 <- 1 # 3.5 # log scale
   dY <- 3.5
   m0 <- 1
+  m1 <- 0.018
   nlnN <- 100
   lnNseq <- seq(lNmin,lNmax,length.out=nlnN)
   Nseq <- exp(lnNseq)
@@ -533,19 +533,26 @@ RoyBH <- function(G,lNmin,lNmax){
   }
   
   par(mfrow=c(1,1))
-  matplot(lnNseq,rm,col=rep(c("red","blue"),each=3),lty=rep(c(2,1,2),times=2),type="l")
+  matplot(lnNseq,rm,col=rep(c("red","blue"),each=3),lty=rep(c(2,1,2),times=2),type="l", ...)
   abline(h=0,lty=3)
 }
 
 RoyBH(G=0.15,lNmin=4,lNmax=8)
-RoyBH(G=0.2,lNmin=4,lNmax=8)
-RoyBH(G=0.5,lNmin=4,lNmax=8)
+RoyBH(G=0.2,lNmin=4,lNmax=8,add=T)
+
+RoyBH(G=0.9,lNmin=4,lNmax=8)
+RoyBH(G=0.95,lNmin=4,lNmax=8,add=T)
+  # middle line shows conditions in constant mean scenario
+
+RoyBH(G=0.1,lNmin=4,lNmax=8)
+RoyBH(G=0.9,lNmin=4,lNmax=8,add=T)
+RoyBH(G=0.9,lNmin=4,lNmax=8)
 
 # Royama plots ------------------------------------------------------------
 
 par(mfrow=c(2,2))
 nN <- 100
-Nseq <- exp(seq(0,5,length.out=nN))
+Nseq <- exp(seq(2,8,length.out=nN))
 
 r_sGBH_seq <- function(Y,m0,m1,G){
   log(sGBH(Nseq,Y,m0,m1,G)/Nseq)
@@ -565,10 +572,10 @@ Royama_matplot <- function(ppd,...){
 pdr <- pd[,names(pd)!="K"]
 
 par(mfrow=c(2,2))
-Royama_matplot(subset(pdr[,names(pd)!="K"], Y==Yseq[3] & m0==m0seq[3] & m1==m1seq[3]))
-Royama_matplot(subset(pdr[,names(pd)!="K"], Y==Yseq[5] & m0==m0seq[3] & m1==m1seq[3]))
-Royama_matplot(subset(pdr[,names(pd)!="K"], Y==Yseq[3] & m0==m0seq[5] & m1==m1seq[3]))
-Royama_matplot(subset(pdr[,names(pd)!="K"], Y==Yseq[3] & m0==m0seq[3] & m1==m1seq[5]))
+Royama_matplot(subset(pdr[,names(pd)!="K"], Y==Yseq[3] & m0==m0seq[1] & m1==m1seq[1]))
+Royama_matplot(subset(pdr[,names(pd)!="K"], Y==Yseq[5] & m0==m0seq[1] & m1==m1seq[1]))
+Royama_matplot(subset(pdr[,names(pd)!="K"], Y==Yseq[3] & m0==m0seq[3] & m1==m1seq[1]))
+Royama_matplot(subset(pdr[,names(pd)!="K"], Y==Yseq[3] & m0==m0seq[1] & m1==m1seq[3]))
   # - increasing G increases stability but generally reduces K (unless at low G)
   # - when seed mortatlity is high, G doesn't affect K much
 
@@ -581,6 +588,16 @@ Royama_matplot(subset(pdr, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[50]),ylim=c(-1,
   # - declines in reproduction can have *less* severe effects when G is high?
 
   # (for squared rainfall, can just compare what happens if return to low Y again)
+
+pdr2 <- expand.grid(Y=exp(seq(-3,8,length.out=20)),m0=1,m1=0.018,G=Gseq) # parameter data
+par(mfrow=c(2,2),mar=c(2,2,2,2))
+Royama_matplot(subset(pdr2,G==Gseq[5]))
+Royama_matplot(subset(pdr2,G==Gseq[15]))
+Royama_matplot(subset(pdr2,G==Gseq[25]))
+Royama_matplot(subset(pdr2,G==Gseq[35]))
+
+Royama_matplot(subset(pdr2,G==Gseq[50]))
+Royama_matplot(subset(pdr2,G==Gseq[1]),add=T)
 
 Royama_matplot(subset(pdr, m0==m0seq[2] & m1==m1seq[3] & G==Gseq[25]))
 Royama_matplot(subset(pdr, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[25]))
