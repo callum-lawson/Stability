@@ -514,29 +514,32 @@ dev.off()
 
 # Simple Royama plots -----------------------------------------------------
 
-Y1 <- 4 # log scale
-Y2 <- 3.5 # log scale
-m0 <- 1
-par(mfrow=c(1,1))
-G <- 0.25
-curve(log(sGBH(exp(x),exp(Y1),m0,m1,G)/exp(x)),col="red",lty=1,
-      xlim=c(4,7),xlab=expression(ln~N[t-1]),ylab=expression(r[t]))
-curve(log(sGBH(exp(x),exp(Y1-2),m0,m1,G)/exp(x)),col="red",lty=2,add=T)
-curve(log(sGBH(exp(x),exp(Y1+2),m0,m1,G)/exp(x)),col="red",lty=2,add=T)
-curve(log(sGBH(exp(x),exp(Y2),m0,m1,G)/exp(x)),col="blue",lty=1,add=T)
-curve(log(sGBH(exp(x),exp(Y2-2),m0,m1,G)/exp(x)),col="blue",lty=2,add=T)
-curve(log(sGBH(exp(x),exp(Y2+2),m0,m1,G)/exp(x)),col="blue",lty=2,add=T)
-abline(h=0,lty=3)
+RoyBH <- function(G,lNmin,lNmax){
+  Y1 <- 5 # 4 # log scale
+  Y2 <- 1 # 3.5 # log scale
+  dY <- 3.5
+  m0 <- 1
+  nlnN <- 100
+  lnNseq <- seq(lNmin,lNmax,length.out=nlnN)
+  Nseq <- exp(lnNseq)
+  
+  rd <- data.frame(
+    Y = rep(c(Y1,Y2),each=3),
+    dY = rep(c(-dY,0,dY),times=2)
+  )
+  rm <- matrix(nr=nlnN,nc=6)
+  for(i in 1:nrow(rd)){
+    rm[,i] <- with(rd[i,], log(sGBH(Nseq,exp(Y+dY),m0,m1,G)/Nseq))
+  }
+  
+  par(mfrow=c(1,1))
+  matplot(lnNseq,rm,col=rep(c("red","blue"),each=3),lty=rep(c(2,1,2),times=2),type="l")
+  abline(h=0,lty=3)
+}
 
-G <- 0.75
-curve(log(sGBH(exp(x),exp(Y1),m0,m1,G)/exp(x)),col="red",lty=1,
-      xlim=c(4,7),xlab=expression(ln~N[t-1]),ylab=expression(r[t]))
-curve(log(sGBH(exp(x),exp(Y1-2),m0,m1,G)/exp(x)),col="red",lty=2,add=T)
-curve(log(sGBH(exp(x),exp(Y1+2),m0,m1,G)/exp(x)),col="red",lty=2,add=T)
-curve(log(sGBH(exp(x),exp(Y2),m0,m1,G)/exp(x)),col="blue",lty=1,add=T)
-curve(log(sGBH(exp(x),exp(Y2-2),m0,m1,G)/exp(x)),col="blue",lty=2,add=T)
-curve(log(sGBH(exp(x),exp(Y2+2),m0,m1,G)/exp(x)),col="blue",lty=2,add=T)
-abline(h=0,lty=3)
+RoyBH(G=0.15,lNmin=4,lNmax=8)
+RoyBH(G=0.2,lNmin=4,lNmax=8)
+RoyBH(G=0.5,lNmin=4,lNmax=8)
 
 # Royama plots ------------------------------------------------------------
 
