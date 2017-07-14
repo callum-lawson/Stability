@@ -596,8 +596,15 @@ Royama_matplot(subset(pdr2,G==Gseq[15]))
 Royama_matplot(subset(pdr2,G==Gseq[25]))
 Royama_matplot(subset(pdr2,G==Gseq[35]))
 
-Royama_matplot(subset(pdr2,G==Gseq[50]))
+pdf(paste0("Plots/Royama_highlowG_",format(Sys.Date(),"%d%b%Y"),".pdf"),
+    width=7,height=7)
+Royama_matplot(subset(pdr2,G==Gseq[50]),xlab=expression(ln~N[s]),ylab="r",las=1,bty="l")
 Royama_matplot(subset(pdr2,G==Gseq[1]),add=T)
+dev.off()
+
+pdr3 <- expand.grid(Y=exp(seq(-3,8,length.out=20)),m0=1,m1=0.018,G=c(0,1)) # parameter data
+Royama_matplot(subset(pdr3,G==1))
+Royama_matplot(subset(pdr3,G==0),add=T)
 
 Royama_matplot(subset(pdr, m0==m0seq[2] & m1==m1seq[3] & G==Gseq[25]))
 Royama_matplot(subset(pdr, m0==m0seq[3] & m1==m1seq[3] & G==Gseq[25]))
@@ -611,6 +618,135 @@ Royama_matplot(subset(pdr, m0==m0seq[3] & m1==m1seq[4] & G==Gseq[25]))
 Royama_matplot(subset(pdr, m0==m0seq[3] & m1==m1seq[5] & G==Gseq[25]))
   # higher m2 -> higher stability, lower K 
   # (just shifts intercept, effect happens because of non-linear DD?)
+
+# Squared reproduction ----------------------------------------------------
+
+Yseq2 <- Yseq*exp(2)
+pd2 <- expand.grid(Y=Yseq2,m0=m0seq,m1=m1seq,G=Gseq) # parameter data
+
+np <- nrow(pd2) # number of parameter combinations
+nb <- 100
+nt <- 1000 + nb
+ns <- 10 # n y sig
+Ysigseq2 <- exp(seq(-2,1,length.out=ns))
+N0 <- 1000
+
+Narr <- Yarr <- array(dim=c(nt,ns,np))
+m0arr <- m1arr <- Garr <- array(dim=c(ns,np))
+m0arr[] <- rep(pd2$m0,each=ns)
+m1arr[] <- rep(pd2$m1,each=ns)
+Garr[] <- rep(pd2$G,each=ns)
+
+Yarr[] <- exp(
+  rep(log(pd2$Y),each=nt*ns)
+  + rep(outer(-abs(rnorm(n=nt,mean=0,sd=1)),Ysigseq2),times=np)
+) 
+  # Yarr defines reproduction at optimum, other Y values vary around that and are
+  # always smaller
+
+Narr[1,,] <- N0
+
+for(t in 2:nt){
+  Narr[t,,] <- sGBH(Narr[t-1,,],Yarr[t,,],m0arr,m1arr,Garr)
+}
+
+lNarr <- log(Narr)
+lNmuarr <- apply(lNarr[-(1:nb),,],2:3,mean)
+lNsdarr <- apply(lNarr[-(1:nb),,],2:3,sd)
+lNmedarr <- apply(lNarr[-(1:nb),,],2:3,median)
+
+Nd <- expand.grid(Ysig=Ysigseq2,Y=Yseq2,m0=m0seq,m1=m1seq,G=Gseq)
+Nd$lNmu <- as.vector(lNmuarr)
+Nd$lNsd <- as.vector(lNsdarr)
+Nd$lNmed <- as.vector(lNmedarr)
+
+lmu_Ysig_G_plot <- function(pY,pm0,pm1,xvar="G",...){
+  require(reshape2)
+  require(fields)
+  plotvars <- c("Ysig","G")
+  Nd1 <- subset(Nd,Y==pY & m0==pm0 & m1==pm1,select=c(plotvars,"lNmu"))
+  if(xvar=="G"){
+    plotmat <- acast(melt(Nd1,id=plotvars),G~Ysig)
+    matplot(qlogis(Gseq),plotmat,type="l",lty=1,col=tim.colors(ns),
+            ylim=c(-2,max(ceiling(plotmat))),
+            ...)
+    Gopt <- sapply(split(Nd1,Nd1$Ysig),function(d){
+      qlogis(d$G[which(d$lNmu==max(d$lNmu))])
+    })
+    abline(v=Gopt,col=tim.colors(nY),lty=2)
+  }
+  if(xvar=="Ysig"){
+    plotmat <- acast(melt(Nd1,id=plotvars),Ysig~G)
+    matplot(Ysigseq2,plotmat,type="l",lty=1,col=tim.colors(nG),
+            ylim=c(-2,max(ceiling(plotmat))),
+            ...)
+  }
+}
+
+pdf(paste0("Plots/lmu_Ysig_G_squared_",format(Sys.Date(),"%d%b%Y"),".pdf"),
+    width=15,height=15)
+iseq <- 1:5
+ni <- length(iseq)
+par(mfrow=c(ni,ni),mar=c(4,4,2,2),las=1,bty="l")
+for(i in iseq){
+  for(j in iseq){
+    for(k in iseq){
+      lmu_Ysig_G_plot(pY=Yseq2[i],pm0=m0seq[j],pm1=m1seq[k],xvar="G",
+                      xlab="G",ylab="ln(N)",
+                      main=paste0("Y=",signif(Yseq2[i],2),
+                                  " m0=",signif(m0seq[j],2),
+                                  " m1=",signif(m1seq[k],2)
+                      )
+      )
+    }
+  }
+}
+dev.off()
+
+lmu_Y_G_plot <- function(pYsig,pm0,pm1,xvar="G",...){
+  require(reshape2)
+  require(fields)
+  plotvars <- c("Y","G")
+  Nd1 <- subset(Nd,Ysig==pYsig & m0==pm0 & m1==pm1,select=c(plotvars,"lNmu"))
+  if(xvar=="G"){
+    plotmat <- acast(melt(Nd1,id=plotvars),G~Y)
+    matplot(qlogis(Gseq),plotmat,type="l",lty=1,col=tim.colors(nY),
+            ylim=c(-2,max(ceiling(plotmat))),
+            ...
+    )
+    Gopt <- sapply(split(Nd1,Nd1$Y),function(d){
+      qlogis(d$G[which(d$lNmu==max(d$lNmu))])
+    })
+    abline(v=Gopt,col=tim.colors(nY),lty=2)
+  }
+  if(xvar=="Y"){
+    plotmat <- acast(melt(Nd1,id=plotvars),Y~G)
+    matplot(Yseq2,plotmat,type="l",lty=1,col=tim.colors(nG),
+            ylim=c(-2,max(ceiling(plotmat))),
+            ...
+    )
+  }
+}
+
+pdf(paste0("Plots/lmu_Y_G_squared_",format(Sys.Date(),"%d%b%Y"),".pdf"),
+    width=15,height=15)
+iseq <- 1:5
+ni <- length(iseq)
+par(mfrow=c(ni,ni),mar=c(4,4,2,2),las=1,bty="l")
+for(i in iseq*2){ # Ysig twice as long as others
+  for(j in iseq){
+    for(k in iseq){
+      lmu_Y_G_plot(pYsig=Ysigseq2[i],pm0=m0seq[j],pm1=m1seq[k],xvar="G",
+                   xlab="G",ylab="ln(N)",
+                   main=paste0("Ysig=",signif(Ysigseq2[i],2),
+                               " m0=",signif(m0seq[j],2),
+                               " m1=",signif(m1seq[k],2)
+                   )
+      )
+    }
+  }
+}
+dev.off()
 
 # Optimal plastic G - variable environment --------------------------------
 
