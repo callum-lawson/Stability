@@ -14,3 +14,4 @@ Theoretical work on density-dependence and population stability under climate ch
 *royama_butterfly_grant_figure*: Population simulations under different climate DD effects, for grant proposal.
 *autocorrelation_example*: Simple simulation of population fluctuations under autocorrelated climates.
 *predprey_functions*: Numerical simulators for predator-prey dynamics.
+*kisdi_generalism*: Investigate consumer-resource dynamics with multiple prey species using method from Geritz & Kisdi 2004 J Theor Biol.
