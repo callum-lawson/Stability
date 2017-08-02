@@ -34,6 +34,8 @@ kisdi_int <- function(t,R,C,alpha=0.85,delta=0.1){
   Eo <- -delta            # outflow rate of eggs
   return( 1/Eo * (exp( Eo * (t + log(Ei)/Eo) ) - Ei) )
   # asymptote at -Eo/Ei
+  # integral of eggs over time interval t
+  # (calculated with help from Shaopeng)
 }
 
 ### Population growth rates
