@@ -1,7 +1,5 @@
-##################################################################################
-# Investigate consumer-resource dynamics with multiple prey species using method #
-# from Geritz & Kisdi 2004 J Theor Biol                                          #
-##################################################################################
+### Investigate consumer-resource dynamics with multiple prey species using method ###
+### from Geritz & Kisdi 2004 J Theor Biol                                          ###
 
 # TODO: sort out uniroot function so that doesn't crash when no root
 
@@ -32,19 +30,43 @@ dR2 <- function(R,C){
 kisdi_int <- function(t,R,C,alpha=0.85,delta=0.1){
   Ei <- alpha * f(R,C)    # inflow rate of eggs
   Eo <- -delta            # outflow rate of eggs
-  return( 1/Eo * (exp( Eo * (t + log(Ei)/Eo) ) - Ei) )
-  # asymptote at -Eo/Ei
+  if(is.finite(t)){
+    return( 1/Eo * ( exp(Eo*(t+log(Ei)/Eo)) - Ei ) )
+  }
+  if(!is.finite(t)){
+    return( -Ei/Eo ) # asymptote
+  }
   # integral of eggs over time interval t
-  # (calculated with help from Shaopeng)
+  # in this simple case, can be calculated explicitly at any given t
+  # (i.e. no need for numerical integration)
+  # (calculated with help from Shaopeng - see )
 }
+
+### Breakdown
+
+curve(kisdi_int(t=x,R=1,C=1),xlim=c(0,100))
+curve(kisdi_int(t=10,R=x,C=1),xlim=c(0,10))
+  # absolute growth rate is 
+  # - saturating function of t
+  # - linear function of resource availability (but this is set by C)
 
 ### Population growth rates
 
 rC <- function(Cs,nt){
-  K1s <- uniroot(dR1,C=Cs,lower=10^-10,upper=10^10)$root
-  K2s <- uniroot(dR2,C=Cs,lower=10^-10,upper=10^10)$root
+  
+  try1 <- try(  root1 <- uniroot(dR1,C=Cs,lower=10^-10,upper=10^10) )
+  if(class(try1)=="try-error") K1s <- NA
+  else K1s <- root1$root
+  
+  try2 <- try(  root2 <- uniroot(dR2,C=Cs,lower=10^-10,upper=10^10) )
+  if(class(try2)=="try-error") K2s <- NA
+  else K2s <- root2$root
+
+    # resource Ks adjust instantly to current C density
   Es <- kisdi_int(t=nt,R=K1s+K2s,C=Cs)
+    # C eggs accumulate over interval
   rC <- log(Es/Cs)
+    # Change in C = new eggs - death of all adults
   return(rC)
 }
 
@@ -59,7 +81,7 @@ for(i in 1:nCs){
     f <- function(R,C,a=aseq[j]){
       a*R*C
     }
-    rCmat[i,j] <- rC(Cs=Csseq[i],nt=0.1)
+    rCmat[i,j] <- rC(Cs=Csseq[i],nt=Inf) # nt=0.1
   }
 }
   
@@ -76,16 +98,24 @@ nt <- 0.1
 Cs <- Es <- K1s <- K2s <- vector()
 for(s in 1:ns){
   Cs[s] <- ifelse(s==1,C0,Es[s-1])
-  K1s[s] <- uniroot(dR1,C=Cs[s],lower=10^-10,upper=10^10)$root
-  K2s[s] <- uniroot(dR2,C=Cs[s],lower=10^-10,upper=10^10)$root
+  
+  try1 <- try(  root1 <- uniroot(dR1,C=Cs[s],lower=10^-10,upper=10^10)$root )
+  if(class(try1)=="try-error") K1s[s] <- NA
+  else K1s[s] <- root1 
+  
+  try2 <- try(  root2 <- uniroot(dR2,C=Cs[s],lower=10^-10,upper=10^10)$root )
+  if(class(try2)=="try-error") K2s[s] <- NA
+  else K2s[s] <- root2
+  
   Es[s] <- kisdi_int(t=nt,R=K1s[s]+K2s[s],C=Cs[s])
 }
+  # still doesn't work
 
 matplot(sseq,log(cbind(K1s,K2s,Cs)),type="l",lty=1)
 
 # With consumer mortality -------------------------------------------------
 
-kisdi <- function(y,R1,R2,a,mu,delta){
+kisdi <- function(y,R1,R2,a,mu,delta){ 
   
   R1 <- y[1]
   R2 <- y[2]
