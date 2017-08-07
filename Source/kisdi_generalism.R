@@ -24,17 +24,17 @@ g <- function(R,u,v){
 #   R*r*(1 - R/K)
 # }
 
-dR <- function(R,C,p,a,u,v){
-  g(R,u,v) - f(R,C,p,a)
+dR <- function(R,C,p,a,h,u,v){
+  g(R,u,v) - f(R,C,p,a,h)
 }
 
-kisdi_int <- function(t,R1,R2,C,p,a,alpha=0.85,delta=0.1){
+kisdi_int <- function(nt,R1,R2,C,p,a,alpha=0.85,delta=0.1){
   Ei <- alpha * ( f(R1,C,p,a) +  f(R2,C,(1-p),a) )  # inflow rate of eggs
   Eo <- -delta                # outflow rate of eggs
-  if(is.finite(t)){
-    return( 1/Eo * ( exp(Eo*(t+log(Ei)/Eo)) - Ei ) )
+  if(is.finite(nt)){
+    return( 1/Eo * ( exp(Eo*(nt+log(Ei)/Eo)) - Ei ) )
   }
-  if(!is.finite(t)){
+  if(!is.finite(nt)){
     return( -Ei/Eo )
   }
   # integral of eggs over time interval t
@@ -44,20 +44,16 @@ kisdi_int <- function(t,R1,R2,C,p,a,alpha=0.85,delta=0.1){
   # *only works for h=0*
 }
 
-# t <- 10
-# R <- 
-# 
-# kisdi_ode <- function(t,R,C,alpha=0.85,delta=0.1){
-#   kidsi_cont <- function(t,y,parms=NULL){
-#     R <- y[1]
-#     C <- y[2]
-#     Ei <- alpha * f(R,C)    # inflow rate of eggs
-#     Eo <- -delta            # outflow rate of eggs
-#     dC <- Ei + Eo
-#     list(dC)
-#   }
-#   ode(y=c(E0=0),times=t,func=kidsi_cont,parms=NULL)
-# }
+kisdi_ode <- function(nt,R1,R2,C,p,a,h,alpha=0.85,delta=0.1){
+  kidsi_cont <- function(t,y,parms=NULL){
+    E <- y[1]
+    dE <- alpha * ( f(R1,C,p,a,h) +  f(R2,C,(1-p),a,h) ) - delta * E  
+    list(dE)
+  }
+  Et <- ode(y=c(E0=0),times=c(0,nt),func=kidsi_cont,parms=NULL)
+  return(Et[2,2])
+    # [2,2] because have to include t=0 in integration
+}
 
 ### Breakdown
 
@@ -69,22 +65,23 @@ kisdi_int <- function(t,R1,R2,C,p,a,alpha=0.85,delta=0.1){
 
 ### Population growth rates
 
-rC <- function(Cs,nt,p=0.5,a=1,u1=1,u2=0.5,v1=5,v2=0.5){
+rC <- function(Cs,nt,p=0.5,a=1,h=0,u1=1,u2=0.5,v1=5,v2=0.5){
   
   try1 <- try(
-    root1 <- uniroot(dR,C=Cs,p=p,a=a,u=u1,v=v1,lower=10^-10,upper=10^10) 
+    root1 <- uniroot(dR,C=Cs,p=p,a=a,h=h,u=u1,v=v1,lower=10^-10,upper=10^10) 
     )
   if(class(try1)=="try-error") K1s <- NA
   else K1s <- root1$root
   
   try2 <- try(
-    root2 <- uniroot(dR,C=Cs,p=(1-p),a=a,u=u2,v=v2,lower=10^-10,upper=10^10)
+    root2 <- uniroot(dR,C=Cs,p=(1-p),a=a,h=h,u=u2,v=v2,lower=10^-10,upper=10^10)
     )
   if(class(try2)=="try-error") K2s <- NA
   else K2s <- root2$root
 
     # resource Ks adjust instantly to current C density
-  Es <- kisdi_int(t=nt,R1=K1s,R2=K2s,C=Cs,p=p,a=a)
+  if(h==0) Es <- kisdi_int(nt=nt,R1=K1s,R2=K2s,C=Cs,p=p,a=a)
+  if(h>0) Es <- kisdi_ode(nt=nt,R1=K1s,R2=K2s,C=Cs,p=p,a=a,h=h)
     # C eggs accumulate over interval
   rC <- log(Es/Cs)
     # Change in C = new eggs - death of all adults
@@ -149,6 +146,34 @@ matplot(lCsseq, rCmat[,,2] - rCmat[,,1], col="black", type="l")
   # difference increasing -> generalist more stable
 matplot(lCsseq, rCmat[,,2] - rCmat[,,3], col="black", type="l")
   # difference decreasing -> generalist less stable
+
+# Handling time analyses --------------------------------------------------
+
+lCsseq <- seq(0,3,length.out=nCs)
+Csseq <- exp(lCsseq)
+
+rCmat <- array(dim=c(nCs,na,np))
+for(i in 1:nCs){
+  for(j in 1:na){
+    for(k in 1:np){
+      rCmat[i,j,k] <- rC(Cs=Csseq[i],nt=100,p=pseq[k],a=aseq[j],h=1,
+                         u1=1,u2=0.5,v1=5,v2=0.5
+                         )
+    }
+  }
+}
+
+require(fields)
+matplot(lCsseq,rCmat[,,1],type="l",col="red",lty=1)
+matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=2,add=T)
+matplot(lCsseq,rCmat[,,2],type="l",col="purple",lty=4,add=T)
+abline(h=0,lty=3)
+
+matplot(lCsseq, rCmat[,,2] - rCmat[,,1], col="black", type="l")
+# difference increasing -> generalist more stable
+matplot(lCsseq, rCmat[,,2] - rCmat[,,3], col="black", type="l")
+# difference decreasing -> generalist less stable
+
 
 ### Temporal dynamics
 
