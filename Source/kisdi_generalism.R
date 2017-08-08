@@ -149,6 +149,8 @@ matplot(lCsseq, rCmat[,,2] - rCmat[,,3], col="black", type="l")
 
 # Handling time analyses --------------------------------------------------
 
+### Attack rates
+
 lCsseq <- seq(0,3,length.out=nCs)
 Csseq <- exp(lCsseq)
 
@@ -169,11 +171,41 @@ matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=2,add=T)
 matplot(lCsseq,rCmat[,,2],type="l",col="purple",lty=4,add=T)
 abline(h=0,lty=3)
 
+plot(lCsseq,rCmat[,5,1] - rCmat[,1,1]) # density-*dependent*
+
 matplot(lCsseq, rCmat[,,2] - rCmat[,,1], col="black", type="l")
 # difference increasing -> generalist more stable
 matplot(lCsseq, rCmat[,,2] - rCmat[,,3], col="black", type="l")
 # difference decreasing -> generalist less stable
 
+### Resource growth
+
+lCsseq <- seq(1.5,5,length.out=nCs)
+Csseq <- exp(lCsseq)
+
+rCmat <- array(dim=c(nCs,na,np))
+for(i in 1:nCs){
+  for(j in 1:na){
+    for(k in 1:np){
+      rCmat[i,j,k] <- rC(Cs=Csseq[i],nt=100,p=pseq[k],a=1,h=2,
+                         u1=1+aseq[j],u2=0.5+aseq[j],v1=5,v2=0.5
+      )
+    }
+  }
+}
+
+require(fields)
+matplot(lCsseq,rCmat[,,1],type="l",col="red",lty=1)
+matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=2,add=T)
+matplot(lCsseq,rCmat[,,2],type="l",col="purple",lty=4,add=T)
+abline(h=0,lty=3)
+
+matplot(lCsseq,rCmat[,5,] - rCmat[,1,], type="l") # slightly density-*dependent*
+
+matplot(lCsseq, rCmat[,,2] - rCmat[,,1], col="black", type="l")
+# difference increasing -> generalist more stable
+matplot(lCsseq, rCmat[,,2] - rCmat[,,3], col="black", type="l")
+# difference decreasing -> generalist less stable
 
 ### Temporal dynamics
 
