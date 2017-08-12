@@ -65,19 +65,25 @@ kisdi_ode <- function(nt,R1,R2,C,p,a,h,alpha=0.85,delta=0.1){
 
 ### Population growth rates
 
-rC <- function(Cs,nt,p=0.5,a=1,h=0,u1=1,u2=0.5,v1=5,v2=0.5){
+rC <- function(Cs,nt,p=0.5,q=0.5,a=1,h=0,u1=1,u2=0.5,v1=5,v2=0.5){
   
+  if(q>0){
   try1 <- try(
-    root1 <- uniroot(dR,C=Cs,p=p,a=a,h=h,u=u1,v=v1,lower=10^-10,upper=10^10) 
+    root1 <- uniroot(dR,C=Cs,p=p,a=a,h=h,u=q*u1,v=v1,lower=10^-10,upper=10^10) 
     )
   if(class(try1)=="try-error") K1s <- NA
   else K1s <- root1$root
+  }
+  else K1s <- 0
   
-  try2 <- try(
-    root2 <- uniroot(dR,C=Cs,p=(1-p),a=a,h=h,u=u2,v=v2,lower=10^-10,upper=10^10)
-    )
-  if(class(try2)=="try-error") K2s <- NA
-  else K2s <- root2$root
+  if(q<1){
+    try2 <- try(
+      root2 <- uniroot(dR,C=Cs,p=(1-p),a=a,h=h,u=(1-q)*u2,v=v2,lower=10^-10,upper=10^10)
+      )
+    if(class(try2)=="try-error") K2s <- NA
+    else K2s <- root2$root
+  }
+  else K2s <- 0
 
     # resource Ks adjust instantly to current C density
   if(h==0) Es <- kisdi_int(nt=nt,R1=K1s,R2=K2s,C=Cs,p=p,a=a)
@@ -100,11 +106,13 @@ aseq <- exp(seq(-1,1,length.out=na))
 lCsseq <- seq(0,2,length.out=nCs)
 Csseq <- exp(lCsseq)
 
+qseq <- pseq!=0.5
 rCmat <- array(dim=c(nCs,na,np))
 for(i in 1:nCs){
   for(j in 1:na){
     for(k in 1:np){
-      rCmat[i,j,k] <- rC(Cs=Csseq[i],nt=Inf,p=pseq[k],a=aseq[j]) # nt=0.1
+      rCmat[i,j,k] <- rC(Cs=Csseq[i],nt=Inf,p=pseq[k],a=aseq[j],
+                         u1=1,u2=0.5,q=pseq[k]) # nt=0.1
     }
   }
 }
@@ -115,21 +123,24 @@ matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=2,add=T)
 matplot(lCsseq,rCmat[,,2],type="l",col="purple",lty=4,add=T)
 abline(h=0,lty=3)
 
+rCmat[,5,] - rCmat[,1,]
+
 matplot(lCsseq, rCmat[,,2] - rCmat[,,1], col="black", type="l")
   # difference increasing -> generalist more stable
 matplot(lCsseq, rCmat[,,2] - rCmat[,,3], col="black", type="l")
   # difference decreasing -> generalist less stable
 
-### Resource fluctuations - DI
+### Synchronised resource fluctuations (DI)
 
-lCsseq <- seq(1.5,4,length.out=nCs)
+lCsseq <- seq(1.5,3.5,length.out=nCs)
 Csseq <- exp(lCsseq)
 
 rCmat <- array(dim=c(nCs,na,np))
 for(i in 1:nCs){
   for(j in 1:na){
     for(k in 1:np){
-      rCmat[i,j,k] <- rC(Cs=Csseq[i],pseq[k],nt=Inf,u1=1+aseq[j],u2=0.5+aseq[j])
+      rCmat[i,j,k] <- rC(Cs=Csseq[i],pseq[k],nt=Inf,
+                         u1=1+aseq[j],u2=0.5+aseq[j],q=pseq[k])
     }
   }
 }
@@ -140,12 +151,42 @@ matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=2,add=T)
 matplot(lCsseq,rCmat[,,2] ,type="l",col="purple",lty=4,add=T)
 abline(h=0,lty=3)
 
-rCmat[,5,1] - rCmat[,1,1] # density-independent 
+rCmat[,5,] - rCmat[,1,] # density-independent 
 
 matplot(lCsseq, rCmat[,,2] - rCmat[,,1], col="black", type="l")
   # difference increasing -> generalist more stable
 matplot(lCsseq, rCmat[,,2] - rCmat[,,3], col="black", type="l")
   # difference decreasing -> generalist less stable
+
+### Opposite resource fluctuations
+
+lCsseq <- seq(1.5,3.5,length.out=nCs)
+Csseq <- exp(lCsseq)
+
+rCmat <- array(dim=c(nCs,na,np))
+for(i in 1:nCs){
+  for(j in 1:na){
+    for(k in 1:np){
+      rCmat[i,j,k] <- rC(Cs=Csseq[i],pseq[k],nt=Inf,
+                         u1=1+aseq[j],u2=0.5+rev(aseq)[j],q=pseq[k])
+    }
+  }
+}
+
+require(fields)
+matplot(lCsseq,rCmat[,,1],type="l",col="red",lty=1)
+matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=2,add=T)
+matplot(lCsseq,rCmat[,,2] ,type="l",col="purple",lty=4,add=T)
+abline(h=0,lty=3)
+
+matplot(lCsseq,rCmat[,,2] ,type="l",col="purple",lty=4)
+
+rCmat[,5,] - rCmat[,1,] # density-independent 
+
+matplot(lCsseq, rCmat[,,2] - rCmat[,,1], col="black", type="l")
+# difference increasing -> generalist more stable
+matplot(lCsseq, rCmat[,,2] - rCmat[,,3], col="black", type="l")
+# difference decreasing (slightly) -> generalist less stable
 
 # Handling time analyses --------------------------------------------------
 
@@ -159,7 +200,7 @@ for(i in 1:nCs){
   for(j in 1:na){
     for(k in 1:np){
       rCmat[i,j,k] <- rC(Cs=Csseq[i],nt=100,p=pseq[k],a=aseq[j],h=1,
-                         u1=1,u2=0.5,v1=5,v2=0.5
+                         u1=1,u2=0.5,v1=5,v2=0.5,q=pseq[k]
                          )
     }
   }
@@ -171,7 +212,8 @@ matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=2,add=T)
 matplot(lCsseq,rCmat[,,2],type="l",col="purple",lty=4,add=T)
 abline(h=0,lty=3)
 
-plot(lCsseq,rCmat[,5,1] - rCmat[,1,1]) # density-*dependent*
+matplot(lCsseq,rCmat[,5,] - rCmat[,1,], type="l",col=c("red","purple","blue")) 
+ # density-*dependent*
 
 matplot(lCsseq, rCmat[,,2] - rCmat[,,1], col="black", type="l")
 # difference increasing -> generalist more stable
@@ -180,7 +222,7 @@ matplot(lCsseq, rCmat[,,2] - rCmat[,,3], col="black", type="l")
 
 ### Resource growth
 
-lCsseq <- seq(1.5,5,length.out=nCs)
+lCsseq <- seq(1.5,3.5,length.out=nCs)
 Csseq <- exp(lCsseq)
 
 rCmat <- array(dim=c(nCs,na,np))
@@ -188,7 +230,7 @@ for(i in 1:nCs){
   for(j in 1:na){
     for(k in 1:np){
       rCmat[i,j,k] <- rC(Cs=Csseq[i],nt=100,p=pseq[k],a=1,h=2,
-                         u1=1+aseq[j],u2=0.5+aseq[j],v1=5,v2=0.5
+                         u1=1+aseq[j],u2=0.5+aseq[j],v1=5,v2=0.5,q=pseq[k]
       )
     }
   }
