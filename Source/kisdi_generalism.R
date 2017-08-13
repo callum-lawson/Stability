@@ -119,11 +119,11 @@ for(i in 1:nCs){
   
 require(fields)
 matplot(lCsseq,rCmat[,,1],type="l",col="red",lty=1)
-matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=2,add=T)
-matplot(lCsseq,rCmat[,,2],type="l",col="purple",lty=4,add=T)
+matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=3,add=T)
+matplot(lCsseq,rCmat[,,2],type="l",col="purple",lty=2,add=T)
 abline(h=0,lty=3)
 
-rCmat[,5,] - rCmat[,1,]
+matplot(lCsseq,rCmat[,5,] - rCmat[,1,], type="l",col=c("red","purple","blue")) 
 
 matplot(lCsseq, rCmat[,,2] - rCmat[,,1], col="black", type="l")
   # difference increasing -> generalist more stable
@@ -147,11 +147,11 @@ for(i in 1:nCs){
 
 require(fields)
 matplot(lCsseq,rCmat[,,1],type="l",col="red",lty=1)
-matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=2,add=T)
-matplot(lCsseq,rCmat[,,2] ,type="l",col="purple",lty=4,add=T)
+matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=3,add=T)
+matplot(lCsseq,rCmat[,,2] ,type="l",col="purple",lty=2,add=T)
 abline(h=0,lty=3)
 
-rCmat[,5,] - rCmat[,1,] # density-independent 
+matplot(lCsseq,rCmat[,5,] - rCmat[,1,], type="l",col=c("red","purple","blue"))  # density-independent 
 
 matplot(lCsseq, rCmat[,,2] - rCmat[,,1], col="black", type="l")
   # difference increasing -> generalist more stable
@@ -175,13 +175,13 @@ for(i in 1:nCs){
 
 require(fields)
 matplot(lCsseq,rCmat[,,1],type="l",col="red",lty=1)
-matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=2,add=T)
-matplot(lCsseq,rCmat[,,2] ,type="l",col="purple",lty=4,add=T)
+matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=3,add=T)
+matplot(lCsseq,rCmat[,,2] ,type="l",col="purple",lty=2,add=T)
 abline(h=0,lty=3)
 
 matplot(lCsseq,rCmat[,,2] ,type="l",col="purple",lty=4)
 
-rCmat[,5,] - rCmat[,1,] # density-independent 
+matplot(lCsseq,rCmat[,5,] - rCmat[,1,], type="l",col=c("red","purple","blue"))  # density-independent 
 
 matplot(lCsseq, rCmat[,,2] - rCmat[,,1], col="black", type="l")
 # difference increasing -> generalist more stable
@@ -208,11 +208,11 @@ for(i in 1:nCs){
 
 require(fields)
 matplot(lCsseq,rCmat[,,1],type="l",col="red",lty=1)
-matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=2,add=T)
-matplot(lCsseq,rCmat[,,2],type="l",col="purple",lty=4,add=T)
+matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=3,add=T)
+matplot(lCsseq,rCmat[,,2],type="l",col="purple",lty=2,add=T)
 abline(h=0,lty=3)
 
-matplot(lCsseq,rCmat[,5,] - rCmat[,1,], type="l",col=c("red","purple","blue")) 
+matplot(lCsseq,matplot(lCsseq,rCmat[,5,] - rCmat[,1,], type="l",col=c("red","purple","blue")) , type="l",col=c("red","purple","blue")) 
  # density-*dependent*
 
 matplot(lCsseq, rCmat[,,2] - rCmat[,,1], col="black", type="l")
@@ -238,11 +238,11 @@ for(i in 1:nCs){
 
 require(fields)
 matplot(lCsseq,rCmat[,,1],type="l",col="red",lty=1)
-matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=2,add=T)
-matplot(lCsseq,rCmat[,,2],type="l",col="purple",lty=4,add=T)
+matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=3,add=T)
+matplot(lCsseq,rCmat[,,2],type="l",col="purple",lty=2,add=T)
 abline(h=0,lty=3)
 
-matplot(lCsseq,rCmat[,5,] - rCmat[,1,], type="l") # slightly density-*dependent*
+matplot(lCsseq,matplot(lCsseq,rCmat[,5,] - rCmat[,1,], type="l",col=c("red","purple","blue")) , type="l") # slightly density-*dependent*
 
 matplot(lCsseq, rCmat[,,2] - rCmat[,,1], col="black", type="l")
 # difference increasing -> generalist more stable
