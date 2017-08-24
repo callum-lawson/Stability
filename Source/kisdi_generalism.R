@@ -242,8 +242,10 @@ matplot(lCsseq,rCmat[,,3],type="l",col="blue",lty=3,add=T)
 matplot(lCsseq,rCmat[,,2],type="l",col="purple",lty=2,add=T)
 abline(h=0,lty=3)
 
-matplot(lCsseq,matplot(lCsseq,rCmat[,5,] - rCmat[,1,], type="l",col=c("red","purple","blue")) , type="l") # slightly density-*dependent*
+matplot(lCsseq,matplot(lCsseq,rCmat[,5,] - rCmat[,1,],type="l",col=c("red","purple","blue"))) # slightly density-*dependent*
 
+matplot(lCsseq, rCmat[,,3] - rCmat[,,1], col="black", type="l")
+  # not *quite* density-independent
 matplot(lCsseq, rCmat[,,2] - rCmat[,,1], col="black", type="l")
 # difference increasing -> generalist more stable
 matplot(lCsseq, rCmat[,,2] - rCmat[,,3], col="black", type="l")
