@@ -1,7 +1,5 @@
-####################################################################
-# Explore how random variation in Beverton-Holt mortality function #
-# affects the distribution of population sizes                     #
-####################################################################
+### Explore how random variation in Beverton-Holt mortality function ###
+### affects the distribution of population sizes                     ###
 
 # Functions ---------------------------------------------------------------
 

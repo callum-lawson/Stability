@@ -63,6 +63,19 @@ matplot(tseq,log(ode1[,-1]),type="l")
 abline(v=seq(0,tmax,length.out=nP+1),col="blue",lty=3)  
   # +1 accounts for t=0
 
+acn <- ode1[,3]
+acd <- data.frame(a=acn[1:(nt-5)],
+                  b=acn[2:(nt-4)],
+                  c=acn[3:(nt-3)],
+                  d=acn[4:(nt-2)],
+                  e=acn[5:(nt-1)],
+                  f=acn[6:(nt-0)]
+                  )
+acm <- glm(a~offset(b)+b+c+d+e+f,data=acd)
+summary(acm)
+  # fourth-order model
+acf(acn)
+
 ### Euler's approximation at small timsteps
 
 nf <- 10^3
