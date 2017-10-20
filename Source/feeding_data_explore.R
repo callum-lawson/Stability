@@ -2,11 +2,11 @@
 
 require(plyr)
 require(lme4)
+source("Source/predprey_functions_general.R")
 
 # frf <- read.csv("Data/DatabaseXX2_corr.csv",header=T)
 frf <- read.csv("Data/DatabaseXX2_Apr2016_rechecked.csv",header=T)
 
-k <- 8.6173303 * 10^-5
 T0 <- 293.15
 frf$temperature.kelvin <- frf$temperature.degree.celcius + T0
 fr <- subset(frf,select=c("publication.short",
@@ -32,7 +32,7 @@ fr <- rename(fr,replace=c(
              "temperature.kelvin"="Tk"
              ))
 
-fr$Tr <- with(fr, (Tk-T0)/(k*Tk*T0))
+fr$Tr <- with(fr, arrtemp(Tk))
 ma <- lmer(log(a) ~  log(cmass) + log(rmass) + Tr + (1|pub), data=fr)
 mh <- lmer(log(h) ~  log(cmass) + log(rmass) + Tr + (1|pub), data=fr)
 
@@ -63,7 +63,7 @@ quickplot <- function(x,y){
   lines(supsmu(x,y),col="red")
 }
 
-par(mfrow=c(1,4))
+par(mfrow=c(2,3))
 with(fr, quickplot(Tk,ares_T))
 with(fr, quickplot(log(cmass),ares_c))
 with(fr, quickplot(log(rmass),ares_r))
@@ -76,4 +76,16 @@ with(fr, quickplot(log(cmass/rmass),ares_r))
 with(fr, quickplot(log(cmass/rmass),hres_r))
   # the bigger the consumer relative to its prey,
   # the more slowly it attacks it but the faster it consumes it?
+
+# Predictions for simulations ---------------------------------------------
+
+E0a <- as.numeric(
+  exp(predict(ma,data.frame(cmass=10^-4,rmass=10^-6,Tr=arrtemp(T0)),re.form=~0))
+  )
+E0h <- as.numeric(
+  exp(predict(mh,data.frame(cmass=10^-4,rmass=10^-6,Tr=arrtemp(T0)),re.form=~0))
+  )
+  # 100 mg consumer, 1 mg prey
+E1a <- as.numeric(fixef(ma)[names(fixef(ma))=="Tr"])
+E1h <- as.numeric(fixef(mh)[names(fixef(mh))=="Tr"])
 
