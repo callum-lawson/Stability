@@ -1,8 +1,8 @@
 ### Numerical simulators for predator-prey dynamics ###
 
 # TODO:
-# - implement my combined consumer-resource dynamics model
 # - generalise for all temperature and population model types
+# - time lags
 # - two resource species
 # - discrete births/deaths
 # - Gaussian-process temperatures
@@ -39,10 +39,63 @@ dCR <- function(y,u,r,K,a,h,x,alpha){
   list(c(dR=dR,dC=dC))
 }
 
+dCR_replenish <- function(y,u,r,K,a,h,x,alpha){
+  R <- y[1]
+  C <- y[2]
+  E <- y[3]
+  dR <- g(R,u,r,K) - f(R,C,a,h)
+  dC <- 0
+  dE <- alpha * f(R,C,a,h) - d(E,x)
+  list(c(dR=dR,dC=dC))
+}
+
+dCR_remove <- function(y,u,r,K,a,h,x,alpha){
+  R <- y[1]
+  C <- y[2]
+  E <- y[3]
+  dR <- - f(R,C,a,h)
+  dC <- 0
+  dE <- alpha * f(R,C,a,h)
+  list(c(dR=dR,dC=dC))
+}
+
+dCR_delay <- function(y,u,r,K,a,h,x,alpha){
+  R <- y[1]
+  C <- y[2]
+  E <- y[3]
+  dR <- - f(R,C,a,h)
+  dC <- 0
+  dE <- alpha * f(R,C,a,h)
+  list(c(dR=dR,dC=dC))
+}
+
 dCRt_cyclic <- function(t,y,parms){
   Tt <- with(parms, Tt_cyclic(t,Tmu,Tsd,Tperiod) )
   parmst <- with(parms, as.list( arrrate(Tt,E0,E1) ) )
   with(parmst, dCR(y,u,r,K,a,h,x,alpha=0.85) )
+}
+
+dCRt_lag <- function(t,y,parms,alpha=0.85,tau=60*60*24*7){
+  
+  Tt <- with(parms, Tt_cyclic(t,Tmu,Tsd,Tperiod) )
+  parmst <- with(parms, as.list( arrrate(Tt,E0,E1) ) )
+  
+  R <- y[1]
+  C <- y[2]
+  
+  if(t>tau){
+    Tt_lag <- with(parms, Tt_cyclic(t-tau,Tmu,Tsd,Tperiod) )
+    parmst_lag <- with(parms, as.list( arrrate(Tt_lag,E0,E1) ) )
+    CR_lag <- lagvalue(t - tau)
+    f_lag <- with(parmst_lag, f(CR_lag[1],CR_lag[2],a,h))
+  } 
+  
+  with(parmst, {
+    dR <- g(R,u,r,K) - f(R,C,a,h)
+    dC <- alpha * ifelse(t>tau, f_lag, 0) - d(C,x)
+    return(  list(c(dR=dR,dC=dC)) )
+  })
+
 }
 
 # R = prey biomass (g/m^2)

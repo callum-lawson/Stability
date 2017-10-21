@@ -28,27 +28,30 @@ E1 <- c(
 # r units are per SECOND; pop more than triples every 24h
 
 nt <- 10^3 # number of timesteps to calculate densities for
-nyears <- 100
+nyears <- 1
 tmax <- nyears * 365 * 24 * 60^2  # maximum length of time in seconds
 tseq <- seq(0,tmax,length.out=nt)
 
 Tmu <- 0
-Tsd <- 10
+Tsd <- 0
 nTwaves <- 2
 Tperiod <- 1/nTwaves * tmax
 parms <- list(Tmu=Tmu,Tsd=Tsd,Tperiod=Tperiod,E0=E0,E1=E1)
 
 R0 <- 1
-C0 <- 10^-3 # 0 -> resource-only model
+C0 <- 10^-2 # 0 -> resource-only model
 y <- c(R0,C0)
 
 # Simulate and plot results -----------------------------------------------
 
 par(mfrow=c(1,1))
 wow <- ode(y=c(R0,C0),times=tseq,func=dCRt_cyclic,parms=parms)
-matplot(tseq,log(wow[,-1]),type="l")
+matplot(tseq,log(wow[,-1]),type="l",lty=1)
 abline(v=seq(0,tmax,length.out=nTwaves+1),col="blue",lty=3)  
 # +1 accounts for t=0
+
+wow2 <- dede(y=c(R0,C0),times=tseq,func=dCRt_lag,parms=parms)
+matplot(tseq,log(wow2[,-1]),type="l",add=T,lty=2)
 
 # Simulations with discrete temperatures ----------------------------------
 
