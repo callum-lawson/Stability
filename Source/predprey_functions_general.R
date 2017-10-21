@@ -42,7 +42,7 @@ dCR <- function(y,u,r,K,a,h,x,alpha){
 dCRt_cyclic <- function(t,y,parms=NULL){
   Tt <- with(parms, ifelse(Tsd > 0, Tt_cyclic(t,Tmu,Tsd,Tperiod), Tmu + 293.15) )
   parmst <- with(parms, as.list( arrrate(Tt,E0,E1) ) )
-  with(parmst, dCR(y,u,r,K,a,h,x,alpha=0.85))
+  with(parmst, dCR(y,u,r,K,a,h,x,alpha=0.85) )
 }
 
 # R = prey biomass (g/m^2)

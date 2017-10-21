@@ -10,6 +10,8 @@ frf <- read.csv("Data/DatabaseXX2_Apr2016_rechecked.csv",header=T)
 T0 <- 293.15
 frf$temperature.kelvin <- frf$temperature.degree.celcius + T0
 fr <- subset(frf,select=c("publication.short",
+                         "ecosystem.type",
+                         "predator.met.group",
                          "predator.mass.g",
                          "prey.mass.g",
                          "attack.rate",
@@ -22,6 +24,8 @@ fr <- subset(frf,select=c("publication.short",
 
 fr <- rename(fr,replace=c(
              "publication.short" = "pub",
+             "ecosystem.type" = "system",
+             "predator.met.group" = "metgroup",
              "predator.mass.g"="cmass",
              "prey.mass.g"="rmass",
              "attack.rate"="a",
@@ -32,13 +36,15 @@ fr <- rename(fr,replace=c(
              "temperature.kelvin"="Tk"
              ))
 
+fr$group <- with(fr, droplevels(system:metgroup))
 fr$Tr <- with(fr, arrtemp(Tk))
-ma <- lmer(log(a) ~  log(cmass) + log(rmass) + Tr + (1|pub), data=fr)
-mh <- lmer(log(h) ~  log(cmass) + log(rmass) + Tr + (1|pub), data=fr)
+ma <- lmer(log(a) ~  log(cmass) + log(rmass) + Tr + (1|pub) + (1+Tr|group), data=fr)
+mh <- lmer(log(h) ~  log(cmass) + log(rmass) + Tr + (1|pub) + (1+Tr|group), data=fr)
 
 coef_a <- as.matrix(coef(ma)[[1]][as.numeric(fr$pub),])
 coef_h <- as.matrix(coef(mh)[[1]][as.numeric(fr$pub),])
-
+  # modify to account for random group effects
+  
 modmat_a <- model.matrix(ma)
 modmat_h <- model.matrix(mh)
 

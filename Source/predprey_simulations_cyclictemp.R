@@ -12,8 +12,8 @@ E0 <- c(
   u = 0,
   r = 8.715*10^-7,
   K = 5.623,
-  a = E0a,
-  h = E0h,
+  a = 3.181989e-09, # estimated from data
+  h = 1685.586,     # estimated from data
   x = 2.689*10^-6
 )
 
@@ -21,8 +21,8 @@ E1 <- c(
   u = 0,
   r = 0.84,
   K = -0.772,
-  a = E1a,
-  h = E1h,
+  a = 0.5091663,   # estimated from data
+  h = -0.4660012, # estimated from data
   x = 0.639
 )
 # r units are per SECOND; pop more than triples every 24h
@@ -38,14 +38,14 @@ Tperiod <- 1/nTwaves * tmax
 parms <- list(Tmu=Tmu,Tsd=Tsd,Tperiod=Tperiod,E0=E0,E1=E1)
 
 R0 <- 1
-C0 <- 1
+C0 <- 1 # 0 -> resource-only model
 
 # Simulate and plot results -----------------------------------------------
 
 par(mfrow=c(1,1))
 wow <- ode(y=c(R0,C0),times=tseq,func=dCRt_cyclic,parms=parms)
 matplot(tseq,log(wow[,-1]),type="l")
-abline(v=seq(0,tmax,length.out=nP+1),col="blue",lty=3)  
+abline(v=seq(0,tmax,length.out=nTwaves+1),col="blue",lty=3)  
 # +1 accounts for t=0
 
 # Simulations with discrete temperatures ----------------------------------
