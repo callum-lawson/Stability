@@ -7,7 +7,7 @@
 # - discrete births/deaths
 # - Gaussian-process temperatures
 
-arrtemp <- function(Tt,T0=293.15,k=8.6173303*10^-5){
+arrtemp <- function(Tt,T0=293.15,k=8.6173303*10^-5){ # intercept = 20C!
   (Tt-T0) / (k*Tt*T0)
 } 
 
@@ -15,8 +15,8 @@ arrrate <- function(Tt,E0,E1){
   E0 * exp(E1 * arrtemp(Tt))
 }
 
-Tt_cyclic <- function(t,Tmu,Tsd,Tperiod){
-  Tt <- Tmu + 293.15 + Tsd * sin(2*pi*t / Tperiod)
+Tt_cyclic <- function(t,Tmu,Tsd,Tperiod,T0=273.15){
+  ifelse( Tsd==0, T0 + Tmu, T0 + Tmu + Tsd * sin(2*pi*t / Tperiod) )
 }
 
 g <- function(R,u,r,K){
@@ -39,8 +39,8 @@ dCR <- function(y,u,r,K,a,h,x,alpha){
   list(c(dR=dR,dC=dC))
 }
 
-dCRt_cyclic <- function(t,y,parms=NULL){
-  Tt <- with(parms, ifelse(Tsd > 0, Tt_cyclic(t,Tmu,Tsd,Tperiod), Tmu + 293.15) )
+dCRt_cyclic <- function(t,y,parms){
+  Tt <- with(parms, Tt_cyclic(t,Tmu,Tsd,Tperiod) )
   parmst <- with(parms, as.list( arrrate(Tt,E0,E1) ) )
   with(parmst, dCR(y,u,r,K,a,h,x,alpha=0.85) )
 }
@@ -54,4 +54,3 @@ dCRt_cyclic <- function(t,y,parms=NULL){
 # h = handling time
 # eps = number of predators produced for each prey eaten
 # x = consumption rate required for predator to sustain itself
-# tau = step length

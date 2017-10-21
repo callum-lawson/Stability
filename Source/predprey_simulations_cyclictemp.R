@@ -12,8 +12,8 @@ E0 <- c(
   u = 0,
   r = 8.715*10^-7,
   K = 5.623,
-  a = 3.181989e-09, # estimated from data
-  h = 1685.586,     # estimated from data
+  a = 6*10^-7, # 3.181989*10^-9, # estimated from data
+  h = 0.61, # 1685.586,     # estimated from data
   x = 2.689*10^-6
 )
 
@@ -21,24 +21,26 @@ E1 <- c(
   u = 0,
   r = 0.84,
   K = -0.772,
-  a = 0.5091663,   # estimated from data
-  h = -0.4660012, # estimated from data
+  a = -0.03, # 0.5091663,   # estimated from data
+  h = -0.19, # -0.4660012, # estimated from data
   x = 0.639
 )
 # r units are per SECOND; pop more than triples every 24h
 
 nt <- 10^3 # number of timesteps to calculate densities for
-tmax <- 10^4 * 60^2  # maximum length of time in seconds
+nyears <- 100
+tmax <- nyears * 365 * 24 * 60^2  # maximum length of time in seconds
 tseq <- seq(0,tmax,length.out=nt)
 
-Tmu <- 25
-Tsd <- 1
+Tmu <- 0
+Tsd <- 10
 nTwaves <- 2
 Tperiod <- 1/nTwaves * tmax
 parms <- list(Tmu=Tmu,Tsd=Tsd,Tperiod=Tperiod,E0=E0,E1=E1)
 
 R0 <- 1
-C0 <- 1 # 0 -> resource-only model
+C0 <- 10^-3 # 0 -> resource-only model
+y <- c(R0,C0)
 
 # Simulate and plot results -----------------------------------------------
 
