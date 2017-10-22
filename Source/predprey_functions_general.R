@@ -27,11 +27,21 @@ f <- function(R,C,a,h){
   R * C * a / (1 + a*h*R)
 }
 
+g0 <- function(R,u,r,K,phi){
+  (u + r*R) * (phi*1 - R/K)
+}
+  # phi=0 -> resource dynamcis without births
+
+f0 <- function(R,C,E,a,h,psi){
+  R * C * a / (1 + a*h*(R+psi*E))
+}
+  # psi=1 -> consumer "wastes" time on already-parasitised prey {Rhat-R} 
+
 d <- function(C,x){
   C * x
 }
 
-dCR <- function(y,u,r,K,a,h,x,alpha){
+dCR_cont <- function(y,u,r,K,a,h,x,alpha){
   R <- y[1]
   C <- y[2]
   dR <- g(R,u,r,K) - f(R,C,a,h)
@@ -39,49 +49,32 @@ dCR <- function(y,u,r,K,a,h,x,alpha){
   list(c(dR=dR,dC=dC))
 }
 
-dCR_replenish <- function(y,u,r,K,a,h,x,alpha){
+dCR_disc <- function(y,u,r,K,a,h,x,alpha,Rtype){
+  if(Rtype=="replenished") phi <- 1; psi <- 0
+  if(Rtype=="removed")     phi <- 0; psi <- 1
+  if(Rtype=="persist")     phi <- 0; psi <- 0
   R <- y[1]
   C <- y[2]
   E <- y[3]
-  dR <- g(R,u,r,K) - f(R,C,a,h)
-  dC <- 0
-  dE <- alpha * f(R,C,a,h) - d(E,x)
-  list(c(dR=dR,dC=dC))
+  dR <- g0(R,u,r,K,phi) - f0(R,C,E,a,h,psi)
+  dC <- 0 - d(C,x)
+  dE <- alpha * f0(R,C,E,a,h,psi) - d(E,x)
+  list(c(dR=dR,dC=dC,dE=dE))
 }
+  # assume that eggs die at same rate as adult consumers
+  # but could also be assumed that die at same rate as unparasitised hosts
 
-dCR_remove <- function(y,u,r,K,a,h,x,alpha){
-  R <- y[1]
-  C <- y[2]
-  E <- y[3]
-  dR <- - f(R,C,a,h)
-  dC <- 0
-  dE <- alpha * f(R,C,a,h)
-  list(c(dR=dR,dC=dC))
-}
-
-dCR_delay <- function(y,u,r,K,a,h,x,alpha){
-  R <- y[1]
-  C <- y[2]
-  E <- y[3]
-  dR <- - f(R,C,a,h)
-  dC <- 0
-  dE <- alpha * f(R,C,a,h)
-  list(c(dR=dR,dC=dC))
-}
-
-dCRt_cyclic <- function(t,y,parms){
-  Tt <- with(parms, Tt_cyclic(t,Tmu,Tsd,Tperiod) )
-  parmst <- with(parms, as.list( arrrate(Tt,E0,E1) ) )
-  with(parmst, dCR(y,u,r,K,a,h,x,alpha=0.85) )
-}
-
-dCRt_lag <- function(t,y,parms,alpha=0.85,tau=60*60*24*7){
+dCRt_delay <- function(t,y,parms,alpha=0.85,tau=60*60*24*7){
   
   Tt <- with(parms, Tt_cyclic(t,Tmu,Tsd,Tperiod) )
   parmst <- with(parms, as.list( arrrate(Tt,E0,E1) ) )
   
   R <- y[1]
   C <- y[2]
+  
+  if(t <= tau){
+    f_lag <- 0
+  }
   
   if(t > tau){
     Tt_lag <- with(parms, Tt_cyclic(t-tau,Tmu,Tsd,Tperiod) )
@@ -92,11 +85,21 @@ dCRt_lag <- function(t,y,parms,alpha=0.85,tau=60*60*24*7){
   
   with(parmst, {
     dR <- g(R,u,r,K) - f(R,C,a,h)
-    dC <- alpha * ifelse(t>tau, f_lag, 0) - d(C,x)
+    dC <- alpha * f_lag - d(C,x)
     return( list(c(dR=dR,dC=dC)) )
   })
   
 }
+  # never used in conjunction with dCR_disc because two alternative methods
+  # of introducing time delays
+
+dCRt_cyclic <- function(t,y,parms){
+  Tt <- with(parms, Tt_cyclic(t,Tmu,Tsd,Tperiod) )
+  parmst <- with(parms, as.list( arrrate(Tt,E0,E1) ) )
+  with(parmst, dCR(y,u,r,K,a,h,x,alpha=0.85) )
+}
+
+# Lag distribution - disfunctional ----------------------------------------
 
 dCRt_siglag <- function(t,y,parms,alpha=0.85,taumu=60*60*24*7,tausig=0.001){
   
@@ -147,6 +150,7 @@ dCRt_siglag <- function(t,y,parms,alpha=0.85,taumu=60*60*24*7,tausig=0.001){
 
 # R = prey biomass (g/m^2)
 # C = predator biomass (g/m^2)
+# E = egg or parasitised host biomass
 # u = immigration rate of resource
 # r = prey intrinsic rate of increase (low density, absence of predator)
 # K = prey carrying capacity (absence of predators)
