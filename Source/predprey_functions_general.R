@@ -83,20 +83,67 @@ dCRt_lag <- function(t,y,parms,alpha=0.85,tau=60*60*24*7){
   R <- y[1]
   C <- y[2]
   
-  if(t>tau){
+  if(t > tau){
     Tt_lag <- with(parms, Tt_cyclic(t-tau,Tmu,Tsd,Tperiod) )
     parmst_lag <- with(parms, as.list( arrrate(Tt_lag,E0,E1) ) )
     CR_lag <- lagvalue(t - tau)
     f_lag <- with(parmst_lag, f(CR_lag[1],CR_lag[2],a,h))
-  } 
+  }
   
   with(parmst, {
     dR <- g(R,u,r,K) - f(R,C,a,h)
     dC <- alpha * ifelse(t>tau, f_lag, 0) - d(C,x)
-    return(  list(c(dR=dR,dC=dC)) )
+    return( list(c(dR=dR,dC=dC)) )
   })
-
+  
 }
+
+dCRt_siglag <- function(t,y,parms,alpha=0.85,taumu=60*60*24*7,tausig=0.001){
+  
+  Tt <- with(parms, Tt_cyclic(t,Tmu,Tsd,Tperiod) )
+  parmst <- with(parms, as.list( arrrate(Tt,E0,E1) ) )
+  
+  R <- y[1]
+  C <- y[2]
+  
+  if(tausig==0 & t>taumu){
+    Tt_lag <- with(parms, Tt_cyclic(t-taumu,Tmu,Tsd,Tperiod) )
+    parmst_lag <- with(parms, as.list( arrrate(Tt_lag,E0,E1) ) )
+    CR_lag <- lagvalue(t - taumu)
+    f_lag <- with(parmst_lag, f(CR_lag[1],CR_lag[2],a,h))
+  }
+  
+  if(tausig==0 & t<=taumu){
+    f_lag <- 0
+  }
+  
+  if(tausig>0){
+    CR_lagint <- Vectorize(function(tau){
+      Tt_lag <- with(parms, Tt_cyclic(t-tau,Tmu,Tsd,Tperiod) )
+      parmst_lag <- with(parms, as.list( arrrate(Tt_lag,E0,E1) ) )
+      if(t>tau){
+        CR_lag_tau <- lagvalue(t - tau)
+        return(
+          with(parmst_lag, 
+               dlnorm(tau,log(taumu),tausig) * f(CR_lag_tau[1],CR_lag_tau[2],a,h)
+               )
+          )
+      }
+      else{
+        return(0)
+      }
+    })
+    f_lag <- integrate(CR_lagint,lower=taumu-10*tausig,upper=taumu+10*tausig)$value
+  }
+  
+  with(parmst, {
+    dR <- g(R,u,r,K) - f(R,C,a,h)
+    dC <- alpha * f_lag - d(C,x)
+    return( list(c(dR=dR,dC=dC)) )
+  })
+  
+}
+  # doesn't seem to work - probably a problem with telling "lagvalue" where to look
 
 # R = prey biomass (g/m^2)
 # C = predator biomass (g/m^2)

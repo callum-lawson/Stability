@@ -51,7 +51,11 @@ abline(v=seq(0,tmax,length.out=nTwaves+1),col="blue",lty=3)
 # +1 accounts for t=0
 
 wow2 <- dede(y=c(R0,C0),times=tseq,func=dCRt_lag,parms=parms)
-matplot(tseq,log(wow2[,-1]),type="l",add=T,lty=2)
+matplot(tseq,log(wow2[,-1]),type="l",add=T,lty=2,col="red")
+
+wow3 <- dede(y=c(R0,C0),times=tseq,func=dCRt_siglag,parms=parms)
+matplot(tseq,log(wow3[,-1]),type="l",lty=2,col="green",add=T)
+
 
 # Simulations with discrete temperatures ----------------------------------
 
