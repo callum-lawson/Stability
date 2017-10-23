@@ -8,7 +8,7 @@ source("Source/predprey_functions_general.R")
 
 # Input parameters --------------------------------------------------------
 
-E0 <- c(
+e0 <- c(
   u = 0,
   r = 8.715*10^-7,
   K = 5.623,
@@ -17,7 +17,7 @@ E0 <- c(
   x = 2.689*10^-6
 )
 
-E1 <- c(
+e1 <- c(
   u = 0,
   r = 0.84,
   K = -0.772,
@@ -27,35 +27,34 @@ E1 <- c(
 )
 # r units are per SECOND; pop more than triples every 24h
 
-nt <- 10^3 # number of timesteps to calculate densities for
-nyears <- 1
-tmax <- nyears * 365 * 24 * 60^2  # maximum length of time in seconds
-tseq <- seq(0,tmax,length.out=nt)
+tsmax <- 60^2 * 24 * 7 * 52  # maximum length of time in seconds
 
-Tmu <- 0
-Tsd <- 0
-nTwaves <- 2
-Tperiod <- 1/nTwaves * tmax
-parms <- list(Tmu=Tmu,Tsd=Tsd,Tperiod=Tperiod,E0=E0,E1=E1)
+zmu <- 0
+zsig <- 0
+zf <- 2
+zl <- 1/zf * tsmax
+parms <- list(zmu=zmu,zsig=zsig,zl=zl,e0=e0,e1=e1,Rtype="replenish")
 
 R0 <- 1
 C0 <- 10^-2 # 0 -> resource-only model
-y <- c(R0,C0)
+y0 <- c(R=R0,C=C0)
 
-# Simulate and plot results -----------------------------------------------
+# Continuous-time simulations ---------------------------------------------
 
 par(mfrow=c(1,1))
-wow <- ode(y=c(R0,C0),times=tseq,func=dCRt_cyclic,parms=parms)
-matplot(tseq,log(wow[,-1]),type="l",lty=1)
-abline(v=seq(0,tmax,length.out=nTwaves+1),col="blue",lty=3)  
+wow <- ode(y=y0,times=tseq,func=dRCt_cont,parms=parms)
+matplot(tseq,log(wow[,-1]),type="l",col="black")
+abline(v=seq(0,tmax,length.out=nzwaves+1),col="blue",lty=3)  
 # +1 accounts for t=0
 
-wow2 <- dede(y=c(R0,C0),times=tseq,func=dCRt_lag,parms=parms)
-matplot(tseq,log(wow2[,-1]),type="l",add=T,lty=2,col="red")
+wow2 <- dede(y=y0,times=tseq,func=dRCt_delay,parms=parms)
+matplot(tseq,log(wow2[,-1]),type="l",add=TRUE,col="red")
 
-wow3 <- dede(y=c(R0,C0),times=tseq,func=dCRt_siglag,parms=parms)
-matplot(tseq,log(wow3[,-1]),type="l",lty=2,col="green",add=T)
+# Discrete-time simulations -----------------------------------------------
 
+wow3 <- DRCt_disc(t=0,tmax=tmax,y0=y0,parms=parms)
+
+matplot(tseq,log(wow3[,-1]),type="l",col="red")
 
 # Simulations with discrete temperatures ----------------------------------
 
