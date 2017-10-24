@@ -2,6 +2,13 @@
 # Include temperature fluctuations in pred-prey models from Fussmann et al. (2014) #
 ####################################################################################
 
+### TODO
+# - check approximation for errors, and how this varies with n perturbations
+# - resource dynamics when generalist consumer unaffected by resource (see Turchin)
+# - compare different temp fluctuation sizes (instead of different means)
+# - two resource species
+# - Gaussian-process temperatures
+
 require(deSolve)
 require(fields)
 source("Source/predprey_functions_general.R")
@@ -28,15 +35,15 @@ e1 <- c(
 # r units are per SECOND; pop more than triples every 24h
 
 tmax <- 60^2 * 24 * 7 * 52 * 10 # maximum length of time in seconds
-tf <- 100
+tf <- 1000
 tseq <- seq(0,tmax,length.out=tf)
 
 zmu <- 0
-zsig <- 0
-zf <- 2 # frequency over whole time series
+zsig <- 5 # wave amplitude
+zf <- 10 # wave frequency over whole time series
 zl <- tmax/zf 
 
-sf <- 10 + 1 # number of seasons (+1 because new season starts right at end)
+sf <- 100 + 1 # number of seasons (+1 because new season starts right at end)
 sl <- tmax/sf
 sstart <- seq(0,tmax,length.out=sf)
 sseq <- sseqgen(tseq,sstart)
@@ -44,95 +51,66 @@ sseq <- sseqgen(tseq,sstart)
 parms <- list(zmu=zmu,zsig=zsig,zl=zl,e0=e0,e1=e1,Rtype="replenish")
 
 R0 <- 1
-C0 <- 10^-2 # 0 -> resource-only model
+C0 <- 10^-2
 y0 <- c(R=R0,C=C0)
 
-wow3 <- DRCt_disc(y0,tseq,sseq,sstart,parms)
-matplot(tseq,log(wow3[,-1]),type="l",col="blue")
+# Increasing temperature variability --------------------------------------
+
+baseparms <- list(zmu=zmu,zl=zl,e0=e0,e1=e1)
+
+### Consumer present
+
+lvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=0))
+mvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=5))
+hvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=10))
 
 par(mfrow=c(1,1))
-wow <- ode(y=y0,times=tseq,func=dRCt_cont,parms=parms)
-matplot(tseq,log(wow[,-1]),type="l",col="black",add=T)
-abline(v=seq(0,tmax,length.out=zf+1),col="grey",lty=3)  
-# +1 accounts for t=0
-
-wow2 <- dede(y=y0,times=tseq,func=dRCt_delay,parms=parms)
-matplot(tseq,log(wow2[,-1]),type="l",add=TRUE,col="red")
-
-# Simulations with discrete temperatures ----------------------------------
-
-nt <- 1000 # number of timesteps to calculate densities for
-tmax <- 10^4 * 60^2  # maximum length of time in seconds
-tseq <- seq(0,tmax,length.out=nt)
-nP <- 2 # number of perturbations over time series
-lP <- nt/nP # perturbation length in nt units - has to be whole number
-
-Tmu <- 20
-Psd <- 5
-Pvals <- rnorm(nP,mean=0,sd=Psd)
-Pt <- rep(Pvals,each=lP)
-Ttseq <- rep(Tmu + 293.15,nt) + Pt
-
-rseq <- arrhenius(Ttseq,rE0,rE1)
-Kseq <- arrhenius(Ttseq,KE0,KE1)
-cseq <- arrhenius(Ttseq,cE0,cE1)
-dseq <- arrhenius(Ttseq,dE0,dE1)
-xseq <- arrhenius(Ttseq,xE0,xE1)
-eps <- 0.85
-  # will have to hold each of these constant for multiple timesteps
-  # (otherwise numerical approximation of continuous time doesn't work)
-
-R0 <- 1
-C0 <- 1
-
-### Numerical integration
-
-ode1 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=romac_dis,parms=NULL)
-matplot(tseq,log(ode1[,-1]),type="l")
-abline(v=seq(0,tmax,length.out=nP+1),col="blue",lty=3)  
-  # +1 accounts for t=0
-
-acn <- ode1[,3]
-acd <- data.frame(a=acn[1:(nt-5)],
-                  b=acn[2:(nt-4)],
-                  c=acn[3:(nt-3)],
-                  d=acn[4:(nt-2)],
-                  e=acn[5:(nt-1)],
-                  f=acn[6:(nt-0)]
-                  )
-acm <- glm(a~offset(b)+b+c+d+e+f,data=acd)
-summary(acm)
-  # fourth-order model
-acf(acn)
-
-# Simulations with sinusoidal temperatures --------------------------------
-
-nt <- 1000 # number of timesteps to calculate densities for
-tmax <- 10^4 * 60^2  # maximum length of time in seconds
-tseq <- seq(0,tmax,length.out=nt)
-lP <- tmax/10^1 # wavelength in seconds
-
-Tmu <- 20 # mean temperature in degrees C
-Psd <- 5 # wave amplitude
-
-R0 <- 1
-C0 <- 1
-
-### Numerical integration
-
-Psd <- 0
-ode1 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=romac_sin,parms=NULL)
-Psd <- 5
-ode2 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=romac_sin,parms=NULL)
-matplot(tseq,log(ode1[,-1]),type="l",lty=1)
-matplot(tseq,log(ode2[,-1]),type="l",add=T,lty=2)
-
-matplot(tseq,log(cbind(ode1[,2],ode2[,2])),type="l",lty=1)
-matplot(tseq,log(cbind(ode1[,3],ode2[,3])),type="l",lty=1)
+matplot(tseq,log(lvar[,-1]),type="l",col="blue",bty="n")
+matplot(tseq,log(mvar[,-1]),type="l",col="black",add=TRUE)
+matplot(tseq,log(hvar[,-1]),type="l",col="red",add=TRUE)
   # variance -> both predator and prey fluctuate slightly more and 
   # reach lower densities
-  # also, cycles slightly slower
+  # also, cycles slightly slower (?)
   # increasing variance accentuates these effects
+
+### Consumer absent
+
+## r plots
+mycols <- c("blue","black","red")
+library(reshape2)
+Rseq <- exp(seq(2,4,length.out=100))
+zseq <- seq(-5,5,length.out=3)
+rd <- expand.grid(R=Rseq,z=zseq)
+rd$r <- with(rd, rR(zt=z,R=R,parms=parms))
+ra <- acast(melt(rd,id=c("R","z")),R~z)
+matplot(log(Rseq),ra,type="l",lty=1,col=mycols)
+abline(h=0,lty=3,col="grey")
+  # higher temp -> higher growth at low densities but lower K
+  # slightly stronger regulation above than below K
+
+parms5 <- mapply(arrint,e0=e0,e1=e1,MoreArgs=list(zmu=0,zsig=0))
+parms10 <- mapply(arrint,e0=e0,e1=e1,MoreArgs=list(zmu=0,zsig=5))
+
+arrint(e0=e0[2],e1=e1[2],zmu=0,zsig=1)
+arr_z(0,e0=e0[2],e1=e1[2],zmu=0,zsig=1)
+
+lvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=0))
+mvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=5))
+hvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=10))
+
+## Dynamics
+lvar_Ronly <- ode(y=c(y0[1],C=0),times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=0))
+mvar_Ronly <- ode(y=c(y0[1],C=0),times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=5))
+hvar_Ronly <- ode(y=c(y0[1],C=0),times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=10))
+
+par(mfrow=c(1,1))
+matplot(tseq,
+        log(cbind(lvar_Ronly[,2],mvar_Ronly[,2],hvar_Ronly[,2])),
+        type="l",
+        lty=1,
+        col=mycols,
+        bty="n"
+        )
 
 ### Brief results summary
 
@@ -150,74 +128,6 @@ matplot(tseq,log(cbind(ode1[,3],ode2[,3])),type="l",lty=1)
 
   # predator dynamics (rate of increase) slower than prey -> sharp vs blunt peaks
 
-# Chemostat resource ------------------------------------------------------
-
-nt <- 10^3 # number of timesteps to calculate densities for
-tmax <- 10^4 * 60^2  # maximum length of time in seconds
-tseq <- seq(0,tmax,length.out=nt)
-lP <- tmax/5 # wavelength in seconds
-R0 <- 1
-C0 <- 1
-Psd <- 0
-
-### Constant temperature
-
-Psd <- 0
-Tmu <- 0
-ode0 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
-Tmu <- 10
-ode10 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
-Tmu <- 20
-ode20 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
-Tmu <- 30
-ode30 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
-Tmu <- 40
-ode40 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
-Tmu <- 50
-ode50 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
-
-par(mfrow=c(1,2))
-matplot(tseq,
-        log(cbind(ode0[,2],ode10[,2],ode20[,2],ode30[,2],ode40[,2],ode50[,2])),
-        type="l",lty=1,col=tim.colors(6),xlab="t",ylab="R"
-        )
-matplot(tseq,
-        log(cbind(ode0[,3],ode10[,3],ode20[,3],ode30[,3],ode40[,3],ode50[,3])),
-        type="l",lty=1,col=tim.colors(6),xlab="t",ylab="C"
-        )
-  # K of both prey and pred decreases at higher temps (but faster to reach K)
-
-### Extinction?
-
-Tmu <- 25
-ode25 <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
-matplot(tseq,log(ode25[,2:3]),type="l")
-
-### Fluctuating temperature
-
-Psd <- 10
-Tmu <- 0
-ode0v <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
-Tmu <- 10
-ode10v <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
-Tmu <- 20
-ode20v <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
-Tmu <- 30
-ode30v <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
-Tmu <- 40
-ode40v <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
-Tmu <- 50
-ode50v <- ode(y=c(R0=R0,C0=C0),times=tseq,func=chemo_sin,parms=NULL)
-
-par(mfrow=c(1,2))
-matplot(tseq,
-        log(cbind(ode0v[,2],ode10v[,2],ode20v[,2],ode30v[,2],ode40v[,2],ode50v[,2])),
-        type="l",lty=1,col=tim.colors(6),xlab="t",ylab="R"
-        )
-matplot(tseq,
-        log(cbind(ode0v[,3],ode10v[,3],ode20v[,3],ode30v[,3],ode40v[,3],ode50v[,3])),
-        type="l",lty=1,col=tim.colors(6),ylim=c(-2,2.5),xlab="t",ylab="C"
-        )
   # resource follows sin fluctuations (driven by sin fluctuations in pred feeding)
   # at low temps, predator fluctuations:
   # - prey maxima are more rounded
@@ -225,90 +135,47 @@ matplot(tseq,
   # - pred fluctuations become "double-peaked"
   # - pred fluctuations shrink slightly but then become v. large at lowest temps
 
-# Predator absent ---------------------------------------------------------
+# End scenarios -----------------------------------------------------------
 
-# absence of predator -> logistic prey dynamics
+### Constant temperature 
+## Slow fluctuations
+# K of both prey and pred decreases at higher temps (but faster to reach K)
 
-nt <- 10^3 # number of timesteps to calculate densities for
-tmax <- 10^4 * 60^2  # maximum length of time in seconds
-tseq <- seq(0,tmax,length.out=nt)
-lP <- tmax/5 # wavelength in seconds
-R0 <- 1
-Psd <- 0
+## Fast fluctuations (non-linear averaging)
 
-### Constant temperature
 
-Psd <- 0
-Tmu <- 0
-ode0 <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
-Tmu <- 10
-ode10 <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
-Tmu <- 20
-ode20 <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
-Tmu <- 30
-ode30 <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
-Tmu <- 40
-ode40 <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
-Tmu <- 50
-ode50 <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
+# Delays and discrete dynamics --------------------------------------------
 
-par(mfrow=c(1,2))
-matplot(tseq,
-        log(cbind(ode0[,2],ode10[,2],ode20[,2],ode30[,2],ode40[,2],ode50[,2])),
-        type="l",lty=1,col=tim.colors(6)
+### Models
+standard <- ode(y=y0,times=tseq,func=dRCt_cont,parms=parms)
+delayed <- dede(y=y0,times=tseq,func=dRCt_delay,parms=c(parms,tau=60^2*24*7))
+discrete <- DRCt_disc(y0,tseq,sseq,sstart,parms)
+
+### Plots
+layout(cbind(c(1,1,1,2)))
+par(mar=c(4,4,2,2))
+matplot(tseq,log(discrete[,-1]),type="l",col="blue",bty="n")
+matplot(tseq,log(standard[,-1]),type="l",col="black",add=TRUE)
+matplot(tseq,log(delayed[,-1]),type="l",col="red",add=TRUE)
+abline(v=seq(0,tmax,length.out=zf+1),col="grey",lty=3)  
+# +1 accounts for t=0
+par(mar=c(2,4,2,2))
+plot(zt_cyclic(tseq,zmu,zsig,zl)~tseq,type="l",bty="n",xaxt="n")
+
+### Autocorrelation
+
+send <- sapply(1:sf, function(x) max(which(sseq==x)))
+
+acn <- discrete[send,3]
+acd <- data.frame(a=acn[1:(sf-5)],
+                  b=acn[2:(sf-4)],
+                  c=acn[3:(sf-3)],
+                  d=acn[4:(sf-2)],
+                  e=acn[5:(sf-1)],
+                  f=acn[6:(sf-0)]
 )
-  # lower temp -> lower K (built into assumptions)
-  
-Psd <- 5
-Tmu <- 0
-ode0v <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
-Tmu <- 10
-ode10v <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
-Tmu <- 20
-ode20v <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
-Tmu <- 30
-ode30v <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
-Tmu <- 40
-ode40v <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
-Tmu <- 50
-ode50v <- ode(y=c(R0=R0),times=tseq,func=preyonly_sin,parms=NULL)
-
-par(mfrow=c(1,2))
-matplot(tseq,
-        log(cbind(ode0v[,2],ode10v[,2],ode20v[,2],ode30v[,2],ode40v[,2],ode50v[,2])),
-        type="l",lty=1,col=tim.colors(6)
-)
-  # fluctuations similar size   
-  # but tracking slower at lower temps, so faster fluctuations may make a difference
-
-rt_preyonly <- function(Rt,Tt){
-  TtK <- Tt + 293.15
-  r <- arrhenius(TtK,rE0,rE1)
-  K <- arrhenius(TtK,KE0,KE1)
-  rt <- r*(1-Rt/K)
-}
-
-nRseq <- 100
-nTseq <- 6
-Rtseq <- exp(seq(-1,0.5,length.out=nRseq))
-Ttseq <- seq(10,40,length.out=nTseq)
-Rxdat <- expand.grid(Rt=Rtseq,Tt=Ttseq)
-
-rtmat <- matrix(nr=nRseq,nc=nTseq)
-rtmat[] <- with(Rxdat,rt_preyonly(Rt,Tt))
-par(mfrow=c(1,1))
-matplot(log(Rtseq),rtmat,type="l",col=tim.colors(nTseq),lty=1)
-abline(h=0,lty=3)
-  # higher temp -> higher growth at low densities but lower K
-  # slightly stronger regulation above than below K
-
-# Constant predator -------------------------------------------------------
-
-# generalist predator unaffected by resource (see Turchin)
-
-### TODO
-# - check approximation for errors, and how this varies with n perturbations
-# - resource dynamics when generalist consumer unaffected by resource
-# - compare different temp fluctuation sizes (instead of different means)
-
+acm <- glm(a~offset(b)+b+c+d+e+f,data=acd)
+summary(acm)
+# fourth-order model
+acf(acn)
 

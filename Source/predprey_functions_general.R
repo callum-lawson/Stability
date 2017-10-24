@@ -1,14 +1,6 @@
 ### Numerical simulators for predator-prey dynamics ###
 
-# TODO:
-# - generalise for all temperature and population model types
-# - time lags
-# - two resource species
-# - discrete births/deaths
-# - Gaussian-process temperatures
-
 # Data processing ---------------------------------------------------------
-
 
 sseqgen <- function(x,y){
   dmat <- outer(x,y,"-")
@@ -17,9 +9,9 @@ sseqgen <- function(x,y){
 
 # Temperature -------------------------------------------------------------
 
-
-zt_cyclic <- function(t,zmu,zsig,zl,z0=273.15){
-  ifelse( zsig==0, z0 + zmu, z0 + zmu + zsig * sin(2*pi*t / zl) )
+zt_cyclic <- function(t,zmu,zsig,zl){
+  if(zsig==0) return( rep(zmu, length(t)) )
+  if(zsig>0)  return( zmu + zsig * sin(2*pi*t / zl) )
 }
 
 # Basic parameters --------------------------------------------------------
@@ -28,8 +20,17 @@ arrtemp <- function(zt,z0=293.15,k=8.6173303*10^-5){ # intercept = 20C!
   (zt-z0) / (k*zt*z0)
 } 
 
-arrrate <- function(zt,e0,e1){
-  e0 * exp(e1 * arrtemp(zt))
+arrrate <- function(zt,e0,e1,z0=293.15){
+  e0 * exp(e1 * arrtemp(z0 + zt))
+}
+
+arr_z <- function(z,e0,e1,zmu,zsig){
+  dnorm(z,zmu,zsig) * arrrate(z,e0,e1)
+} 
+
+arrint <- function(e0,e1,zmu,zsig){
+  integrate(arr_z,lower=10^-3,upper=10^3,
+            e0=e0,e1=e1,zmu=zmu,zsig=zsig,rel.tol=0.5e-28)$value
 }
 
 # Flux rates --------------------------------------------------------------
@@ -87,13 +88,18 @@ dRCt_cont <- function(t,y,parms){
   with(parmst, dRC_cont(y,m,r,K,a,h,x,alpha=0.85) )
 }
 
+rR <- Vectorize(function(zt,R,parms){
+  parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
+  with(parmst, dRC_cont(c(R,0),m,r,K,a,h,x,alpha=0.85)[[1]]["dR"]/R)
+},vectorize.args=c("zt","R"))
+
 dRCt_disc <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
   with(parmst, dRC_disc(y,m,r,K,a,h,x,alpha=0.85,Rtype=parms$Rtype) )
 }
 
-dRCt_delay <- function(t,y,parms,alpha=0.85,tau=60*60*24*7){
+dRCt_delay <- function(t,y,parms,alpha=0.85){
   
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
@@ -101,14 +107,14 @@ dRCt_delay <- function(t,y,parms,alpha=0.85,tau=60*60*24*7){
   R <- y[1]
   C <- y[2]
   
-  if(t <= tau){
+  if(t <= parms$tau){
     f_lag <- 0
   }
   
-  if(t > tau){
+  if(t > parms$tau){
     zt_lag <- with(parms, zt_cyclic(t-tau,zmu,zsig,zl) )
     parmst_lag <- with(parms, as.list( arrrate(zt_lag,e0,e1) ) )
-    RC_lag <- lagvalue(t - tau)
+    RC_lag <- lagvalue(t - parms$tau)
     f_lag <- with(parmst_lag, f(RC_lag[1],RC_lag[2],a,h))
   }
   
@@ -156,7 +162,7 @@ DRCt_disc <- function(y0,tseq,sseq,sstart,parms){
   return(yd)
 }
 
-# Lag distribution - disfunctional ----------------------------------------
+# DOES NOT WORK - Lag distribution model ----------------------------------
 
 dRCt_siglag <- function(t,y,parms,alpha=0.85,taumu=60*60*24*7,tausig=0.001){
   
@@ -208,10 +214,10 @@ dRCt_siglag <- function(t,y,parms,alpha=0.85,taumu=60*60*24*7,tausig=0.001){
 # R = prey biomass (g/m^2)
 # C = predator biomass (g/m^2)
 # E = egg or parasitised host biomass
-# u = immigration rate of resource
+# m = immigration rate of resource
 # r = prey intrinsic rate of increase (low density, absence of predator)
 # K = prey carrying capacity (absence of predators)
 # a = rate at which predator encounters prey
 # h = handling time
-# eps = number of predators produced for each prey eaten
-# x = consumption rate required for predator to sustain itself
+# alpha = number of predators produced for each prey eaten
+# x = consumer death rate in absence of prey
