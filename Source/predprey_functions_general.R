@@ -19,8 +19,8 @@ zt_cyclic <- function(t,zmu,zsig,zl,z0=273.15){
   ifelse( zsig==0, z0 + zmu, z0 + zmu + zsig * sin(2*pi*t / zl) )
 }
 
-g <- function(R,u,r,K){
-  (u + r*R) * (1 - R/K)
+g <- function(R,m,r,K){
+  (m + r*R) * (1 - R/K)
 }
 
 f <- function(R,C,a,h){
@@ -31,8 +31,8 @@ d <- function(C,x){
   C * x
 }
 
-g0 <- function(R,u,r,K,phi){
-  (u + r*R) * (phi*1 - R/K)
+g0 <- function(R,m,r,K,phi){
+  (m + r*R) * (phi*1 - R/K)
 }
 # phi=0 -> resource dynamcis without births
 
@@ -41,22 +41,22 @@ f0 <- function(R,C,E,a,h,psi){
 }
 # psi=1 -> consumer "wastes" time on already-parasitised prey {Rhat-R} 
 
-dRC_cont <- function(y,u,r,K,a,h,x,alpha){
+dRC_cont <- function(y,m,r,K,a,h,x,alpha){
   R <- y[1]
   C <- y[2]
-  dR <- g(R,u,r,K) - f(R,C,a,h)
+  dR <- g(R,m,r,K) - f(R,C,a,h)
   dC <- alpha * f(R,C,a,h) - d(C,x)
   list(c(dR=dR,dC=dC))
 }
 
-dRC_disc <- function(y,u,r,K,a,h,x,alpha,Rtype){
+dRC_disc <- function(y,m,r,K,a,h,x,alpha,Rtype){
   if(Rtype=="replenish") phi <- 1; psi <- 0
   if(Rtype=="remove")    phi <- 0; psi <- 1
   if(Rtype=="persist")   phi <- 0; psi <- 0
   R <- y[1]
   C <- y[2]
   E <- y[3]
-  dR <- g0(R,u,r,K,phi) - f0(R,C,E,a,h,psi)
+  dR <- g0(R,m,r,K,phi) - f0(R,C,E,a,h,psi)
   dC <- 0 - d(C,x)
   dE <- alpha * f0(R,C,E,a,h,psi) - d(E,x)
   list(c(dR=dR,dC=dC,dE=dE))
@@ -67,53 +67,46 @@ dRC_disc <- function(y,u,r,K,a,h,x,alpha,Rtype){
 dRCt_cont <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-  with(parmst, dRC_cont(y,u,r,K,a,h,x,alpha=0.85) )
+  with(parmst, dRC_cont(y,m,r,K,a,h,x,alpha=0.85) )
 }
 
 dRCt_disc <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-  with(parmst, dRC_disc(y,u,r,K,a,h,x,alpha=0.85,Rtype=parms$Rtype) )
+  with(parmst, dRC_disc(y,m,r,K,a,h,x,alpha=0.85,Rtype=parms$Rtype) )
 }
 
-DRCt_disc <- function(tseq,tmax,y0,parms){
+DRCt_disc <- function(tseq,sseq,sstart,y0,parms){
+
+  nt <- length(tseq)
+  ns <- max(sseq)
   
-  smax <- 10 # number of seasons
-  tsseq <- seq(0,tsmax,length.out=smax)
-  tmax <- tsmax/smax
-  
-  mP <- 1000
-  nP <- round(1000/smax)
-  tmat <- sapply(1:smax, function(x) (x-1)*tmax + seq(0,tmax,length.out=nP))
-    # densities calculated for approx mP time points in total,
-    # including all transitions between seasons
-  
-  yd <- cbind(t=as.vector(tmat),R=rep(NA,mP),C=rep(NA,mP))
+  yd <- cbind(t=tseq,R=rep(NA,nt),C=rep(NA,nt))
   yd[1,"R"] <- y0[1]
   yd[1,"C"] <- y0[2]
   
-  for(s in 1:(smax-1)){
+  for(s in 1:(ns-1)){
     
-    y1 <- ode(y=c(yd[s,-1],E=0),
-              times=tmat[,s],
+    y1 <- ode(y=c(y0,E=0),
+              times=c(sstart[s],tseq[sseq==s],sstart[s+1]),
               func=dRCt_disc,
               parms=parms
-              )[,c("R","C")]
+              )[,c("R","E")]
     
-    yd[match(tmat[,s],tmat),"R"] <- y1[,"R"] # + births
-    yd[match(tmat[,s],tmat),"C"] <- y1[,"C"] # adult consumers die, eggs become adults
+    nts <- nrow(y1)
+    droprows <- c(1,nts)
+    saverows <- which(sseq==s)
+    yd[saverows,"R"] <- y1[-droprows,"R"] # + births
+    yd[saverows,"C"] <- y1[-droprows,"E"] # adult consumers die, eggs become adults
+    y0[1] <- y1[nts,"R"]
+    y0[2] <- y1[nts,"E"]
+    if(s==(ns-1)){
+      yd[nt,c("R","C")] <- y0
+    }
     
   }
-
-  return(yd[!is.na(yd[,"C"]),])
+  return(yd)
 }
-
-E0 <- 0
-y <- c(R0,C0,E0)
-parms <- list(zmu=zmu,zsig=zsig,zl=zl,e0=e0,e1=e1,Rtype="replenish")
-TT <- 100
-ode(y=c(R=R0,C=C0,E=E0),times=c(0,TT),func=dRCt_disc,parms=parms)
-
 
 dRCt_delay <- function(t,y,parms,alpha=0.85,tau=60*60*24*7){
   
@@ -135,7 +128,7 @@ dRCt_delay <- function(t,y,parms,alpha=0.85,tau=60*60*24*7){
   }
   
   with(parmst, {
-    dR <- g(R,u,r,K) - f(R,C,a,h)
+    dR <- g(R,m,r,K) - f(R,C,a,h)
     dC <- alpha * f_lag - d(C,x)
     return( list(c(dR=dR,dC=dC)) )
   })
@@ -185,7 +178,7 @@ dRCt_siglag <- function(t,y,parms,alpha=0.85,taumu=60*60*24*7,tausig=0.001){
   }
   
   with(parmst, {
-    dR <- g(R,u,r,K) - f(R,C,a,h)
+    dR <- g(R,m,r,K) - f(R,C,a,h)
     dC <- alpha * f_lag - d(C,x)
     return( list(c(dR=dR,dC=dC)) )
   })

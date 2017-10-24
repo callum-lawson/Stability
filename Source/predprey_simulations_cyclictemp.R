@@ -9,7 +9,7 @@ source("Source/predprey_functions_general.R")
 # Input parameters --------------------------------------------------------
 
 e0 <- c(
-  u = 0,
+  m = 0,
   r = 8.715*10^-7,
   K = 5.623,
   a = 6*10^-7, # 3.181989*10^-9, # estimated from data
@@ -18,7 +18,7 @@ e0 <- c(
 )
 
 e1 <- c(
-  u = 0,
+  m = 0,
   r = 0.84,
   K = -0.772,
   a = -0.03, # 0.5091663,   # estimated from data
@@ -27,12 +27,15 @@ e1 <- c(
 )
 # r units are per SECOND; pop more than triples every 24h
 
-tsmax <- 60^2 * 24 * 7 * 52  # maximum length of time in seconds
+tmax <- 60^2 * 24 * 7 * 52  # maximum length of time in seconds
+tf <- 100
+tseq <- seq(0,tmax,length.out=tf)
 
 zmu <- 0
 zsig <- 0
-zf <- 2
-zl <- 1/zf * tsmax
+zf <- 2 # frequency over whole time series
+zl <- 1/zf * tmax
+
 parms <- list(zmu=zmu,zsig=zsig,zl=zl,e0=e0,e1=e1,Rtype="replenish")
 
 R0 <- 1
@@ -44,7 +47,7 @@ y0 <- c(R=R0,C=C0)
 par(mfrow=c(1,1))
 wow <- ode(y=y0,times=tseq,func=dRCt_cont,parms=parms)
 matplot(tseq,log(wow[,-1]),type="l",col="black")
-abline(v=seq(0,tmax,length.out=nzwaves+1),col="blue",lty=3)  
+abline(v=seq(0,tmax,length.out=zf+1),col="blue",lty=3)  
 # +1 accounts for t=0
 
 wow2 <- dede(y=y0,times=tseq,func=dRCt_delay,parms=parms)
@@ -52,9 +55,33 @@ matplot(tseq,log(wow2[,-1]),type="l",add=TRUE,col="red")
 
 # Discrete-time simulations -----------------------------------------------
 
-wow3 <- DRCt_disc(t=0,tmax=tmax,y0=y0,parms=parms)
+sseqgen <- function(x,y){
+  dmat <- outer(x,y,"-")
+  apply(dmat,1,function(z) max(which(z>=0)))
+}
+  
+sf <- 10 + 1 # number of seasons (+1 because new season starts right at end)
+sstart <- seq(0,tmax,length.out=sf)
+sseq <- sseqgen(tseq,sstart)
 
+wow3 <- DRCt_disc(tseq,sseq,sstart,y0,parms)
 matplot(tseq,log(wow3[,-1]),type="l",col="red")
+
+tmax <- tsmax/smax
+
+mP <- 1000
+nP <- round(1000/smax)
+tmat <- sapply(1:smax, function(x) (x-1)*tmax + seq(0,tmax,length.out=nP))
+# densities calculated for approx mP time points in total,
+# including all transitions between seasons
+
+E0 <- 0
+y <- c(R0,C0,E0)
+parms <- list(zmu=zmu,zsig=zsig,zl=zl,e0=e0,e1=e1,Rtype="replenish")
+TT <- 100
+ode(y=c(R=R0,C=C0,E=E0),times=c(0,TT),func=dRCt_disc,parms=parms)
+
+
 
 # Simulations with discrete temperatures ----------------------------------
 
