@@ -7,6 +7,23 @@
 # - discrete births/deaths
 # - Gaussian-process temperatures
 
+# Data processing ---------------------------------------------------------
+
+
+sseqgen <- function(x,y){
+  dmat <- outer(x,y,"-")
+  apply(dmat,1,function(z) max(which(z>=0)))
+}
+
+# Temperature -------------------------------------------------------------
+
+
+zt_cyclic <- function(t,zmu,zsig,zl,z0=273.15){
+  ifelse( zsig==0, z0 + zmu, z0 + zmu + zsig * sin(2*pi*t / zl) )
+}
+
+# Basic parameters --------------------------------------------------------
+
 arrtemp <- function(zt,z0=293.15,k=8.6173303*10^-5){ # intercept = 20C!
   (zt-z0) / (k*zt*z0)
 } 
@@ -15,9 +32,7 @@ arrrate <- function(zt,e0,e1){
   e0 * exp(e1 * arrtemp(zt))
 }
 
-zt_cyclic <- function(t,zmu,zsig,zl,z0=273.15){
-  ifelse( zsig==0, z0 + zmu, z0 + zmu + zsig * sin(2*pi*t / zl) )
-}
+# Flux rates --------------------------------------------------------------
 
 g <- function(R,m,r,K){
   (m + r*R) * (1 - R/K)
@@ -41,6 +56,8 @@ f0 <- function(R,C,E,a,h,psi){
 }
 # psi=1 -> consumer "wastes" time on already-parasitised prey {Rhat-R} 
 
+# Population size derivatives ---------------------------------------------
+
 dRC_cont <- function(y,m,r,K,a,h,x,alpha){
   R <- y[1]
   C <- y[2]
@@ -57,7 +74,7 @@ dRC_disc <- function(y,m,r,K,a,h,x,alpha,Rtype){
   C <- y[2]
   E <- y[3]
   dR <- g0(R,m,r,K,phi) - f0(R,C,E,a,h,psi)
-  dC <- 0 - d(C,x)
+  dC <- 0 # - d(C,x)
   dE <- alpha * f0(R,C,E,a,h,psi) - d(E,x)
   list(c(dR=dR,dC=dC,dE=dE))
 }
@@ -74,38 +91,6 @@ dRCt_disc <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
   with(parmst, dRC_disc(y,m,r,K,a,h,x,alpha=0.85,Rtype=parms$Rtype) )
-}
-
-DRCt_disc <- function(tseq,sseq,sstart,y0,parms){
-
-  nt <- length(tseq)
-  ns <- max(sseq)
-  
-  yd <- cbind(t=tseq,R=rep(NA,nt),C=rep(NA,nt))
-  yd[1,"R"] <- y0[1]
-  yd[1,"C"] <- y0[2]
-  
-  for(s in 1:(ns-1)){
-    
-    y1 <- ode(y=c(y0,E=0),
-              times=c(sstart[s],tseq[sseq==s],sstart[s+1]),
-              func=dRCt_disc,
-              parms=parms
-              )[,c("R","E")]
-    
-    nts <- nrow(y1)
-    droprows <- c(1,nts)
-    saverows <- which(sseq==s)
-    yd[saverows,"R"] <- y1[-droprows,"R"] # + births
-    yd[saverows,"C"] <- y1[-droprows,"E"] # adult consumers die, eggs become adults
-    y0[1] <- y1[nts,"R"]
-    y0[2] <- y1[nts,"E"]
-    if(s==(ns-1)){
-      yd[nt,c("R","C")] <- y0
-    }
-    
-  }
-  return(yd)
 }
 
 dRCt_delay <- function(t,y,parms,alpha=0.85,tau=60*60*24*7){
@@ -136,6 +121,40 @@ dRCt_delay <- function(t,y,parms,alpha=0.85,tau=60*60*24*7){
 }
   # never used in conjunction with dRC_disc because two alternative methods
   # of introducing time delays
+
+# Population size integration ---------------------------------------------
+
+DRCt_disc <- function(y0,tseq,sseq,sstart,parms){
+
+  nt <- length(tseq)
+  ns <- max(sseq)
+  
+  yd <- cbind(t=tseq,R=rep(NA,nt),C=rep(NA,nt))
+  yd[1,"R"] <- y0[1]
+  yd[1,"C"] <- y0[2]
+  
+  for(s in 1:(ns-1)){
+    
+    y1 <- ode(y=c(y0,E=0),
+              times=c(sstart[s],tseq[sseq==s],sstart[s+1]),
+              func=dRCt_disc,
+              parms=parms
+              )
+    
+    nts <- nrow(y1)
+    droprows <- c(1,nts)
+    saverows <- which(sseq==s)
+    yd[saverows,"R"] <- y1[-droprows,"R"]
+    yd[saverows,"C"] <- y1[-droprows,"C"] 
+    y0[1] <- y1[nts,"R"] # + births
+    y0[2] <- y1[nts,"E"] # adult consumers die, eggs become adults
+    if(s==(ns-1)){
+      yd[nt,c("R","C")] <- y0
+    }
+    
+  }
+  return(yd)
+}
 
 # Lag distribution - disfunctional ----------------------------------------
 
