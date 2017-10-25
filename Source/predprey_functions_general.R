@@ -17,20 +17,11 @@ zt_cyclic <- function(t,zmu,zsig,zl){
 # Basic parameters --------------------------------------------------------
 
 arrtemp <- function(zt,z0=293.15,k=8.6173303*10^-5){ # intercept = 20C!
-  (zt-z0) / (k*zt*z0)
+  zt / (k*(zt+z0)*z0) # (zt-z0) / (k*zt*z0)
 } 
 
-arrrate <- function(zt,e0,e1,z0=293.15){
-  e0 * exp(e1 * arrtemp(z0 + zt))
-}
-
-arr_z <- function(z,e0,e1,zmu,zsig){
-  dnorm(z,zmu,zsig) * arrrate(z,e0,e1)
-} 
-
-arrint <- function(e0,e1,zmu,zsig){
-  integrate(arr_z,lower=10^-3,upper=10^3,
-            e0=e0,e1=e1,zmu=zmu,zsig=zsig,rel.tol=0.5e-28)$value
+arrrate <- function(zt,e0,e1){
+  e0 * exp(e1 * arrtemp(zt))
 }
 
 # Flux rates --------------------------------------------------------------
@@ -56,6 +47,30 @@ f0 <- function(R,C,E,a,h,psi){
   R * C * a / (1 + a*h*(R+psi*E))
 }
 # psi=1 -> consumer "wastes" time on already-parasitised prey {Rhat-R} 
+
+
+# Non-linear averaging ----------------------------------------------------
+
+arrrate_z <- function(zt,zmu,zsig,e0,e1){
+  dnorm(zt,zmu,zsig) * arrrate(zt,e0,e1)
+} 
+
+arrint <- function(zmu,zsig,e0,e1){
+  if(zsig==0){
+    return( arrrate(zmu,e0,e1) )
+  }
+  if(zsig>0){
+    return(
+      integrate(arrrate_z,lower=-200,upper=200,zmu=zmu,zsig=zsig,e0=e0,e1=e1)$value
+    )
+  }
+}
+
+parmsvar <- function(e0,e1,zmu,zsig){
+  mapply(arrint,e0=e0,e1=e1,MoreArgs=list(zmu=zmu,zsig=zsig))
+}
+# applies arrint to multiple pars at once
+
 
 # Population size derivatives ---------------------------------------------
 
@@ -88,10 +103,13 @@ dRCt_cont <- function(t,y,parms){
   with(parmst, dRC_cont(y,m,r,K,a,h,x,alpha=0.85) )
 }
 
-rR <- Vectorize(function(zt,R,parms){
-  parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-  with(parmst, dRC_cont(c(R,0),m,r,K,a,h,x,alpha=0.85)[[1]]["dR"]/R)
-},vectorize.args=c("zt","R"))
+rR <- Vectorize(
+  function(zt,R,parms){
+    parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
+    with(parmst, dRC_cont(c(R,0),m,r,K,a,h,x,alpha=0.85)[[1]]["dR"]/R)
+  },
+  vectorize.args=c("zt","R")
+)
 
 dRCt_disc <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )

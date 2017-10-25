@@ -40,7 +40,7 @@ tseq <- seq(0,tmax,length.out=tf)
 
 zmu <- 0
 zsig <- 5 # wave amplitude
-zf <- 10 # wave frequency over whole time series
+zf <- 100 # wave frequency over whole time series
 zl <- tmax/zf 
 
 sf <- 100 + 1 # number of seasons (+1 because new season starts right at end)
@@ -65,9 +65,9 @@ mvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=5))
 hvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=10))
 
 par(mfrow=c(1,1))
-matplot(tseq,log(lvar[,-1]),type="l",col="blue",bty="n")
+matplot(tseq,log(hvar[,-1]),type="l",col="red",bty="n")
 matplot(tseq,log(mvar[,-1]),type="l",col="black",add=TRUE)
-matplot(tseq,log(hvar[,-1]),type="l",col="red",add=TRUE)
+matplot(tseq,log(lvar[,-1]),type="l",col="blue",add=TRUE)
   # variance -> both predator and prey fluctuate slightly more and 
   # reach lower densities
   # also, cycles slightly slower (?)
@@ -78,21 +78,18 @@ matplot(tseq,log(hvar[,-1]),type="l",col="red",add=TRUE)
 ## r plots
 mycols <- c("blue","black","red")
 library(reshape2)
-Rseq <- exp(seq(2,4,length.out=100))
-zseq <- seq(-5,5,length.out=3)
+Rseq <- exp(seq(0,2.5,length.out=100))
+zseq <- seq(-2.5,2.5,length.out=3)
 rd <- expand.grid(R=Rseq,z=zseq)
 rd$r <- with(rd, rR(zt=z,R=R,parms=parms))
 ra <- acast(melt(rd,id=c("R","z")),R~z)
 matplot(log(Rseq),ra,type="l",lty=1,col=mycols)
 abline(h=0,lty=3,col="grey")
-  # higher temp -> higher growth at low densities but lower K
-  # slightly stronger regulation above than below K
-
-parms5 <- mapply(arrint,e0=e0,e1=e1,MoreArgs=list(zmu=0,zsig=0))
-parms10 <- mapply(arrint,e0=e0,e1=e1,MoreArgs=list(zmu=0,zsig=5))
-
-arrint(e0=e0[2],e1=e1[2],zmu=0,zsig=1)
-arr_z(0,e0=e0[2],e1=e1[2],zmu=0,zsig=1)
+  # higher temp -> higher R growth at low densities but lower K
+  # slightly stronger R regulation above than below K
+  # temperature fluctuations have same effect as increase in mean temperature 
+  # (due to Arrhenius assumption)
+  # the higher the current r or K value, the stronger the effect of temp variability
 
 lvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=0))
 mvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=5))
@@ -107,10 +104,16 @@ par(mfrow=c(1,1))
 matplot(tseq,
         log(cbind(lvar_Ronly[,2],mvar_Ronly[,2],hvar_Ronly[,2])),
         type="l",
-        lty=1,
-        col=mycols,
+        col="black",
         bty="n"
         )
+
+abline(h=log(arrint(zmu=0,zsig=0,baseparms$e0["K"],baseparms$e1["K"])),lty=1)
+abline(h=log(arrint(zmu=0,zsig=5,baseparms$e0["K"],baseparms$e1["K"])),lty=2)
+abline(h=log(arrint(zmu=0,zsig=10,baseparms$e0["K"],baseparms$e1["K"])),lty=3)
+
+  # just looking at K does *not* predict overall effects of variability on 
+  # mean population size (prediction: increases Nbar; observed: decreases Nbar)
 
 ### Brief results summary
 
