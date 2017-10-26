@@ -1,6 +1,5 @@
-####################################################################################
-# Include temperature fluctuations in pred-prey models from Fussmann et al. (2014) #
-####################################################################################
+### Include temperature fluctuations in pred-prey models ###
+### from Fussmann et al. (2014)                          ###
 
 ### TODO
 # - check approximation for errors, and how this varies with n perturbations
