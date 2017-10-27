@@ -14,8 +14,8 @@ nk <- 15
 ns <- 15
 np <- nr*nk*ns
 
-nt <- 1100
-nb <- 100
+nt <- 1250
+nb <- 250
 ni <- 10
 nT <- nt*ni*np
 
@@ -45,9 +45,14 @@ gm <- apply(N[nb:nt,,],3,function(x) mean(log(x)))
 tau <- 10^-0.5
 ex <- apply(apply(N[nb:nt,,],c(2,3),function(x) TRUE %in% (x<tau)),2,mean)
 exr <- qlogis(ifelse(ex==1,0.99,ifelse(ex==0,0.01,ex)))
+mte <- apply(apply(N[nb:nt,,],c(2,3),function(x) which(x<tau)[1]),2,mean)
+
 plot(exr~gm)
 lines(supsmu(gm,exr),col="red")
 summary(lm(exr~gm+I(gm^2)))
   # roughly proportional to extinction risk?
 
+plot(log(mte)~gm)
+lines(supsmu(gm,log(mte)),col="red")
+summary(lm(log(mte)~gm+I(gm^2)))
 
