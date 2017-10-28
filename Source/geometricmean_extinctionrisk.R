@@ -19,7 +19,6 @@ nb <- 250
 ni <- 10
 nT <- nt*ni*np
 
-
 dd <- expand.grid(
   r0 = exp(seq(0,5,length.out=nr)),
   k = exp(seq(0,5,length.out=nk)),

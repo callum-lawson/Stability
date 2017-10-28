@@ -15,9 +15,9 @@ source("Source/predprey_functions_general.R")
 # Input parameters --------------------------------------------------------
 
 e0 <- c(
-  m = 0,
+  m = 10^-6, # 10^-5,
   r = 8.715*10^-7,
-  K = 5.623,
+  k = 5.623,
   a = 6*10^-7, # 3.181989*10^-9, # estimated from data
   h = 0.61, # 1685.586,     # estimated from data
   x = 2.689*10^-6
@@ -25,21 +25,23 @@ e0 <- c(
 
 e1 <- c(
   m = 0,
-  r = 0.84,
-  K = -0.772,
+  r = 0, # from mortality rates # 0.84,
+  k = 0, # -0.772,
   a = -0.03, # 0.5091663,   # estimated from data
   h = -0.19, # -0.4660012, # estimated from data
   x = 0.639
 )
 # r units are per SECOND; pop more than triples every 24h
 
+x0 <- arrrate(0,e0["x"],e1["x"])
+
 tmax <- 60^2 * 24 * 7 * 52 * 10 # maximum length of time in seconds
 tf <- 1000
 tseq <- seq(0,tmax,length.out=tf)
 
-zmu <- 0
+zmu <- -5
 zsig <- 5 # wave amplitude
-zf <- 100 # wave frequency over whole time series
+zf <- 10 # wave frequency over whole time series
 zl <- tmax/zf 
 
 sf <- 100 + 1 # number of seasons (+1 because new season starts right at end)
@@ -47,7 +49,8 @@ sl <- tmax/sf
 sstart <- seq(0,tmax,length.out=sf)
 sseq <- sseqgen(tseq,sstart)
 
-parms <- list(zmu=zmu,zsig=zsig,zl=zl,e0=e0,e1=e1,Rtype="replenish")
+zparms <- list(zmu=zmu,zsig=zsig,zl=zl)
+eparms <- list(e0=e0,e1=e1,Rtype="replenish")
 
 R0 <- 1
 C0 <- 10^-2
@@ -55,13 +58,11 @@ y0 <- c(R=R0,C=C0)
 
 # Increasing temperature variability --------------------------------------
 
-baseparms <- list(zmu=zmu,zl=zl,e0=e0,e1=e1)
-
 ### Consumer present
 
-lvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=0))
-mvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=5))
-hvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=10))
+lvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(eparms,zl=zl,zmu=zmu,zsig=0))
+mvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(eparms,zl=zl,zmu=zmu,zsig=2.5))
+hvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(eparms,zl=zl,zmu=zmu,zsig=5))
 
 par(mfrow=c(1,1))
 matplot(tseq,log(hvar[,-1]),type="l",col="red",bty="n")
@@ -77,27 +78,26 @@ matplot(tseq,log(lvar[,-1]),type="l",col="blue",add=TRUE)
 ## r plots
 mycols <- c("blue","black","red")
 library(reshape2)
-Rseq <- exp(seq(0,2.5,length.out=100))
-zseq <- seq(-2.5,2.5,length.out=3)
+Rseq <- exp(seq(1,3,length.out=100))
+zseq <- seq(zmu-5,zmu+5,length.out=3)
 rd <- expand.grid(R=Rseq,z=zseq)
-rd$r <- with(rd, rR(zt=z,R=R,parms=parms))
+rd$r <- with(rd, rR(zt=z,R=R,parms=eparms))
 ra <- acast(melt(rd,id=c("R","z")),R~z)
 matplot(log(Rseq),ra,type="l",lty=1,col=mycols)
 abline(h=0,lty=3,col="grey")
-  # higher temp -> higher R growth at low densities but lower K
-  # slightly stronger R regulation above than below K
+  # higher temp -> higher R growth at low densities but lower k
+  # slightly stronger R regulation above than below k
   # temperature fluctuations have same effect as increase in mean temperature 
   # (due to Arrhenius assumption)
-  # the higher the current r or K value, the stronger the effect of temp variability
-
-lvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=0))
-mvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=5))
-hvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=10))
+  # the higher the current r or k value, the stronger the effect of temp variability
 
 ## Dynamics
-lvar_Ronly <- ode(y=c(y0[1],C=0),times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=0))
-mvar_Ronly <- ode(y=c(y0[1],C=0),times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=5))
-hvar_Ronly <- ode(y=c(y0[1],C=0),times=tseq,func=dRCt_cont,parms=c(baseparms,zsig=10))
+lvar_Ronly <- ode(y=c(y0[1],C=0),times=tseq,func=dRCt_cont,
+                  parms=c(eparms,zl=zl,zmu=zmu,zsig=0))
+mvar_Ronly <- ode(y=c(y0[1],C=0),times=tseq,func=dRCt_cont,
+                  parms=c(eparms,zl=zl,zmu=zmu,zsig=2.5))
+hvar_Ronly <- ode(y=c(y0[1],C=0),times=tseq,func=dRCt_cont,
+                  parms=c(eparms,zl=zl,zmu=zmu,zsig=5))
 
 par(mfrow=c(1,1))
 matplot(tseq,
@@ -107,12 +107,38 @@ matplot(tseq,
         bty="n"
         )
 
-abline(h=log(arrint(zmu=0,zsig=0,baseparms$e0["K"],baseparms$e1["K"])),lty=1)
-abline(h=log(arrint(zmu=0,zsig=5,baseparms$e0["K"],baseparms$e1["K"])),lty=2)
-abline(h=log(arrint(zmu=0,zsig=10,baseparms$e0["K"],baseparms$e1["K"])),lty=3)
+abline(h=log(arrint(zmu=0,zsig=0,eparms$e0["k"],eparms$e1["k"])),lty=1)
+abline(h=log(arrint(zmu=0,zsig=2.5,eparms$e0["k"],eparms$e1["k"])),lty=2)
+abline(h=log(arrint(zmu=0,zsig=5,eparms$e0["k"],eparms$e1["k"])),lty=3)
 
   # just looking at K does *not* predict overall effects of variability on 
   # mean population size (prediction: increases Nbar; observed: decreases Nbar)
+
+### Fluctuation speed effects
+
+zfseq <- 2^(0:14)
+zlseq <- tmax/zfseq
+nzl <- length(zlseq)
+
+Xt <- matrix(nr=tf,nc=nzl)
+for(i in 1:nzl){
+  Xt[,i] <- log(ode(y=c(R=exp(2.25),C=0),
+                times=tseq,
+                func=dRCt_cont,
+                parms=c(eparms,zl=zlseq[i],zmu=zmu,zsig=10)
+                )[,"R"])
+}
+
+X0 <- log(ode(y=c(R=exp(2.25),C=0),
+        times=tseq,
+        func=dRCt_cont,
+        parms=c(eparms,zl=zlseq[i],zmu=zmu,zsig=0))[,"R"])
+
+Xmu <- apply(Xt,2,mean)
+Xsig <- apply(Xt,2,sd)
+
+boxplot(Xt,range=0)
+abline(h=tail(X0,1),col="red",lty=3)
 
 ### Brief results summary
 
