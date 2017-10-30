@@ -140,6 +140,10 @@ Xsig <- apply(Xt,2,sd)
 boxplot(Xt,range=0)
 abline(h=tail(X0,1),col="red",lty=3)
 
+boxplot(Xt[,1],range=0)
+abline(h=tail(X0,1),col="red",lty=3)
+  # NLA effects very small
+
 ### Brief results summary
 
   # DISCRETE

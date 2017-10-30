@@ -1,6 +1,4 @@
-##############################################################################
 # Simple simulation of population fluctuations under autocorrelated climates #
-##############################################################################
 
 source("Source/gompertz_functions.R")
 
@@ -16,11 +14,11 @@ zsim <- cbind(z1,z2)
 # Same K (different resistance) -------------------------------------------
 
 xpars <- rbind(
-  data.frame(b0=0,b1=3,b2=0,b3=-0.75,b4=0),
-  data.frame(b0=0,b1=1,b2=0,b3=-0.25,b4=0)
+  data.frame(b0=0,b1=3,b2=0,b3=-0.75,b4=0,b5=0),
+  data.frame(b0=0,b1=1,b2=0,b3=-0.25,b4=0,b5=0)
 )
 
-rplot_3eg(0,1,xpars,xmin=-1,xmax=1)
+rplot_3eg(0,1,xpars,xmin=-10,xmax=10,averages=TRUE)
 Kcalc(z=zvals[1],pars=xpars)
 Kcalc(z=zvals[2],pars=xpars)
 # keeps K constant for all values of z
@@ -36,8 +34,8 @@ dplot(xmat,bw=0.001,col=mycols,lty=mylty,xmin=-3,xmax=3)
 # Different K (same resistance) -------------------------------------------
 
 xpars <- rbind(
-  data.frame(b0=0,b1=1,b2=0,b3=-1,b4=0),
-  data.frame(b0=0,b1=1,b2=0,b3=-0.1,b4=0)
+  data.frame(b0=0,b1=1,b2=0,b3=-1,b4=0,b5=0),
+  data.frame(b0=0,b1=1,b2=0,b3=-0.1,b4=0,b5=0)
 )
 
 rplot_3eg(0,1,xpars,xmin=-1,xmax=1)
@@ -58,8 +56,8 @@ dplot(xmat,bw=0.001,col=mycols,lty=mylty,xmin=-3,xmax=3)
 # Simulations without autocorrelation -------------------------------------
 
 xpars <- rbind(
-  data.frame(b0=0,b1=1,b2=0,b3=-1,b4=0),
-  data.frame(b0=0,b1=1,b2=0,b3=-0.1,b4=0)
+  data.frame(b0=0,b1=1,b2=0,b3=-1,b4=0,b5=0),
+  data.frame(b0=0,b1=1,b2=0,b3=-0.1,b4=0,b5=0)
 )
 
 set.seed(1)
@@ -77,8 +75,8 @@ dplot(xmat,bw=0.1,col=c("blue","red"),xmin=-10,xmax=10)
 # Over-compensation -------------------------------------------------------
 
 xpars <- rbind(
-  data.frame(b0=0,b1=1,b2=0,b3=-1.9,b4=0),
-  data.frame(b0=0,b1=1,b2=0,b3=-1.1,b4=0)
+  data.frame(b0=0,b1=1,b2=0,b3=-1.9,b4=0,b5=0),
+  data.frame(b0=0,b1=1,b2=0,b3=-1.1,b4=0,b5=0)
 )
 
 set.seed(1)
@@ -109,7 +107,7 @@ dmin <- -0.1
 dmax <- -1.99
 dseq <- seq(dmin,dmax,length.out=np)
 xpars <- data.frame(
-  b0=rep(0,np),b1=rep(1,np),b2=rep(0,np),b3=dseq,b4=rep(0,np)
+  b0=rep(0,np),b1=rep(1,np),b2=rep(0,np),b3=dseq,b4=rep(0,np),b5=rep(0,np)
 )
 
 nt <- 10^5
@@ -131,7 +129,7 @@ plot(dseq,log10(xsd[,6]),type="l",lty=1,xlab="DD")
 # Autocorrelation vs DD strength: same K ----------------------------------
 
 xpars <- data.frame(
-  b0=rep(0,np),b1=-dseq,b2=rep(0,np),b3=dseq,b4=rep(0,np)
+  b0=rep(0,np),b1=-dseq,b2=rep(0,np),b3=dseq,b4=rep(0,np),b5=rep(0,np)
   )
 # -b1 = a*b31, where a=K/z
 
@@ -144,3 +142,31 @@ matplot(dseq,xmed,type="l",col=tim.colors(nac),lty=1,xlab="DD")
 matplot(dseq,log10(xsd),type="l",col=tim.colors(nac),lty=1,xlab="DD")
 plot(dseq,log10(xsd[,6]),type="l",lty=1,xlab="DD")
   # better to be resistant than resilient, especially in neg-autocor envs
+
+# Nonlinear climate effects -----------------------------------------------
+
+xpars <- rbind(
+  data.frame(b0=0,b1=-2,b2=1,b3=-1,b4=0,b5=0),
+  data.frame(b0=0,b1=-2,b2=1,b3=-0.5,b4=0,b5=0)
+)
+rplot_3eg(0,1,xpars,xmin=-5,xmax=5,averages=TRUE)
+  # linear DD -> 
+  # - effects of clim var on mean X are the same regardless of fluctuation speed
+  # - but the slower the fluctuation speed, the bigger the fluctuations in X 
+  # (not shown)
+
+xpars <- rbind(
+  data.frame(b0=0,b1=2,b2=1,b3=-1,b4=0,b5=0.25),
+  data.frame(b0=0,b1=2,b2=1,b3=-0.5,b4=0,b5=0.25)
+)
+rplot_3eg(0,1,xpars,xmin=-5,xmax=5,averages=TRUE)
+  # increasing DD strength with clim -> 
+  # clim var has stronger effects (pos or neg) when fluctuations are fast
+  # (opposite is true for decreasing DD strength with clim)
+
+xpars <- rbind(
+  data.frame(b0=0,b1=1,b2=0,b3=-1,b4=-0.1,b5=0)
+)
+rplot_3eg(0,1,xpars,xmin=-5,xmax=5,averages=TRUE)
+  # with non-linear DD, can't calculate K distribution 
+  # because there are always some climates where pop goes extinct

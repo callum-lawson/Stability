@@ -1,14 +1,13 @@
-#####################################################################################
 # How do nonlinear population growth responses to climate affect carrying capacity? #
-#####################################################################################
 
 source("Source/gompertz_functions.R")
 
 # b0 = intercept
 # b1 = linear climate 	
 # b2 = squared climate 	
-# b3 = density 
-# b4 = climate*density
+# b3 = linear density 
+# b4 = squared density
+# b5 = climate*density
 
 myxmin <- -2
 myxmax <- 2
@@ -28,8 +27,8 @@ zsim[] <- rnorm(nt*nz,rep(zmu,each=nt),sd=rep(zsd,each=nt))
 # Two-climate comparisons - linear climate --------------------------------
 
 xpars <- rbind(
-  data.frame(b0=0,b1=0.5,b2=0,b3=-0.1,b4=0),
-  data.frame(b0=0,b1=0.75,b2=0,b3=-0.75,b4=0)
+  data.frame(b0=0,b1=0.5,b2=0,b3=-0.1,b4=0,b5=0),
+  data.frame(b0=0,b1=0.75,b2=0,b3=-0.75,b4=0,b5=0)
 )
 # try intercept 0.1
 
@@ -44,13 +43,11 @@ dplot(xmat,col=rep(c("blue","red"),each=2),lty=rep(1:2,times=2),bw=0.1)
 
 # Two-climate comparisons - squared ---------------------------------------
 
-source("Source/gompertz_functions.R")
-
 xpars <- rbind(
-  #data.frame(b0=0,b1=0.5,b2=0.75,b3=-0.1,b4=0),
-  data.frame(b0=0,b1=0.5,b2=0.75,b3=-0.1,b4=0),
-  #data.frame(b0=0,b1=0.5,b2=0.75,b3=-1.5,b4=0),
-  data.frame(b0=0,b1=0.5,b2=0.75,b3=-0.5,b4=0)
+  #data.frame(b0=0,b1=0.5,b2=0.75,b3=-0.1,b4=0,b5=0),
+  data.frame(b0=0,b1=0.5,b2=0.75,b3=-0.1,b4=0,b5=0),
+  #data.frame(b0=0,b1=0.5,b2=0.75,b3=-1.5,b4=0,b5=0),
+  data.frame(b0=0,b1=0.5,b2=0.75,b3=-0.5,b4=0,b5=0)
 )
 # try intercept 0.1
 
@@ -97,7 +94,7 @@ b3_min <- -0.05
 b3_max <- -1.5
 b3seq <- seq(b3_min,b3_max,length.out=np)
 xpars <- data.frame(
-  b0=rep(0,np),b1=rep(1,np),b2=rep(0.1,np),b3=b3seq,b4=rep(0,np)
+  b0=rep(0,np),b1=rep(1,np),b2=rep(0.1,np),b3=b3seq,b4=rep(0,np),b5=rep(0,np)
 )
 xmat <- xsim(zsim,xpars,nt=nt)
 xmed <- apply(xmat,c(2,3),median)
