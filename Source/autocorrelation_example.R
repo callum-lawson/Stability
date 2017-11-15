@@ -125,6 +125,7 @@ library(fields)
 matplot(dseq,xmed,type="l",col=tim.colors(nac),lty=1,xlab="DD")
 matplot(dseq,log10(xsd),type="l",col=tim.colors(nac),lty=1,xlab="DD")
 plot(dseq,log10(xsd[,6]),type="l",lty=1,xlab="DD")
+  # xmed similar but xsd highest for red-weak DD and blue-strong DD (?)
 
 # Autocorrelation vs DD strength: same K ----------------------------------
 
@@ -146,7 +147,8 @@ plot(dseq,log10(xsd[,6]),type="l",lty=1,xlab="DD")
 # Nonlinear climate effects -----------------------------------------------
 
 xpars <- rbind(
-  data.frame(b0=0,b1=-2,b2=1,b3=-1,b4=0,b5=0),
+  # data.frame(b0=0,b1=-3,b2=1,b3=-1.5,b4=0,b5=0),
+  data.frame(b0=0,b1=-3,b2=1,b3=-1,b4=0,b5=0),
   data.frame(b0=0,b1=-2,b2=1,b3=-0.5,b4=0,b5=0)
 )
 rplot_3eg(0,1,xpars,xmin=-5,xmax=5,averages=TRUE)
@@ -154,6 +156,10 @@ rplot_3eg(0,1,xpars,xmin=-5,xmax=5,averages=TRUE)
   # - effects of clim var on mean X are the same regardless of fluctuation speed
   # - but the slower the fluctuation speed, the bigger the fluctuations in X 
   # (not shown)
+
+  # what about over-compensation (b3>-1.5; see above)?
+  # 
+
 
 xpars <- rbind(
   data.frame(b0=0,b1=2,b2=1,b3=-1,b4=0,b5=0.25),
@@ -165,8 +171,13 @@ rplot_3eg(0,1,xpars,xmin=-5,xmax=5,averages=TRUE)
   # (opposite is true for decreasing DD strength with clim)
 
 xpars <- rbind(
-  data.frame(b0=0,b1=1,b2=0,b3=-1,b4=-0.1,b5=0)
+  data.frame(b0=0,b1=0,b2=5,b3=-1,b4=-0.1,b5=0),
+  data.frame(b0=0,b1=0,b2=5,b3=-1,b4=-0.5,b5=0)
 )
 rplot_3eg(0,1,xpars,xmin=-5,xmax=5,averages=TRUE)
-  # with non-linear DD, can't calculate K distribution 
-  # because there are always some climates where pop goes extinct
+  # more concave DD -> clim var effects stronger when fluctuations are faster
+  # (shown: positive [upward-squared] clim var effects)
+
+  # with non-linear DD, can't calculate K distribution unless
+  # lower limit on rmax (i.e. positive squared clim effect) because 
+  # otherwise there are always some climates where pop goes extinct

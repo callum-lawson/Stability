@@ -42,7 +42,7 @@ d <- function(C,x){
 g0 <- function(R,m,r,k,x,phi){
   (m + r*R) * (phi*1 - R/k) - x
 }
-# phi=0 -> resource dynamcis without births
+# phi=0 -> resource dynamics without births
 
 f0 <- function(R,C,E,a,h,psi){
   R * C * a / (1 + a*h*(R+psi*E))

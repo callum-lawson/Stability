@@ -40,13 +40,15 @@ rcalc <- function(z,lN,pars){
   })
 }
 
+# Kcalc_apply <- function(pars,z){
+#   apply(pars,1,Kcalc,z=z)
+# }
+
 Kcalc <- function(z,pars){
-  if(pars$b4==0){
-    with(pars, - (b0+b1*z+b2*z^2) / (b3+b5*z) )
-  }
-  if(pars$b4!=0){
+  ifelse(pars$b4==0,
+    with(pars, - (b0+b1*z+b2*z^2) / (b3+b5*z) ),
     with(pars, -( sqrt( (b3+b5*z)^2 -4*b4*(b0+z*(b1+b2*z)) ) + b3 + b5*z ) / (2*b4) )
-  }
+  )
 }
 # slope scales rate of change in K:  (b3+b5*z)
 
