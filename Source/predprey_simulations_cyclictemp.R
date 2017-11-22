@@ -20,7 +20,7 @@ tmax <- 60^2 * 24 * 7 * 52 * 10 # maximum length of time in seconds
 tf <- 1000
 tseq <- seq(0,tmax,length.out=tf)
 
-zmu <- -5
+zmu <- 0
 zsig <- 5 # wave amplitude
 zf <- 10 # wave frequency over whole time series
 zl <- tmax/zf 
@@ -33,7 +33,7 @@ sseq <- sseqgen(tseq,sstart)
 zparms <- list(zmu=zmu,zsig=zsig,zl=zl)
 eparms <- list(e0=e0,e1=e1,Rtype="replenish")
 
-R0 <- 1
+R0 <- 10^1
 C0 <- 10^-2
 y0 <- c(R=R0,C=C0)
 

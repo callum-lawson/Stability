@@ -48,7 +48,7 @@ e1 <- c(
 # Flux rates --------------------------------------------------------------
 
 g <- function(R,m,r,k,x,x0=2.689*10^-6){
-  (m + r*R) * (1 - R/k) - (x-x0)*R
+  (m + r*R) * (1 - R/k) # - (x-x0)*R
 }
   # x0 is intercept for mortality function 
 
@@ -66,11 +66,11 @@ g1 <- function(R,m,r,k){
 # births-only resource model
 
 g0 <- function(R,m,r,k,x,Rhat,x0=2.689*10^-6){
-  (m + r*R) * (Rhat/k) + (x-x0)*R
+  (m + r*R) * (Rhat/k) # + (x-x0)*R
 }
 # deaths-only resource model
 
-f0 <- function(R,C,E,a,h,Rhat){
+f0 <- function(R,C,a,h,Rhat){
   R * C * a / (1 + a*h*Rhat)
 }
 # psi=1 -> consumer "wastes" time on already-parasitised prey {Rhat-R} 
@@ -115,10 +115,10 @@ dRC_disc <- function(y,m,r,k,a,h,x,alpha,Rtype){
   C <- y[2]
   B <- y[3]
   E <- y[4]
-  dR <- phi * g1(R,m,r,k) - g0(R,m,r,k,x,R+psi*E) - f0(R,C,E,a,h,R+psi*E)
+  dR <- phi * g1(R,m,r,k) - g0(R,m,r,k,x,R+psi*E) - f0(R,C,a,h,R+psi*E)
   dC <- 0 - d(C,x)
   dB <- (1-phi) * ( g1(R,m,r,k) - g0(B,m=0,r,k,x,B) )
-  dE <- alpha * f0(R,C,E,a,h,R+psi*E) - (1-psi) * d(E,x) - psi * g0(E,m,r,k,x,R+E)
+  dE <- alpha * f0(R,C,a,h,R+psi*E) - (1-psi) * d(E,x) - psi * g0(E,m,r,k,x,R+E)
   list(c(dR=dR,dC=dC,dB=dB,dE=dE))
 }
   # replenish / remove  -> consumer eggs die at same rate as adult consumers
@@ -188,20 +188,18 @@ DRCt_disc <- function(y0,tseq,sseq,sstart,parms){
   for(s in 1:(ns-1)){
     
     y1 <- ode(y=c(y0,B=0,E=0),
-              times=c(sstart[s],tseq[sseq==s],sstart[s+1]),
+              times=c(tseq[sseq==s],sstart[s+1]),
               func=dRCt_disc,
               parms=parms
               )
     
     nts <- nrow(y1)
-    droprows <- c(1,nts)
     saverows <- which(sseq==s)
-    yd[saverows,"R"] <- y1[-droprows,"R"]
-    yd[saverows,"C"] <- y1[-droprows,"C"] 
-    y0[1] <- ifelse(parms$Rtype=="replenish",y1[nts,"R"],y1[nts,"B"]) 
-      # resource births - either current resource pop or resource eggs
-    y0[2] <- y1[nts,"E"] 
-      # adult consumers die, eggs become adults
+    yd[saverows,"R"] <- y1[-nts,"R"]
+    yd[saverows,"C"] <- y1[-nts,"C"] 
+    y0[1] <- y1[nts,"R"] + y1[nts,"B"]
+    y0[2] <- y1[nts,"C"] + y1[nts,"E"] 
+      # eggs become adults
     if(s==(ns-1)){
       yd[nt,c("R","C")] <- y0
     }
