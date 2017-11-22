@@ -17,3 +17,4 @@ Theoretical work on density-dependence and population stability under climate ch
 *kisdi_generalism*: Investigate consumer-resource dynamics with multiple prey species using method from Geritz & Kisdi 2004 J Theor Biol.
 *feeding_data_explore*: Explore functional response parameter distributions from Rall et al. 2010.
 *geometricmean_extinctionrisk*: Does a population's mean log size correlate with its extinction risk?
+*timelag_comparison*: Compare effects of time lags on consumer-resource dynamics.

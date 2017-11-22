@@ -24,6 +24,27 @@ arrrate <- function(zt,e0,e1){
   e0 * exp(e1 * arrtemp(zt))
 }
 
+# Parameter values --------------------------------------------------------
+
+e0 <- c(
+  m = 10^-6, # 10^-5,
+  r = 8.715*10^-7,
+  k = 5.623,
+  a = 6*10^-7, # 3.181989*10^-9, # estimated from data
+  h = 0.61, # 1685.586,     # estimated from data
+  x = 2.689*10^-6
+)
+
+e1 <- c(
+  m = 0,
+  r = 0, # from mortality rates # 0.84,
+  k = 0, # -0.772,
+  a = -0.03, # 0.5091663,   # estimated from data
+  h = -0.19, # -0.4660012, # estimated from data
+  x = 0.639
+)
+# r units are per SECOND; pop more than triples every 24h
+
 # Flux rates --------------------------------------------------------------
 
 g <- function(R,m,r,k,x,x0=2.689*10^-6){
@@ -39,16 +60,20 @@ d <- function(C,x){
   C * x
 }
 
-g0 <- function(R,m,r,k,x,phi){
-  (m + r*R) * (phi*1 - R/k) - x
+g1 <- function(R,m,r,k){
+  (m + r*R) * 1
 }
-# phi=0 -> resource dynamics without births
+# births-only resource model
 
-f0 <- function(R,C,E,a,h,psi){
-  R * C * a / (1 + a*h*(R+psi*E))
+g0 <- function(R,m,r,k,x,Rhat,x0=2.689*10^-6){
+  (m + r*R) * (Rhat/k) + (x-x0)*R
+}
+# deaths-only resource model
+
+f0 <- function(R,C,E,a,h,Rhat){
+  R * C * a / (1 + a*h*Rhat)
 }
 # psi=1 -> consumer "wastes" time on already-parasitised prey {Rhat-R} 
-
 
 # Non-linear averaging ----------------------------------------------------
 
@@ -72,7 +97,6 @@ parmsvar <- function(e0,e1,zmu,zsig){
 }
 # applies arrint to multiple pars at once
 
-
 # Population size derivatives ---------------------------------------------
 
 dRC_cont <- function(y,m,r,k,a,h,x,alpha){
@@ -85,18 +109,21 @@ dRC_cont <- function(y,m,r,k,a,h,x,alpha){
 
 dRC_disc <- function(y,m,r,k,a,h,x,alpha,Rtype){
   if(Rtype=="replenish") phi <- 1; psi <- 0
-  if(Rtype=="remove")    phi <- 0; psi <- 1
-  if(Rtype=="persist")   phi <- 0; psi <- 0
+  if(Rtype=="persist")   phi <- 0; psi <- 1
+  if(Rtype=="remove")    phi <- 0; psi <- 0
   R <- y[1]
   C <- y[2]
-  E <- y[3]
-  dR <- g0(R,m,r,k,x,phi) - f0(R,C,E,a,h,psi)
-  dC <- 0 # - d(C,x)
-  dE <- alpha * f0(R,C,E,a,h,psi) - d(E,x)
-  list(c(dR=dR,dC=dC,dE=dE))
+  B <- y[3]
+  E <- y[4]
+  dR <- phi * g1(R,m,r,k) - g0(R,m,r,k,x,R+psi*E) - f0(R,C,E,a,h,R+psi*E)
+  dC <- 0 - d(C,x)
+  dB <- (1-phi) * ( g1(R,m,r,k) - g0(B,m=0,r,k,x,B) )
+  dE <- alpha * f0(R,C,E,a,h,R+psi*E) - (1-psi) * d(E,x) - psi * g0(E,m,r,k,x,R+E)
+  list(c(dR=dR,dC=dC,dB=dB,dE=dE))
 }
-  # assume that eggs die at same rate as adult consumers
-  # but could also be assumed that die at same rate as unparasitised hosts
+  # replenish / remove  -> consumer eggs die at same rate as adult consumers
+  # persist -> consumer eggs die at same rate as unparasitised hosts (-> competition)
+  # assume that host eggs die at same rate as host adults, except without migration
 
 dRCt_cont <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
@@ -160,7 +187,7 @@ DRCt_disc <- function(y0,tseq,sseq,sstart,parms){
   
   for(s in 1:(ns-1)){
     
-    y1 <- ode(y=c(y0,E=0),
+    y1 <- ode(y=c(y0,B=0,E=0),
               times=c(sstart[s],tseq[sseq==s],sstart[s+1]),
               func=dRCt_disc,
               parms=parms
@@ -171,8 +198,10 @@ DRCt_disc <- function(y0,tseq,sseq,sstart,parms){
     saverows <- which(sseq==s)
     yd[saverows,"R"] <- y1[-droprows,"R"]
     yd[saverows,"C"] <- y1[-droprows,"C"] 
-    y0[1] <- y1[nts,"R"] # + births
-    y0[2] <- y1[nts,"E"] # adult consumers die, eggs become adults
+    y0[1] <- ifelse(parms$Rtype=="replenish",y1[nts,"R"],y1[nts,"B"]) 
+      # resource births - either current resource pop or resource eggs
+    y0[2] <- y1[nts,"E"] 
+      # adult consumers die, eggs become adults
     if(s==(ns-1)){
       yd[nt,c("R","C")] <- y0
     }

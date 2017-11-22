@@ -157,8 +157,9 @@ rplot_3eg(0,1,xpars,xmin=-5,xmax=5,averages=TRUE)
   # - but the slower the fluctuation speed, the bigger the fluctuations in X 
   # (not shown)
 
-  # what about over-compensation (b3>-1.5; see above)?
-  # 
+  # results for over-compensation (b3>-1.5) are the same for extremes, because
+  # no transient dynamics 
+  # how to illustrate variance as well as mean?
 
 
 xpars <- rbind(

@@ -14,25 +14,6 @@ source("Source/predprey_functions_general.R")
 
 # Input parameters --------------------------------------------------------
 
-e0 <- c(
-  m = 10^-6, # 10^-5,
-  r = 8.715*10^-7,
-  k = 5.623,
-  a = 6*10^-7, # 3.181989*10^-9, # estimated from data
-  h = 0.61, # 1685.586,     # estimated from data
-  x = 2.689*10^-6
-)
-
-e1 <- c(
-  m = 0,
-  r = 0, # from mortality rates # 0.84,
-  k = 0, # -0.772,
-  a = -0.03, # 0.5091663,   # estimated from data
-  h = -0.19, # -0.4660012, # estimated from data
-  x = 0.639
-)
-# r units are per SECOND; pop more than triples every 24h
-
 x0 <- arrrate(0,e0["x"],e1["x"])
 
 tmax <- 60^2 * 24 * 7 * 52 * 10 # maximum length of time in seconds
