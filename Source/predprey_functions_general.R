@@ -108,22 +108,24 @@ dRC_cont <- function(y,m,r,k,a,h,x,alpha){
 }
 
 dRC_disc <- function(y,m,r,k,a,h,x,alpha,Rtype){
-  if(Rtype=="replenish") phi <- 1; psi <- 0
-  if(Rtype=="persist")   phi <- 0; psi <- 1
-  if(Rtype=="remove")    phi <- 0; psi <- 0
+  if(Rtype=="replenish") { phi <- 1; psi <- 0 }
+  if(Rtype=="cohabit")   { phi <- 1; psi <- 1 }
+  if(Rtype=="remove")    { phi <- 0; psi <- 0 }
+  if(Rtype=="persist")   { phi <- 0; psi <- 1 }
   R <- y[1]
   C <- y[2]
   B <- y[3]
   E <- y[4]
-  dR <- phi * g1(R,m,r,k) - g0(R,m,r,k,x,R+psi*E) - f0(R,C,a,h,R+psi*E)
+  dR <- phi * g1(R+psi*E,m,r,k) - g0(R,m,r,k,x,R+psi*E) - f0(R,C,a,h,R+psi*E)
   dC <- 0 - d(C,x)
-  dB <- (1-phi) * ( g1(R,m,r,k) - g0(B,m=0,r,k,x,B) )
-  dE <- alpha * f0(R,C,a,h,R+psi*E) - (1-psi) * d(E,x) - psi * g0(E,m,r,k,x,R+E)
+  dB <- (1-phi) * ( g1(R,m,r,k) - g0(B,m,r,k,x,B) )
+  dE <- alpha * f0(R,C,a,h,R+psi*E) - (1-psi) * d(E,x) - psi * g0(E,m=0,r,k,x,R+E)
   list(c(dR=dR,dC=dC,dB=dB,dE=dE))
 }
   # replenish / remove  -> consumer eggs die at same rate as adult consumers
   # persist -> consumer eggs die at same rate as unparasitised hosts (-> competition)
-  # assume that host eggs die at same rate as host adults, except without migration
+  # eggs die at same rate as host adults, except without migration
+  # parasitised hosts produce unparasitised young
 
 dRCt_cont <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
@@ -188,15 +190,17 @@ DRCt_disc <- function(y0,tseq,sseq,sstart,parms){
   for(s in 1:(ns-1)){
     
     y1 <- ode(y=c(y0,B=0,E=0),
-              times=c(tseq[sseq==s],sstart[s+1]),
+              times=c(sstart[s],tseq[sseq==s],sstart[s+1]),
               func=dRCt_disc,
               parms=parms
+              # atol=10^-16
               )
     
     nts <- nrow(y1)
+    droprows <- c(1,nts)
     saverows <- which(sseq==s)
-    yd[saverows,"R"] <- y1[-nts,"R"]
-    yd[saverows,"C"] <- y1[-nts,"C"] 
+    yd[saverows,"R"] <- y1[-droprows,"R"]
+    yd[saverows,"C"] <- y1[-droprows,"C"] 
     y0[1] <- y1[nts,"R"] + y1[nts,"B"]
     y0[2] <- y1[nts,"C"] + y1[nts,"E"] 
       # eggs become adults
