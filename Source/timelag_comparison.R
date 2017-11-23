@@ -18,8 +18,7 @@ zsig <- 0 # wave amplitude
 zf <- 10 # wave frequency over whole time series
 zl <- tmax/zf 
 
-sf <- tf-2 + 1 # number of seasons 
-  # +1 because new season starts right at end
+sf <- tf # number of seasons 
   # must be <= number of recorded timesteps
 sl <- tmax/sf
 sstart <- seq(0,tmax,length.out=sf)
@@ -52,3 +51,13 @@ matplot(tseq,log(delayed[,-1]),type="l",col="gray",add=TRUE)
 # abline(v=sstart,col="grey",lty=3)  
 legend("topright",legend=c("replenish","cohabit","remove","persist"),
        col=cols,lty=1,bty="n")
+
+matplot(tseq,log(cbind(discrete1[,2],discrete2[,2],discrete3[,2],discrete4[,2],
+                standard[,2],delayed[,2])),
+     type="l",
+     col=c(cols,"black","gray"),
+     bty="n"
+     )
+legend("topright",legend=c("replenish","cohabit","remove","persist"),
+       col=cols,lty=1,bty="n")
+
