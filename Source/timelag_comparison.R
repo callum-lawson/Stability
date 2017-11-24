@@ -23,7 +23,7 @@ sf <- 365
 sl <- tmax/sf
 
 zparms <- list(zmu=zmu,zsig=zsig,zl=zl,tau=sl)
-eparms <- list(e0=e0,e1=e1)
+eparms <- list(e0=e0,e1=e1,omega=1)
 
 R0 <- 10^1
 C0 <- 10^-2
@@ -56,12 +56,14 @@ matplot(tseq,log(cbind(discrete1[,2],discrete2[,2],discrete3[,2],discrete4[,2],
 legend("topright",legend=c("replenish","cohabit","remove","persist"),
        col=cols,lty=1:4,bty="n")
 
+eparms2 <- list(e0=replace(e0,5,sl),e1=e1,omega=1)
+standard2 <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(zparms,eparms2))
+lines(tseq,log(standard2[,3]),col="pink")
+
 # Effects of season length ------------------------------------------------
 
-aparms <- c(zparms,eparms)
-
 DRCt_disc_one <- function(y0,tmax,Rtype){
-  DRCt_disc(y0,tseq=c(0,tmax),sf=1,parms=c(aparms,Rtype=Rtype))[2,2:3]
+  DRCt_disc(y0,tseq=c(0,tmax),sf=1,parms=c(zparms,eparms,Rtype=Rtype))[2,2:3]
   }
 
 nT <- 2

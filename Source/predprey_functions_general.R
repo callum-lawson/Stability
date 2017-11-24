@@ -33,6 +33,7 @@ e0 <- c(
   a = 6*10^-7, # 3.181989*10^-9, # estimated from data
   h = 0.61, # 1685.586,     # estimated from data
   x = 2.689*10^-6
+  # e = 0
 )
 
 e1 <- c(
@@ -42,15 +43,16 @@ e1 <- c(
   a = -0.03, # 0.5091663,   # estimated from data
   h = -0.19, # -0.4660012, # estimated from data
   x = 0.639
+  # e = 0.639
 )
+
 # r units are per SECOND; pop more than triples every 24h
 
 # Flux rates --------------------------------------------------------------
 
-g <- function(R,m,r,k,x,x0=2.689*10^-6){
-  (m + r*R) * (1 - R/k) # - (x-x0)*R
+g <- function(R,m,r,k){
+  (m + r*R) * (1 - R/k)
 }
-  # x0 is intercept for mortality function 
 
 f <- function(R,C,a,h){
   R * C * a / (1 + a*h*R)
@@ -65,8 +67,8 @@ g1 <- function(R,m,r){
 }
 # births-only resource model
 
-g0 <- function(R,m,r,k,x,Rhat,x0=2.689*10^-6){
-  (m + r*R) * (Rhat/k) # + (x-x0)*R
+g0 <- function(R,m,r,k,Rhat){
+  (m + r*R) * (Rhat/k)
 }
 # deaths-only resource model
 
@@ -102,12 +104,12 @@ parmsvar <- function(e0,e1,zmu,zsig){
 dRC_cont <- function(y,m,r,k,a,h,x,alpha){
   R <- y[1]
   C <- y[2]
-  dR <- g(R,m,r,k,x) - f(R,C,a,h)
+  dR <- g(R,m,r,k) - f(R,C,a,h)
   dC <- alpha * f(R,C,a,h) - d(C,x)
   list(c(dR=dR,dC=dC))
 }
 
-dRC_disc <- function(y,m,r,k,a,h,x,alpha,Rtype){
+dRC_disc <- function(y,m,r,k,a,h,x,alpha,omega,Rtype){
   if(Rtype=="replenish") { phi <- 1; psi <- 0 }
   if(Rtype=="cohabit")   { phi <- 1; psi <- 1 }
   if(Rtype=="remove")    { phi <- 0; psi <- 0 }
@@ -116,10 +118,10 @@ dRC_disc <- function(y,m,r,k,a,h,x,alpha,Rtype){
   C <- y[2]
   B <- y[3]
   E <- y[4]
-  dR <- g1(R+psi*E,m,phi*r) - g0(R,m,r,k,x,R+psi*E) - f0(R,C,a,h,R+psi*E)
+  dR <- g1(R+psi*E,m,phi*r) - g0(R,m,r,k,R+psi*E) - f0(R,C,a,h,R+psi*E)
   dC <- 0 - d(C,x)
-  dB <- (1-phi) * ( g1(R,m=0,r) - g0(B,m=0,r,k,x,B) )
-  dE <- alpha * f0(R,C,a,h,R+psi*E) - (1-psi) * d(E,x) - psi * g0(E,m=0,r,k,x,R+E)
+  dB <- (1-phi) * ( g1(R,m=0,r) - g0(B,m=0,r,k,B) )
+  dE <- alpha * f0(R,C,a,h,R+psi*E) - (1-psi) * omega * d(E,x) - psi * g0(E,m=0,r,k,R+E)
   list(c(dR=dR,dC=dC,dB=dB,dE=dE))
 }
   # replenish / remove -> consumer eggs die at same rate as adult consumers
@@ -144,7 +146,7 @@ rR <- Vectorize(
 dRCt_disc <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-  with(parmst, dRC_disc(y,m,r,k,a,h,x,alpha=0.85,Rtype=parms$Rtype) )
+  with(parmst, dRC_disc(y,m,r,k,a,h,x,alpha=0.85,omega=parms$omega,Rtype=parms$Rtype) )
 }
 
 dRCt_delay <- function(t,y,parms,alpha=0.85){
@@ -167,7 +169,7 @@ dRCt_delay <- function(t,y,parms,alpha=0.85){
   }
   
   with(parmst, {
-    dR <- g(R,m,r,k,x) - f(R,C,a,h)
+    dR <- g(R,m,r,k) - f(R,C,a,h)
     dC <- alpha * f_lag - d(C,x)
     return( list(c(dR=dR,dC=dC)) )
   })
@@ -258,7 +260,7 @@ dRCt_siglag <- function(t,y,parms,alpha=0.85,taumu=60*60*24*7,tausig=0.001){
   }
   
   with(parmst, {
-    dR <- g(R,m,r,k,x) - f(R,C,a,h)
+    dR <- g(R,m,r,k) - f(R,C,a,h)
     dC <- alpha * f_lag - d(C,x)
     return( list(c(dR=dR,dC=dC)) )
   })
