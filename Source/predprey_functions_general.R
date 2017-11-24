@@ -60,7 +60,7 @@ d <- function(C,x){
   C * x
 }
 
-g1 <- function(R,m,r,k){
+g1 <- function(R,m,r){
   (m + r*R) * 1
 }
 # births-only resource model
@@ -116,13 +116,13 @@ dRC_disc <- function(y,m,r,k,a,h,x,alpha,Rtype){
   C <- y[2]
   B <- y[3]
   E <- y[4]
-  dR <- phi * g1(R+psi*E,m,r,k) - g0(R,m,r,k,x,R+psi*E) - f0(R,C,a,h,R+psi*E)
+  dR <- g1(R+psi*E,m,phi*r) - g0(R,m,r,k,x,R+psi*E) - f0(R,C,a,h,R+psi*E)
   dC <- 0 - d(C,x)
-  dB <- (1-phi) * ( g1(R,m,r,k) - g0(B,m,r,k,x,B) )
+  dB <- (1-phi) * ( g1(R,m=0,r) - g0(B,m=0,r,k,x,B) )
   dE <- alpha * f0(R,C,a,h,R+psi*E) - (1-psi) * d(E,x) - psi * g0(E,m=0,r,k,x,R+E)
   list(c(dR=dR,dC=dC,dB=dB,dE=dE))
 }
-  # replenish / remove  -> consumer eggs die at same rate as adult consumers
+  # replenish / remove -> consumer eggs die at same rate as adult consumers
   # persist -> consumer eggs die at same rate as unparasitised hosts (-> competition)
   # eggs die at same rate as host adults, except without migration
   # parasitised hosts produce unparasitised young
@@ -178,8 +178,12 @@ dRCt_delay <- function(t,y,parms,alpha=0.85){
 
 # Population size integration ---------------------------------------------
 
-DRCt_disc <- function(y0,tseq,sseq,sstart,parms){
+DRCt_disc <- function(y0,tseq,sf,parms){
 
+  tmax <- max(tseq)
+  sstart <- seq(0,tmax,length.out=sf+1)
+  sseq <- sseqgen(tseq,sstart)
+  
   nt <- length(tseq)
   ns <- max(sseq)
   
@@ -187,26 +191,27 @@ DRCt_disc <- function(y0,tseq,sseq,sstart,parms){
   yd[1,"R"] <- y0[1]
   yd[1,"C"] <- y0[2]
   
-  for(s in 1:(ns-1)){
+  for(s in 1:ns){
+    
+    if(s<ns)  savetimes <- c(sstart[s],tseq[sseq==s],sstart[s+1])
+    if(s==ns) savetimes <- c(sstart[s],tseq[sseq==s])
     
     y1 <- ode(y=c(y0,B=0,E=0),
-              times=c(sstart[s],tseq[sseq==s],sstart[s+1]),
+              times=savetimes,
               func=dRCt_disc,
               parms=parms
               # atol=10^-16
               )
     
     nts <- nrow(y1)
-    droprows <- c(1,nts)
+    if(s<ns)  droprows <- c(1,nts)
+    if(s==ns) droprows <- 1
     saverows <- which(sseq==s)
     yd[saverows,"R"] <- y1[-droprows,"R"]
     yd[saverows,"C"] <- y1[-droprows,"C"] 
     y0[1] <- y1[nts,"R"] + y1[nts,"B"]
     y0[2] <- y1[nts,"C"] + y1[nts,"E"] 
       # eggs become adults
-    if(s==(ns-1)){
-      yd[nt,c("R","C")] <- y0
-    }
     
   }
   return(yd)
