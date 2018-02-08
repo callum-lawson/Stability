@@ -109,25 +109,29 @@ dRC_cont <- function(y,m,r,k,a,h,x,alpha){
   list(c(dR=dR,dC=dC))
 }
 
-dRC_disc <- function(y,m,r,k,a,h,x,alpha,omega,Rtype){
-  if(Rtype=="replenish") { phi <- 1; psi <- 0 }
-  if(Rtype=="cohabit")   { phi <- 1; psi <- 1 }
-  if(Rtype=="remove")    { phi <- 0; psi <- 0 }
-  if(Rtype=="persist")   { phi <- 0; psi <- 1 }
+dRC_disc <- function(y,m,r,k,a,h,x,alpha,omega,kappa,Rtype,Ctype){
+  if(Rtype=="C" & Ctype=="C"){
+    stop("resource or consumer should have discrete dynamics")
+  }
+  if(Rtype=="D") { phi <- 0 }
+  if(Rtype=="C") { phi <- 1 }
+  if(Ctype=="D") { psi <- 0 }
+  if(Ctype=="C") { psi <- 1 }
   R <- y[1]
   C <- y[2]
   B <- y[3]
   E <- y[4]
-  dR <- g1(R+psi*E,m,phi*r) - g0(R,m,r,k,R+psi*E) - f0(R,C,a,h,R+psi*E)
-  dC <- 0 - d(C,x)
+  Ft <- f0(R,C,a,h,R+kappa*E)
+  dR <- g1(R,m,phi*r) - g0(R,m,r,k,R) - Ft
+  dC <- psi * alpha * Ft - d(C,x)
   dB <- (1-phi) * ( g1(R,m=0,r) - g0(B,m=0,r,k,B) )
-  dE <- alpha * f0(R,C,a,h,R+psi*E) - (1-psi) * omega * d(E,x) - psi * g0(E,m=0,r,k,R+E)
+  dE <- (1-psi) * alpha * Ft - omega * d(E,x) 
   list(c(dR=dR,dC=dC,dB=dB,dE=dE))
 }
-  # replenish / remove -> consumer eggs die at same rate as adult consumers
-  # persist -> consumer eggs die at same rate as unparasitised hosts (-> competition)
-  # eggs die at same rate as host adults, except without migration
-  # parasitised hosts produce unparasitised young
+  # phi included within dR because want constant migration effect regardless
+  #   of whether resource births are continuous
+  # capacity (K) of host adults and eggs is equivalent 
+  # consumer eggs die at same rate as adult consumers
 
 dRCt_cont <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
@@ -146,7 +150,12 @@ rR <- Vectorize(
 dRCt_disc <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-  with(parmst, dRC_disc(y,m,r,k,a,h,x,alpha=0.85,omega=parms$omega,Rtype=parms$Rtype) )
+  with(parmst, dRC_disc(y,m,r,k,a,h,x,alpha=0.85,
+                        omega=parms$omega,
+                        kappa=parms$kappa,
+                        Rtype=parms$Rtype,
+                        Ctype=parms$Ctype
+                        ) )
 }
 
 dRCt_delay <- function(t,y,parms,alpha=0.85){
@@ -214,6 +223,7 @@ DRCt_disc <- function(y0,tseq,sf,parms){
     y0[1] <- y1[nts,"R"] + y1[nts,"B"]
     y0[2] <- y1[nts,"C"] + y1[nts,"E"] 
       # eggs become adults
+      # existing resource and consumers carry over
     
   }
   return(yd)
