@@ -35,10 +35,18 @@ discreteDD <- DRCt_disc(y0,tseq,sf,parms=c(zparms,eparms,Rtype="D",Ctype="D"))
 discreteCD <- DRCt_disc(y0,tseq,sf,parms=c(zparms,eparms,Rtype="C",Ctype="D"))
 discreteDC <- DRCt_disc(y0,tseq,sf,parms=c(zparms,eparms,Rtype="D",Ctype="C"))
 
-par(mfrow=c(1,1),mar=c(4,4,2,2))
+
+par(mfrow=c(1,2),mar=c(4,4,2,2))
 require(fields)
 cols <- tim.colors(3)
 allcols <- c(cols,"black","gray")
+matplot(tseq,log(cbind(discreteDD[,2],discreteCD[,2],discreteDC[,2],
+                       standard[,2],delayed[,2])),
+        type="l",
+        col=allcols,
+        lty=1:5,
+        bty="n"
+)
 matplot(tseq,log(cbind(discreteDD[,3],discreteCD[,3],discreteDC[,3],
                        standard[,3],delayed[,3])),
         type="l",

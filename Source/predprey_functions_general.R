@@ -63,7 +63,7 @@ d <- function(C,x){
 }
 
 g1 <- function(R,m,r){
-  (m + r*R) * 1
+  m + r*R
 }
 # births-only resource model
 
@@ -122,9 +122,9 @@ dRC_disc <- function(y,m,r,k,a,h,x,alpha,omega,kappa,Rtype,Ctype){
   B <- y[3]
   E <- y[4]
   Ft <- f0(R,C,a,h,R+kappa*E)
-  dR <- g1(R,m,phi*r) - g0(R,m,r,k,R) - Ft
+  dR <- g1(R,(1-phi)*m,phi*r) - g0(R,(1-phi)*m,r,k,R) - Ft
   dC <- psi * alpha * Ft - d(C,x)
-  dB <- (1-phi) * ( g1(R,m=0,r) - g0(B,m=0,r,k,B) )
+  dB <- (1-phi) * ( g1(R,m,r) - g0(B,m,r=0,k,B) ) # m=?
   dE <- (1-psi) * alpha * Ft - omega * d(E,x) 
   list(c(dR=dR,dC=dC,dB=dB,dE=dE))
 }
