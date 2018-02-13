@@ -99,8 +99,7 @@ parmsvar <- function(e0,e1,zmu,zsig){
 }
 # applies arrint to multiple pars at once
 
-
-# Continuous dynamics -----------------------------------------------------
+# Population size derivatives ---------------------------------------------
 
 dRC_cont <- function(y,m,r,k,a,h,x,alpha){
   R <- y[1]
@@ -109,6 +108,30 @@ dRC_cont <- function(y,m,r,k,a,h,x,alpha){
   dC <- alpha * f(R,C,a,h) - d(C,x)
   list(c(dR=dR,dC=dC))
 }
+
+dRC_disc <- function(y,m,r,k,a,h,x,alpha,omega,kappa,Rtype,Ctype){
+  if(Rtype=="C" & Ctype=="C"){
+    stop("resource or consumer should have discrete dynamics")
+  }
+  if(Rtype=="D") { phi <- 0 }
+  if(Rtype=="C") { phi <- 1 }
+  if(Ctype=="D") { psi <- 0 }
+  if(Ctype=="C") { psi <- 1 }
+  R <- y[1]
+  C <- y[2]
+  B <- y[3]
+  E <- y[4]
+  Ft <- f0(R,C,a,h,R+kappa*E)
+  dR <- g1(R,(1-phi)*m,phi*r) - g0(R,(1-phi)*m,r,k,R) - Ft
+  dC <- psi * alpha * Ft - d(C,x)
+  dB <- (1-phi) * ( g1(R,m,r) - g0(B,m,r=0,k,B) ) # m=?
+  dE <- (1-psi) * alpha * Ft - omega * d(E,x) 
+  list(c(dR=dR,dC=dC,dB=dB,dE=dE))
+}
+  # phi included within dR because want constant migration effect regardless
+  #   of whether resource births are continuous
+  # capacity (K) of host adults and eggs is equivalent 
+  # consumer eggs die at same rate as adult consumers
 
 dRCt_cont <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
@@ -124,7 +147,16 @@ rR <- Vectorize(
   vectorize.args=c("zt","R")
 )
 
-# Lagged dynamics ---------------------------------------------------------
+dRCt_disc <- function(t,y,parms){
+  zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
+  parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
+  with(parmst, dRC_disc(y,m,r,k,a,h,x,alpha=0.85,
+                        omega=parms$omega,
+                        kappa=parms$kappa,
+                        Rtype=parms$Rtype,
+                        Ctype=parms$Ctype
+                        ) )
+}
 
 dRCt_delay <- function(t,y,parms,alpha=0.85){
   
@@ -152,33 +184,10 @@ dRCt_delay <- function(t,y,parms,alpha=0.85){
   })
   
 }
-# never used in conjunction with dRC_disc because two alternative methods
-# of introducing time delays
+  # never used in conjunction with dRC_disc because two alternative methods
+  # of introducing time delays
 
-# Discrete dynamics -------------------------------------------------------
-
-dRC_disc <- function(y,m,r,k,a,h,x,alpha,omega,kappa){
-  R <- y[1]
-  C <- y[2]
-  E <- y[3]
-  Ft <- f0(R,C,a,h,R+kappa*E)
-  dR <- g1(R,m,r) - g0(R,m,r,k,R) - Ft
-  dC <- - d(C,x)
-  dE <- alpha * Ft - omega * d(E,x) 
-  list(c(dR=dR,dC=dC,dE=dE))
-}
-  # consumer eggs die at same rate as adult consumers
-  # egg mortality can be zero, but consumer mortality can't - 
-  #   otherwise doesn't reduce to continuous model at very short time interval
-
-dRCt_disc <- function(t,y,parms){
-  zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
-  parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-  with(parmst, dRC_disc(y,m,r,k,a,h,x,alpha=0.85,
-                        omega=parms$omega,
-                        kappa=parms$kappa
-                        ) )
-}
+# Population size integration ---------------------------------------------
 
 DRCt_disc <- function(y0,tseq,sf,parms){
 
@@ -198,7 +207,7 @@ DRCt_disc <- function(y0,tseq,sf,parms){
     if(s<ns)  savetimes <- c(sstart[s],tseq[sseq==s],sstart[s+1])
     if(s==ns) savetimes <- c(sstart[s],tseq[sseq==s])
     
-    y1 <- ode(y=c(y0,E=0),
+    y1 <- ode(y=c(y0,B=0,E=0),
               times=savetimes,
               func=dRCt_disc,
               parms=parms
@@ -211,10 +220,71 @@ DRCt_disc <- function(y0,tseq,sf,parms){
     saverows <- which(sseq==s)
     yd[saverows,"R"] <- y1[-droprows,"R"]
     yd[saverows,"C"] <- y1[-droprows,"C"] 
-    y0[1] <- y1[nts,"R"]
+    y0[1] <- y1[nts,"R"] + y1[nts,"B"]
     y0[2] <- y1[nts,"C"] + y1[nts,"E"] 
       # eggs become adults
       # existing resource and consumers carry over
+    
   }
   return(yd)
 }
+
+# DOES NOT WORK - Lag distribution model ----------------------------------
+
+dRCt_siglag <- function(t,y,parms,alpha=0.85,taumu=60*60*24*7,tausig=0.001){
+  
+  zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
+  parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
+  
+  R <- y[1]
+  C <- y[2]
+  
+  if(tausig==0 & t>taumu){
+    zt_lag <- with(parms, zt_cyclic(t-taumu,zmu,zsig,zl) )
+    parmst_lag <- with(parms, as.list( arrrate(zt_lag,e0,e1) ) )
+    RC_lag <- lagvalue(t - taumu)
+    f_lag <- with(parmst_lag, f(RC_lag[1],RC_lag[2],a,h))
+  }
+  
+  if(tausig==0 & t<=taumu){
+    f_lag <- 0
+  }
+  
+  if(tausig>0){
+    RC_lagint <- Vectorize(function(tau){
+      zt_lag <- with(parms, zt_cyclic(t-tau,zmu,zsig,zl) )
+      parmst_lag <- with(parms, as.list( arrrate(zt_lag,e0,e1) ) )
+      if(t>tau){
+        RC_lag_tau <- lagvalue(t - tau)
+        return(
+          with(parmst_lag, 
+               dlnorm(tau,log(taumu),tausig) * f(RC_lag_tau[1],RC_lag_tau[2],a,h)
+               )
+          )
+      }
+      else{
+        return(0)
+      }
+    })
+    f_lag <- integrate(RC_lagint,lower=taumu-10*tausig,upper=taumu+10*tausig)$value
+  }
+  
+  with(parmst, {
+    dR <- g(R,m,r,k) - f(R,C,a,h)
+    dC <- alpha * f_lag - d(C,x)
+    return( list(c(dR=dR,dC=dC)) )
+  })
+  
+}
+  # doesn't seem to work - probably a problem with telling "lagvalue" where to look
+
+# R = prey biomass (g/m^2)
+# C = predator biomass (g/m^2)
+# E = egg or parasitised host biomass
+# m = immigration rate of resource
+# r = prey intrinsic rate of increase (low density, absence of predator)
+# K = prey carrying capacity (absence of predators)
+# a = rate at which predator encounters prey
+# h = handling time
+# alpha = number of predators produced for each prey eaten
+# x = consumer death rate in absence of prey
