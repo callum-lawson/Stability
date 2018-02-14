@@ -51,6 +51,7 @@ matplot(tseq,log(cbind(standard[,3],delayed[,3],discrete[,3])),
 )
 legend("topright",legend=c("standard","delayed","discrete"),
        col=allcols,lty=1:length(allcols),bty="n")
+  # discrete -> potentially more rapid adjustment, but ultimately lower K 
 
 eparms2 <- list(e0=replace(e0,5,sl),e1=e1,omega=1)
 standard2 <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(zparms,eparms2))
