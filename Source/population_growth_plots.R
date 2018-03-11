@@ -30,19 +30,6 @@ R0 <- 10^1
 C0 <- 10^-2
 y0 <- c(R=R0,C=C0)
 
-# Increasing temperature variability --------------------------------------
-
-### Consumer present
-
-lvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(eparms,zl=zl,zmu=zmu,zsig=0))
-mvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(eparms,zl=zl,zmu=zmu,zsig=2.5))
-hvar <- ode(y=y0,times=tseq,func=dRCt_cont,parms=c(eparms,zl=zl,zmu=zmu,zsig=5))
-
-par(mfrow=c(1,1))
-matplot(tseq,log(hvar[,-1]),type="l",col="red",bty="n")
-matplot(tseq,log(mvar[,-1]),type="l",col="black",add=TRUE)
-matplot(tseq,log(lvar[,-1]),type="l",col="blue",add=TRUE)
-
 # Population growth plots -------------------------------------------------
 
 ## r plots
@@ -62,9 +49,9 @@ e1 <- c(
   m = 0,
   r = 0, # from mortality rates # 0.84,
   k = 0, # -0.772,
-  a = 0.3, # -0.03, # 0.5091663,   # estimated from data
+  a = 0.1, # -0.03, # 0.5091663,   # estimated from data
   h = 0, # -0.19, # -0.4660012, # estimated from data
-  x = 0 # 0.639
+  x = 0.03 # 0.639
   # e = 0.639
 )
 eparms <- list(e0=e0,e1=e1)
@@ -78,3 +65,7 @@ ra <- acast(melt(rd,id=c("C","z")),C~z)
 par(mfrow=c(1,1))
 matplot(log(Cseq),ra,type="l",lty=1,col=heat.colors(10))
 abline(h=0,lty=3,col="grey")
+
+  # increase in attack rates needs to be by larger factor than incrase in 
+  #   mortality rates to increase Cstar, because attacking also reduces prey 
+  #   equilibrium?

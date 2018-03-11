@@ -72,53 +72,54 @@ parmsvar <- function(e0,e1,zmu,zsig){
 
 # Flux rates --------------------------------------------------------------
 
-g <- function(R,m,r,k){
-  (m + r*R) * (1 - R/k)
+g <- function(R,m,r,k,chi){
+  (m + r * R) * (1 - R/k) - chi
 }
+  # at 20C, chi=0
+  # add difference in x as increase temperature above this
+  # could weight this (exponential) difference by body mass
+  # equivalent to perturbing m/K without altering m or K
 
-f <- function(R,C,a,h){
-  R * C * a / (1 + a*h*R)
+f <- function(R,C,a,h,b=0,omega=0,Rhat=R){
+  aN <- a * N / (b + N)
+  R * C * aN / (1 + aN*h*Rhat + a*omega*h*C)
 }
+  # - b = 0 -> density-independent attack rates
+  # - a is a constant for consumer interference because they have no refuges
+  #   (so interference rates always equals max possible attack rate)
+  # - effective handling time can be increased by:
+  #   1. already-parasitised prey (discrete-time models):
+  #     Rhat = R + E, where E are consumer eggs
+  #   2. omega is ratio of predator interference time : prey handling time
 
 d <- function(C,x){
   x * C
 }
 
-# g1 <- function(R,m,r){
-#   m + r*R
-# }
-# # births-only resource model
-# 
-# g0 <- function(R,m,r,k){
-#   (m + r*R) * (R/k)
-# }
-# # deaths-only resource model
-
-f0 <- function(R,C,a,h,Rhat){
-  R * C * a / (1 + a*h*Rhat)
-}
-# psi=1 -> consumer "wastes" time on already-parasitised prey {Rhat-R} 
+# Multiple prey: individual prey attack rates with same, summed handling time
+# denominator (koen-Alonso)
 
 # Continuous dynamics -----------------------------------------------------
 
-dRC_cont <- function(y,m,r,k,a,h,x,alpha){
+dRC_cont <- function(y,m,r,k,a,h,x,alpha=0.85){
   R <- y[1]
   C <- y[2]
-  dR <- g(R,m,r,k) - f(R,C,a,h)
-  dC <- alpha * f(R,C,a,h) - d(C,x)
+  Ft <- f(R,C,a,h)
+  dR <- g(R,m,r,k) - Ft
+  dC <- alpha * Ft - d(C,x)
   list(c(dR=dR,dC=dC))
 }
 
 dRCt_cont <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-  with(parmst, dRC_cont(y,m,r,k,a,h,x,alpha=0.85) )
+  with(parmst, dRC_cont(y,m,r,k,a,h,x) )
 }
 
 rR <- Vectorize(
   function(zt,R,parms){
     parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-    with(parmst, dRC_cont(c(R,0),m,r,k,a,h,x,alpha=0.85)[[1]]["dR"]/R)
+    with(parmst, dRC_cont(c(R,0),m,r,k,a,h,x)[[1]]["dR"]/R)
   },
   vectorize.args=c("zt","R")
 )
@@ -126,7 +127,7 @@ rR <- Vectorize(
 rC <- Vectorize(
   function(zt,R,C,parms){
     parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-    with(parmst, dRC_cont(c(R,C),m,r,k,a,h,x,alpha=0.85)[[1]]["dC"]/C)
+    with(parmst, dRC_cont(c(R,C),m,r,k,a,h,x)[[1]]["dC"]/C)
   },
   vectorize.args=c("zt","R","C")
 )
@@ -164,14 +165,14 @@ dRCt_delay <- function(t,y,parms,alpha=0.85){
 
 # Discrete dynamics -------------------------------------------------------
 
-dRC_disc <- function(y,m,r,k,a,h,x,alpha,omega,kappa){
+dRC_disc <- function(y,m,r,k,a,h,x,alpha=0.85,phi=1,kappa=0){
   R <- y[1]
   C <- y[2]
   E <- y[3]
-  Ft <- f0(R,C,a,h,R+kappa*E)
+  Ft <- f0(R,C,a,h,Rhat=R+kappa*E)
   dR <- g1(R,m,r,k) - Ft
   dC <- - d(C,x)
-  dE <- alpha * Ft - omega * d(E,x) 
+  dE <- alpha * Ft - phi * d(E,x) 
   list(c(dR=dR,dC=dC,dE=dE))
 }
   # consumer eggs die at same rate as adult consumers
@@ -181,13 +182,11 @@ dRC_disc <- function(y,m,r,k,a,h,x,alpha,omega,kappa){
 dRCt_disc <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-  with(parmst, dRC_disc(y,m,r,k,a,h,x,alpha=0.85,
-                        omega=parms$omega,
-                        kappa=parms$kappa
-                        ) )
+  with(parmst, dRC_disc(y,m,r,k,a,h,x) )
 }
 
 DRCt_disc <- function(y0,tseq,sf,parms){
+  # write this to accept tau parameter as input instead?
 
   tmax <- max(tseq)
   sstart <- seq(0,tmax,length.out=sf+1)
@@ -234,7 +233,7 @@ dR_cont <- function(R,C,m,r,k,a,h,x){
   g(R,m,r,k) - f(R,C,a,h)
 }
 
-dC_cont <- function(R,C,m,r,k,a,h,x,alpha){
+dC_cont <- function(R,C,m,r,k,a,h,x,alpha=0.85){
   alpha * f(R,C,a,h) - d(C,x)
 }
 
@@ -254,16 +253,8 @@ rC_separate <- Vectorize(
     else{
       Rstar <- root1$root
     } 
-    with(parmst, dC_cont(Rstar,C,m,r,k,a,h,x,alpha=0.85)/C)
+    with(parmst, dC_cont(Rstar,C,m,r,k,a,h,x)/C)
   },
   vectorize.args=c("zt","C")
 )
-
-### Discrete
-
-# try1 <- try(
-#   root1 <- uniroot(dR,C=Cs,p=p,a=a,h=h,u=q*u1,v=v1,lower=10^-10,upper=10^10) 
-# )
-# if(class(try1)=="try-error") K1s <- NA
-# else K1s <- root1$root
 
