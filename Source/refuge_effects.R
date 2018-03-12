@@ -215,9 +215,10 @@ curve(x*ess(N=x,r=5,k=100,x=1)/(1+1*x*ess(N=x,r=5,k=100,x=1)),
       xlim=c(0,100),ylim=c(0,1))
 
 ess2 <- function(N,r,k,x,c){
-  p <- (2*r*N - k*x) / (2*r*N*(1+c)) 
-  p[p<=0] <- 0
-  p[p>=1] <- 1
+  # p <- (2*r*N - k*x) / (2*r*N*(1+c)) 
+  p <- 1/(1+c) - k*x / (2*r*N*(1+c)) 
+  # p[p<=0] <- 0
+  # p[p>=1] <- 1
   return(p)
   # 1/2 - k*x / (4*r*N)
 }
@@ -250,4 +251,41 @@ curve(dN(N=x,r=5,k=100,x=2,c=1),add=T,lty=3)
 curve(dN(N=x,r=5,k=100,x=2,c=2),add=T,lty=4)
 abline(h=0,col="red")
 
+# Theta-logistic ----------------------------------------------------------
 
+ess3 <- function(N,r,k,x,theta){
+  p <- 1/2 - x*(N/k)^-theta / (4*r)
+  #p[p<=0] <- 0
+  #p[p>=1] <- 1
+  return(p)
+}
+curve(ess3(N=x,r=5,k=100,x=0.5,theta=100),xlim=c(0,200),ylim=c(0,1))
+curve(ess3(N=x,r=5,k=100,x=1,theta=100),add=T,lty=2)
+curve(ess3(N=x,r=5,k=100,x=2,theta=100),add=T,lty=3)
+curve(ess3(N=x,r=5,k=100,x=5,theta=100),add=T,lty=5)
+
+curve(5*(1-(x/100)^100),xlim=c(0,200))
+curve(5*(1-(x/100)),add=T,lty=2)
+
+# what it should look like:
+inflow <- function(x,k=100){
+  ifelse(x<=k,0,(x-k)/x)
+}
+curve(inflow(x),add=T,lty=2)
+curve(inflow(x),xlim=c(0,500),ylim=c(0,1))
+
+curve(1-ess2(N=x,r=5,k=100,x=-2,c=1000),xlim=c(0,100/1000),ylim=c(0,1))
+  # k of protected 1000x bigger than that of unprotected
+curve(ess2(N=x,r=5,k=100,x=2,c=0.001),xlim=c(0,500),ylim=c(0,1))
+curve(ess2(N=x,r=5,k=100,x=2,c=0.01),add=T,lty=2)
+curve(ess2(N=x,r=5,k=100,x=2,c=0.1),add=T,lty=3)
+curve(ess2(N=x,r=5,k=100,x=2,c=1),add=T,lty=4)
+
+curve(1-ess2(N=x,r=5,k=100,x=-5000,c=1000),xlim=c(0,200),ylim=c(0,1))
+curve(inflow(x,k=50),add=T,lty=2)
+
+curve(2+5*(1-(x/0.1)),xlim=c(0,0.1))
+curve(5*(1-(x/100)),add=T,lty=2)
+
+curve(ess2(N=x,r=5,k=100,x=-5000,c=1000)*x,xlim=c(0,200))
+  # number of individuals in refuge remains constant
