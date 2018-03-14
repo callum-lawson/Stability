@@ -289,3 +289,13 @@ curve(5*(1-(x/100)),add=T,lty=2)
 
 curve(ess2(N=x,r=5,k=100,x=-5000,c=1000)*x,xlim=c(0,200))
   # number of individuals in refuge remains constant
+
+# Switch point ------------------------------------------------------------
+
+Nswitch <- function(r,k,x,c){
+  -k*x/(2*r*c)
+}
+Nswitch(r=5,k=100,x=-2,c=1000)
+curve(log(Nswitch(r=5,k=100*x,x=-2,c=1000*x)),xlim=c(0,1000))
+
+
