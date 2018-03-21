@@ -96,7 +96,7 @@ abline(h=0,lty=3,col="gray")
 
 ### varying k
 
-curve(irate(nB=x,r=5,k=100,xi=1,c=1),xlim=c(0,100),n=10^3,
+curve(irate(nB=x,r=5,k=100,xi=1,c=1),xlim=c(0,125),n=10^3,
       ylab="absolute immigration")
 curve(irate(nB=x,r=5,k=0.8*100,xi=1,c=1),add=T,lty=2)
 curve(irate(nB=x,r=5,k=0.6*100,xi=1,c=1),add=T,lty=3)
@@ -105,7 +105,7 @@ abline(h=0,lty=3,col="gray")
 
 ### varying relative intercept
 
-curve(irate(nB=x,r=5,k=100,xi=5,c=1),xlim=c(0,100),n=10^3,
+curve(irate(nB=x,r=5,k=100,xi=5,c=1),xlim=c(0,125),n=10^3,
       ylab="absolute immigration")
 curve(irate(nB=x,r=5,k=100,xi=2,c=1),add=T,lty=2)
 curve(irate(nB=x,r=5,k=100,xi=1,c=1),add=T,lty=3)
@@ -116,11 +116,31 @@ abline(h=0,lty=3,col="gray")
 
 ### varying relative k 
 
-curve(irate(nB=x,r=5,k=100,xi=1,c=1),xlim=c(0,100),n=10^3,
+curve(irate(nB=x,r=5,k=100,xi=1,c=1),xlim=c(0,125),n=10^3,
       ylab="absolute immigration")
 curve(irate(nB=x,r=5,k=100,xi=1,c=2),add=T,lty=2)
 curve(irate(nB=x,r=5,k=100,xi=1,c=5),add=T,lty=3)
   # smaller k -> protected acts more like constant immigration
+abline(h=0,lty=3,col="gray")
+
+# Overall growth rate -----------------------------------------------------
+
+dR_dt_plus <- function(R,r,k,xi,c){
+  dR_Rdt(R,r,k,xi,c)*R + irate(R,r,k,xi,c)
+  }
+  
+curve(dR_dt_plus(R=x,r=0.8*5,k=0.8*100,xi=1,c=1),
+      xlim=c(0,125),
+      n=10^3,
+      xlab=expression(N[B]),
+      ylab=expression(r[B])
+)
+curve(dR_dt_plus(R=x,r=0.6*5,k=0.6*100,xi=1,c=1),
+      xlim=c(0,125),
+      n=10^3,
+      add=T,
+      lty=2
+)
 abline(h=0,lty=3,col="gray")
 
 # Dynamic changes with consumer density -----------------------------------
