@@ -63,14 +63,67 @@ nAstar <- function(nB,r,k,xi,c){
 }
 curve(nAstar(nB=x,r=5,k=100,xi=1,c=1),xlim=c(0,100),ylim=c(0,100),n=10^3)
 
+# Immigration rates -------------------------------------------------------
+
 irate <- function(nB,r,k,xi,c){
   nA <- nAstar(nB,r,k,xi,c)
-  dR_Rdt(nA,r,k,xi,c) * nA
+  theta <- ess(nA+nB,r,k,xi,c)
+  theta * dR_Rdt(nA,r,k,xi,c) * nA - (1-theta) * dR_Rdt(nB,r,k,xi=0,c=1) * nB
 }
-curve(irate(nB=x,r=5,k=100,xi=1,c=1),xlim=c(0,100),n=10^3)
-curve(irate(nB=x,r=0.75*5,k=0.75*100,xi=1,c=1),add=T,lty=2)
-curve(irate(nB=x,r=0.5*5,k=0.5*100,xi=1,c=1),add=T,lty=3)
+
+# gain from protected - loss of increase to protected
+# = A production * allocation determined by theta
+
+### varying intercept (r and k in the same way)
+
+curve(irate(nB=x,r=5,k=100,xi=1,c=1),xlim=c(0,125),n=10^3,
+      xlab=expression(N[B]),ylab="i")
+curve(irate(nB=x,r=0.8*5,k=0.8*100,xi=1,c=1),add=T,lty=2)
+curve(irate(nB=x,r=0.6*5,k=0.6*100,xi=1,c=1),add=T,lty=3)
 curve(irate(nB=x,r=5,k=100,xi=0,c=1),add=T,col="red")
+abline(h=0,lty=3,col="gray")
+
+curve(irate(nB=x,r=5,k=100,xi=1,c=1)/x,xlim=c(2,125),n=10^3,
+      xlab=expression(N[B]),ylab=expression(i/N[B]))
+curve(irate(nB=x,r=0.8*5,k=0.8*100,xi=1,c=1)/x,add=T,lty=2)
+curve(irate(nB=x,r=0.6*5,k=0.6*100,xi=1,c=1)/x,add=T,lty=3)
+curve(irate(nB=x,r=5,k=100,xi=0,c=1)/x,add=T,col="red")
+abline(h=0,lty=3,col="gray")
+
   # but this assumes that all individuals produced by A will move to B
   # how to siphon-off the individuals that stay in A, 
   # (as well as those that move from B->A)?
+
+### varying k
+
+curve(irate(nB=x,r=5,k=100,xi=1,c=1),xlim=c(0,100),n=10^3,
+      ylab="absolute immigration")
+curve(irate(nB=x,r=5,k=0.8*100,xi=1,c=1),add=T,lty=2)
+curve(irate(nB=x,r=5,k=0.6*100,xi=1,c=1),add=T,lty=3)
+  # NB: this is changing the k of *both* protected and exposed by the same fraction
+abline(h=0,lty=3,col="gray")
+
+### varying relative intercept
+
+curve(irate(nB=x,r=5,k=100,xi=5,c=1),xlim=c(0,100),n=10^3,
+      ylab="absolute immigration")
+curve(irate(nB=x,r=5,k=100,xi=2,c=1),add=T,lty=2)
+curve(irate(nB=x,r=5,k=100,xi=1,c=1),add=T,lty=3)
+  # more protected -> 
+  # - higher immigration benefit
+  # - peak immigration benefit happens at lower densities
+abline(h=0,lty=3,col="gray")
+
+### varying relative k 
+
+curve(irate(nB=x,r=5,k=100,xi=1,c=1),xlim=c(0,100),n=10^3,
+      ylab="absolute immigration")
+curve(irate(nB=x,r=5,k=100,xi=1,c=2),add=T,lty=2)
+curve(irate(nB=x,r=5,k=100,xi=1,c=5),add=T,lty=3)
+  # smaller k -> protected acts more like constant immigration
+abline(h=0,lty=3,col="gray")
+
+# Dynamic changes with consumer density -----------------------------------
+
+# Is this similar to consumer interference?
+
