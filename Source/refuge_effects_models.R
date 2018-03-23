@@ -2,15 +2,15 @@
 
 # Functions ---------------------------------------------------------------
 
+drdtheta <- function(R,r,k,xi,c,theta){
+  2*r/k*(c(1-theta)-theta)*R - xi
+}
+
 ess <- function(R,r,k,xi,c){
-  p <- 1/(1+c)*(c-xi*k/(2*r*R))
+  p <-  c/(c+1) * (1-xi*k/(2*r*R*c)) 
   p[p<=0] <- 0
   p[p>=1] <- 1
   return(p)
-}
-
-drdtheta <- function(R,r,k,xi,c,theta){
-  2*r*R*(theta*(1+c)-c)/k - xi
 }
 
 Rstar <- function(r,k,xi,c){
