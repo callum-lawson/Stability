@@ -1,5 +1,7 @@
 ### Effects of refuges on attack rates and functional response ###
 
+# Functions ---------------------------------------------------------------
+
 ess <- function(R,r,k,xi,c){
   p <- 1/(1+c)*(c-xi*k/(2*r*R))
   p[p<=0] <- 0
@@ -16,7 +18,7 @@ Rstar <- function(r,k,xi,c){
 }
 
 dR_Rdt <- function(R,r,k,xi,c){
-  r*(1-c*R/k) + xi
+  r*(1-c*R/k) - xi
 }
 
 inflow <- function(r,k,xi,c){
@@ -27,6 +29,41 @@ inflow <- function(r,k,xi,c){
 thetastar <- function(c){
   c/(1+c)
 }
+
+f <- function(R,C,r,k,xi=1,c=1){
+  theta <- ess(R,r,k,xi*C,c)
+  theta * R
+}
+
+dR_Rdt_bar <- function(R,r,k,xi,c){
+  theta <- ess(R,r,k,xi,c)
+  (1-theta) * dR_Rdt((1-theta)*R,r,k,xi=0,c) + theta * dR_Rdt(theta*R,r,k,xi,c=1)
+}
+
+nAstar <- function(nB,r,k,xi,c){
+  1/c*(xi*k/r+nB)
+}
+
+irate <- function(nB,r,k,xi,c){
+  nA <- nAstar(nB,r,k,xi,c)
+  theta <- ess(nA+nB,r,k,xi,c)
+  theta * dR_Rdt(nA,r,k,xi=0,c) * nA - (1-theta) * dR_Rdt(nB,r,k,xi,c=1) * nB
+}
+
+# gain from protected - loss of increase to protected
+# = A production * allocation determined by theta
+
+# dR_dt_plus <- function(nB,r,k,xi,c){
+#   dR_Rdt(nB,r,k,xi,c)*nB + irate(nB,r,k,xi,c)
+# }
+
+dR_dt_plus <- function(nB,r,k,xi,c,xi2=0){
+  nA <- nAstar(nB,r,k,xi,c)
+  theta <- ess(nA+nB,r,k,xi,c)
+  theta * ( dR_Rdt(nA,r,k,xi=0,c)*nA + (dR_Rdt(nB,r,k,xi,c=1)-xi2)*nB )
+}
+
+# Optimal habitat selection -----------------------------------------------
 
 curve(ess(R=x,r=5,k=100,xi=1,c=1),xlim=c(0,100),ylim=c(0,1))
 curve(ess(R=x,r=5,k=100,xi=2,c=2),add=T,lty=2)
@@ -39,40 +76,18 @@ Rstar(r=5,k=100,xi=1,c=1)
 curve(inflow(r=5,k=100,xi=1*x,c=1*x),xlim=c(0,100))
 thetastar(c=100)
 
-f <- function(R,C,r,k,xi=1,c=1){
-  theta <- ess(R,r,k,xi*C,c)
-  theta * R
-}
-
 curve(f(R=x,C=1,r=5,xi=1,k=100),xlim=c(0,100))
 curve(f(R=x,C=2,r=5,xi=1,k=100),add=T,lty=2)
 curve(f(R=x,C=5,r=5,xi=1,k=100),add=T,lty=3)
-
-dR_Rdt_bar <- function(R,r,k,xi,c){
-  theta <- ess(R,r,k,xi,c)
-  (1-theta) * dR_Rdt((1-theta)*R,r,k,xi,c) + theta * dR_Rdt(theta*R,r,k,xi=0,c=1)
-}
 
 curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=1,c=5),xlim=c(-2,2),ylim=c(1,8),n=10^3)
 curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=2,c=1),add=T,lty=2,n=10^3)
 curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=2,c=5),add=T,lty=3,n=10^3)
 curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=0,c=1),add=T,lty=4,n=10^3)
 
-nAstar <- function(nB,r,k,xi,c){
-  1/c*(xi*k/r+nB)
-}
 curve(nAstar(nB=x,r=5,k=100,xi=1,c=1),xlim=c(0,100),ylim=c(0,100),n=10^3)
 
 # Immigration rates -------------------------------------------------------
-
-irate <- function(nB,r,k,xi,c){
-  nA <- nAstar(nB,r,k,xi,c)
-  theta <- ess(nA+nB,r,k,xi,c)
-  theta * dR_Rdt(nA,r,k,xi,c) * nA - (1-theta) * dR_Rdt(nB,r,k,xi=0,c=1) * nB
-}
-
-# gain from protected - loss of increase to protected
-# = A production * allocation determined by theta
 
 ### varying intercept (r and k in the same way)
 
@@ -81,6 +96,7 @@ curve(irate(nB=x,r=5,k=100,xi=1,c=1),xlim=c(0,125),n=10^3,
 curve(irate(nB=x,r=0.8*5,k=0.8*100,xi=1,c=1),add=T,lty=2)
 curve(irate(nB=x,r=0.6*5,k=0.6*100,xi=1,c=1),add=T,lty=3)
 curve(irate(nB=x,r=5,k=100,xi=0,c=1),add=T,col="red")
+  # B is independent of A when have identical growth functions
 abline(h=0,lty=3,col="gray")
 
 curve(irate(nB=x,r=5,k=100,xi=1,c=1)/x,xlim=c(2,125),n=10^3,
@@ -103,15 +119,15 @@ curve(irate(nB=x,r=5,k=0.6*100,xi=1,c=1),add=T,lty=3)
   # NB: this is changing the k of *both* protected and exposed by the same fraction
 abline(h=0,lty=3,col="gray")
 
-### varying relative intercept
+### varying relative intercept (consumption)
 
-curve(irate(nB=x,r=5,k=100,xi=5,c=1),xlim=c(0,125),n=10^3,
+curve(irate(nB=x,r=5,k=100,xi=2,c=1),xlim=c(0,125),n=10^3,
       ylab="absolute immigration")
-curve(irate(nB=x,r=5,k=100,xi=2,c=1),add=T,lty=2)
-curve(irate(nB=x,r=5,k=100,xi=1,c=1),add=T,lty=3)
-  # more protected -> 
-  # - higher immigration benefit
-  # - peak immigration benefit happens at lower densities
+curve(irate(nB=x,r=5,k=100,xi=1,c=1),add=T,lty=2)
+curve(irate(nB=x,r=5,k=100,xi=0.5,c=1),add=T,lty=3)
+  # higher consumption rate ->
+  #   higher immigration at low B densities (because more sheltering in A)
+  #   lower immigration at higher B densities (because more leave for A)
 abline(h=0,lty=3,col="gray")
 
 ### varying relative k 
@@ -125,25 +141,57 @@ abline(h=0,lty=3,col="gray")
 
 # Overall growth rate -----------------------------------------------------
 
-dR_dt_plus <- function(R,r,k,xi,c){
-  dR_Rdt(R,r,k,xi,c)*R + irate(R,r,k,xi,c)
-  }
-  
-curve(dR_dt_plus(R=x,r=0.8*5,k=0.8*100,xi=1,c=1),
-      xlim=c(0,125),
-      n=10^3,
-      xlab=expression(N[B]),
-      ylab=expression(r[B])
-)
-curve(dR_dt_plus(R=x,r=0.6*5,k=0.6*100,xi=1,c=1),
-      xlim=c(0,125),
-      n=10^3,
-      add=T,
-      lty=2
-)
+curve(dR_dt_plus(nB=x,r=5,k=100,xi=0.5,c=1),xlim=c(0,125),n=10^3,
+      xlab=expression(N[B]),ylab=expression(delta*N[B]/delta*t)
+      )
+curve(dR_dt_plus(nB=x,r=5,k=100,xi=1,c=1),n=10^3,add=T,lty=2)
+curve(dR_dt_plus(nB=x,r=5,k=100,xi=2,c=1),n=10^3,add=T,lty=3)
+
+curve(dR_Rdt(R=x,r=5,k=100,xi=0.5,c=1)*x,n=10^3,add=T,lty=1,col="red")
+curve(dR_Rdt(R=x,r=5,k=100,xi=1,c=1)*x,n=10^3,add=T,lty=2,col="red")
+curve(dR_Rdt(R=x,r=5,k=100,xi=2,c=1)*x,n=10^3,add=T,lty=3,col="red")
+
 abline(h=0,lty=3,col="gray")
+  # higher consumer pressure -> 
+  #   higher immigration at low densities
+  #   but lower growth at higher densities 
+  #   (because of higher death rates and higher immmigration rates)
+  # habitat selection -> stabilising:
+  #   higher growth below K
+  #   but lower growth above K
+
+# Proportional refuge -----------------------------------------------------
+
+curve(dR_dt_plus(nB=x,r=5,k=100,xi=0,c=1,xi2=1),xlim=c(0,125),n=10^3,
+      xlab=expression(N[B]),ylab=expression(delta*N[B]/delta*t)
+)
+curve(dR_Rdt(x,r=5,k=100,xi=1,c=1)*x,add=T,col="red")
+
+dR_dt_plus2 <- function(nB,r,k,xi,c){
+  nA <- nAstar(nB,r,k,xi,c)
+  theta <- ess(nA+nB,r,k,xi,c) # theta calculated using NEW variables
+  theta * ( nA*(r*(1-c*nA/k)) +  nB*(r*(1-nB/k) - xi) )
+}
+
+dR_dt_plus3 <- function(nB,r,k,xi,c){
+  ((-k * xi + k * r - nB * r) * (2* c *nB *r + k *xi + 2 *nB *r))/(2 *(c + 1)* k *r)
+}
+
+curve(dR_dt_plus2(nB=x,r=5,k=100,xi=0.5,c=1),xlim=c(0,125),n=10^3,
+      xlab=expression(N[B]),ylab=expression(delta*N[B]/delta*t)
+)
+curve(dR_dt_plus2(nB=x,r=5,k=100,xi=1,c=1),n=10^3,add=T,lty=2)
+curve(dR_dt_plus2(nB=x,r=5,k=100,xi=2,c=1),n=10^3,add=T,lty=3)
+
+curve(dR_dt_plus3(nB=x,r=5,k=100,xi=0.5,c=1),xlim=c(0,125),n=10^3,
+      xlab=expression(N[B]),ylab=expression(delta*N[B]/delta*t)
+)
+curve(dR_dt_plus3(nB=x,r=5,k=100,xi=1,c=1),n=10^3,add=T,lty=2)
+curve(dR_dt_plus3(nB=x,r=5,k=100,xi=2,c=1),n=10^3,add=T,lty=3)
+
 
 # Dynamic changes with consumer density -----------------------------------
 
 # Is this similar to consumer interference?
-
+#   Yes: lower feeding rates at higher consumer densities
+#   No: affects DD of resource population too
