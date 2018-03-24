@@ -6,8 +6,15 @@ drdtheta <- function(R,r,k,xi,c,theta){
   2*r/k*(c(1-theta)-theta)*R - xi
 }
 
-ess <- function(R,r,k,xi,c){
-  p <-  c/(c+1) * (1-xi*k/(2*r*R*c)) 
+theta <- function(R,r,k,xi,c){
+  p <-  c/(c+1) * (1-xi*k/(2*r*c*R)) 
+  p[p<=0] <- 0
+  p[p>=1] <- 1
+  return(p)
+}
+
+theta2 <- function(R,r,k,xi,c){
+  p <-  c/(c+1) * (1-xi*k/(r*c*R)) 
   p[p<=0] <- 0
   p[p>=1] <- 1
   return(p)
@@ -31,12 +38,12 @@ thetastar <- function(c){
 }
 
 f <- function(R,C,r,k,xi=1,c=1){
-  theta <- ess(R,r,k,xi*C,c)
+  theta <- theta(R,r,k,xi*C,c)
   theta * R
 }
 
 dR_Rdt_bar <- function(R,r,k,xi,c){
-  theta <- ess(R,r,k,xi,c)
+  theta <- theta(R,r,k,xi,c)
   (1-theta) * dR_Rdt((1-theta)*R,r,k,xi=0,c) + theta * dR_Rdt(theta*R,r,k,xi,c=1)
 }
 
@@ -46,12 +53,13 @@ nAstar <- function(nB,r,k,xi,c){
 
 irate <- function(nB,r,k,xi,c){
   nA <- nAstar(nB,r,k,xi,c)
-  theta <- ess(nA+nB,r,k,xi,c)
+  theta <- theta(nA+nB,r,k,xi,c)
   theta * dR_Rdt(nA,r,k,xi=0,c) * nA - (1-theta) * dR_Rdt(nB,r,k,xi,c=1) * nB
 }
 
 # gain from protected - loss of increase to protected
 # = A production * allocation determined by theta
+# = mean total growth rate of pop - mean growth rate of B portion
 
 # dR_dt_plus <- function(nB,r,k,xi,c){
 #   dR_Rdt(nB,r,k,xi,c)*nB + irate(nB,r,k,xi,c)
@@ -59,18 +67,20 @@ irate <- function(nB,r,k,xi,c){
 
 dR_dt_plus <- function(nB,r,k,xi,c,xi2=0){
   nA <- nAstar(nB,r,k,xi,c)
-  theta <- ess(nA+nB,r,k,xi,c)
-  theta * ( dR_Rdt(nA,r,k,xi=0,c)*nA + (dR_Rdt(nB,r,k,xi,c=1)-xi2)*nB )
+  theta <- theta(nA+nB,r,k,xi,c)
+   ( dR_Rdt(nA,r,k,xi=0,c)*nA + (dR_Rdt(nB,r,k,xi,c=1)-xi2)*nB )
 }
 
 # Optimal habitat selection -----------------------------------------------
 
-curve(ess(R=x,r=5,k=100,xi=1,c=1),xlim=c(0,100),ylim=c(0,1))
-curve(ess(R=x,r=5,k=100,xi=2,c=2),add=T,lty=2)
-curve(ess(R=x,r=5,k=100,xi=4,c=4),add=T,lty=3)
-curve(ess(R=x,r=5,k=100,xi=10,c=10),add=T,lty=4)
-curve(ess(R=x,r=5,k=100,xi=100,c=100),add=T,lty=4)
+curve(theta(R=x,r=5,k=100,xi=1,c=1),xlim=c(0,100),ylim=c(0,1))
+curve(theta(R=x,r=5,k=100,xi=2,c=2),add=T,lty=2)
+curve(theta(R=x,r=5,k=100,xi=4,c=4),add=T,lty=3)
+curve(theta(R=x,r=5,k=100,xi=10,c=10),add=T,lty=4)
+curve(theta(R=x,r=5,k=100,xi=100,c=100),add=T,lty=4)
 curve((x-10)/x,add=T,col="red")
+
+curve(theta(R=x,r=5,k=100,xi=2,c=5),xlim=c(0,100),ylim=c(0,1))
 
 Rstar(r=5,k=100,xi=1,c=1)
 curve(inflow(r=5,k=100,xi=1*x,c=1*x),xlim=c(0,100))
@@ -80,10 +90,28 @@ curve(f(R=x,C=1,r=5,xi=1,k=100),xlim=c(0,100))
 curve(f(R=x,C=2,r=5,xi=1,k=100),add=T,lty=2)
 curve(f(R=x,C=5,r=5,xi=1,k=100),add=T,lty=3)
 
+# Mean growth rate --------------------------------------------------------
+
 curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=1,c=5),xlim=c(-2,2),ylim=c(1,8),n=10^3)
-curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=2,c=1),add=T,lty=2,n=10^3)
-curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=2,c=5),add=T,lty=3,n=10^3)
-curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=0,c=1),add=T,lty=4,n=10^3)
+curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=2,c=1),add=T,lty=2,n=10^3,col="red")
+curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=2,c=5),add=T,lty=3,n=10^3,col="orange")
+curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=0,c=1),add=T,lty=4,n=10^3,col="blue")
+
+curve(dR_Rdt_bar(R=10^x,r=100*5,k=100*100,xi=100,c=500),xlim=c(-1,4),n=10^3)
+abline(h=0,lty=3,col="gray")
+abline(v=log10(Rstar(r=100*5,k=100*100,xi=100,c=500)),col="gray",lty=2)
+curve(dR_Rdt(R=10^x,r=100*5,k=100*100,xi=0,c=500),add=T,col="blue",lty=2)
+curve(dR_Rdt(R=10^x,r=100*5,k=100*100,xi=100,c=1),add=T,col="red",lty=3)
+
+curve(log(dR_Rdt_bar(R=10^x,r=100*5,k=100*100,xi=100,c=500)/10^x),xlim=c(-1,4),n=10^3)
+abline(h=0,lty=3,col="gray")
+abline(v=log10(Rstar(r=100*5,k=100*100,xi=100,c=500)),col="gray",lty=2)
+curve(log(dR_Rdt(R=10^x,r=100*5,k=100*100,xi=0,c=500)/10^x),add=T,col="blue",lty=2)
+curve(log(dR_Rdt(R=10^x,r=100*5,k=100*100,xi=100,c=1)/10^x),add=T,col="red",lty=3)
+
+curve(theta(R=10^x,r=100*5,k=100*100,xi=100,c=500),xlim=c(-1,4),ylim=c(0,1))
+curve(theta2(R=10^x,r=100*5,k=100*100,xi=100,c=500),add=T,col="green")
+abline(v=log10(Rstar(r=100*5,k=100*100,xi=100,c=500)),col="gray",lty=2)
 
 curve(nAstar(nB=x,r=5,k=100,xi=1,c=1),xlim=c(0,100),ylim=c(0,100),n=10^3)
 
@@ -167,9 +195,12 @@ curve(dR_dt_plus(nB=x,r=5,k=100,xi=0,c=1,xi2=1),xlim=c(0,125),n=10^3,
 )
 curve(dR_Rdt(x,r=5,k=100,xi=1,c=1)*x,add=T,col="red")
 
+
+# Trial growth functions --------------------------------------------------
+
 dR_dt_plus2 <- function(nB,r,k,xi,c){
   nA <- nAstar(nB,r,k,xi,c)
-  theta <- ess(nA+nB,r,k,xi,c) # theta calculated using NEW variables
+  theta <- theta(nA+nB,r,k,xi,c) # theta calculated using NEW variables
   theta * ( nA*(r*(1-c*nA/k)) +  nB*(r*(1-nB/k) - xi) )
 }
 
@@ -188,6 +219,19 @@ curve(dR_dt_plus3(nB=x,r=5,k=100,xi=0.5,c=1),xlim=c(0,125),n=10^3,
 )
 curve(dR_dt_plus3(nB=x,r=5,k=100,xi=1,c=1),n=10^3,add=T,lty=2)
 curve(dR_dt_plus3(nB=x,r=5,k=100,xi=2,c=1),n=10^3,add=T,lty=3)
+
+dR_dt_plus4 <- function(nB,r,k,xi,c){
+ 1/c*((1+c)*dR_Rdt(nB,r,k,xi,c=1) + xi*k/nB*(1-xi/r))
+}
+  
+curve(dR_dt_plus4(nB=x,r=5,k=100,xi=0.5,c=1),n=10^3,add=T,col="blue")
+
+dR_Rdt_bar2 <- function(nB,r,k,xi,c){
+  r - 1/k*( nB+xi*k/r*( 1 - c*nB/( (c+1)*nB+xi*k/r) ) )
+}
+
+curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=1,c=5),xlim=c(-2,2),ylim=c(1,8),n=10^3)
+curve(dR_Rdt_bar2(nB=10^x,r=5,k=100,xi=1,c=5),xlim=c(-2,2),ylim=c(1,8),n=10^3)
 
 
 # Dynamic changes with consumer density -----------------------------------
