@@ -47,6 +47,11 @@ dR_Rdt_bar <- function(R,r,k,xi,c){
   (1-theta) * dR_Rdt((1-theta)*R,r,k,xi=0,c) + theta * dR_Rdt(theta*R,r,k,xi,c=1)
 }
 
+dR_Rdt_bar2 <- function(R,r,k,xi,c){
+  theta <- theta2(R,r,k,xi,c)
+  (1-theta) * dR_Rdt((1-theta)*R,r,k,xi=0,c) + theta * dR_Rdt(theta*R,r,k,xi,c=1)
+}
+
 nAstar <- function(nB,r,k,xi,c){
   1/c*(xi*k/r+nB)
 }
@@ -97,21 +102,17 @@ curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=2,c=1),add=T,lty=2,n=10^3,col="red")
 curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=2,c=5),add=T,lty=3,n=10^3,col="orange")
 curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=0,c=1),add=T,lty=4,n=10^3,col="blue")
 
-curve(dR_Rdt_bar(R=10^x,r=100*5,k=100*100,xi=100,c=500),xlim=c(-1,4),n=10^3)
+par(mar=c(4,4,1,1))
+curve(dR_Rdt_bar(R=10^x,r=5,k=100,xi=1,c=5),xlim=c(0,2),n=10^3,xlab="ln N",ylab=expression(r[t]))
 abline(h=0,lty=3,col="gray")
-abline(v=log10(Rstar(r=100*5,k=100*100,xi=100,c=500)),col="gray",lty=2)
-curve(dR_Rdt(R=10^x,r=100*5,k=100*100,xi=0,c=500),add=T,col="blue",lty=2)
-curve(dR_Rdt(R=10^x,r=100*5,k=100*100,xi=100,c=1),add=T,col="red",lty=3)
+abline(v=log10(Rstar(r=5,k=100,xi=1,c=5)),col="gray",lty=2)
+curve(dR_Rdt(R=10^x,r=5,k=100,xi=0,c=5),add=T,col="blue",lty=2)
+curve(dR_Rdt(R=10^x,r=5,k=100,xi=1,c=1),add=T,col="red",lty=3)
+curve(dR_Rdt_bar2(R=10^x,r=5,k=100,xi=1,c=5),col="green",add=T)
 
-curve(log(dR_Rdt_bar(R=10^x,r=100*5,k=100*100,xi=100,c=500)/10^x),xlim=c(-1,4),n=10^3)
-abline(h=0,lty=3,col="gray")
-abline(v=log10(Rstar(r=100*5,k=100*100,xi=100,c=500)),col="gray",lty=2)
-curve(log(dR_Rdt(R=10^x,r=100*5,k=100*100,xi=0,c=500)/10^x),add=T,col="blue",lty=2)
-curve(log(dR_Rdt(R=10^x,r=100*5,k=100*100,xi=100,c=1)/10^x),add=T,col="red",lty=3)
-
-curve(theta(R=10^x,r=100*5,k=100*100,xi=100,c=500),xlim=c(-1,4),ylim=c(0,1))
-curve(theta2(R=10^x,r=100*5,k=100*100,xi=100,c=500),add=T,col="green")
-abline(v=log10(Rstar(r=100*5,k=100*100,xi=100,c=500)),col="gray",lty=2)
+curve(theta(R=10^x,r=5,k=100,xi=1,c=5),xlim=c(0,2),ylim=c(0,1))
+curve(theta2(R=10^x,r=5,k=100,xi=1,c=5),add=T,col="green")
+abline(v=log10(Rstar(r=5,k=100,xi=1,c=5)),col="gray",lty=2)
 
 curve(nAstar(nB=x,r=5,k=100,xi=1,c=1),xlim=c(0,100),ylim=c(0,100),n=10^3)
 
