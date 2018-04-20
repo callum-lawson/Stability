@@ -72,7 +72,7 @@ parmsvar <- function(e0,e1,zmu,zsig){
 
 # Flux rates --------------------------------------------------------------
 
-g <- function(R,m,r,k,chi){
+g <- function(R,m,r,k,chi=0){
   (m + r * R) * (1 - R/k) - chi
 }
   # at 20C, chi=0
@@ -80,9 +80,8 @@ g <- function(R,m,r,k,chi){
   # could weight this (exponential) difference by body mass
   # equivalent to perturbing m/K without altering m or K
 
-f <- function(R,C,a,h,b=0,omega=0,Rhat=R){
-  aN <- a * N / (b + N)
-  R * C * aN / (1 + aN*h*Rhat + a*omega*h*C)
+f <- function(R,C,a,h,omega=0,Rhat=R){
+  R * C * a / (1 + a*h*Rhat + a*omega*h*R)
 }
   # - b = 0 -> density-independent attack rates
   # - a is a constant for consumer interference because they have no refuges
@@ -257,4 +256,3 @@ rC_separate <- Vectorize(
   },
   vectorize.args=c("zt","C")
 )
-

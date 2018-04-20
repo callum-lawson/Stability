@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html><head>
+<style>
+body {
+font-family: Arial, Helvetica, sans-serif;
+background-color: white;
+}
+h3,h4,h5 {font-family: Arial, Helvetica, sans-serif; color: maroon }
+table, th, td {
+border: 1px solid black;
+border-collapse: collapse;
+text-align: left;
+font-weight: normal;
+padding: 2px;
+}
+</style></head>
+
+<title><Translating GRIND commands into grind.R</title>
+
+<body>
+
+<h3>Translating GRIND commands into grind.R</h3>
+
+<table>
+<tr><th>GRIND</th> <th>grind.R</th> </tr></th></tr>
+<tr><th>2d</th> <th>plane()</th></tr>
+<tr><th>3d</th> <th>cube(); (after sourcing the extension cube.R)</th></tr>
+<tr><th>axis</th> <th>plane(x=, xmin=, xmax=, log="xy")</th></tr>
+<tr><th>bifurcate</th> <th>see the examples logisticMap.R and chaos.R</th></tr>
+<tr><th>bye</th> <th>obsolete</th></tr>
+<tr><th>calculator</th> <th>obsolete (use R)</th></tr>
+<tr><th>continue</th> <th>continue()</th></tr>
+<tr><th>cursor</th> <th>not implemented</th></tr>
+<tr><th>display</th> <th>obsolete</th></tr>
+<tr><th>eigen</th> <th>newton()</th></tr>
+<tr><th>erase</th> <th>obsolete</th></tr>
+<tr><th>export</th> <th>use RStudio's graphics window</th></tr>
+<tr><th>finish</th> <th>run(tmax=, tstep=)</th></tr>
+<tr><th>format</th> <th>obsolete</th></tr>
+<tr><th>grid</th> <th>plane(portrait=TRUE)</th></tr>
+<tr><th>help</th> <th>not implemented</th></tr>
+<tr><th>integrator</th> <th>run(method=) (see ?ode)</th></tr>
+<tr><th>keepvar</th> <th>f <- run()</th></tr>
+<tr><th>load</th> <th>use R's read.table()</th></tr>
+<tr><th>macro</th> <th>make your own R-function</th></tr>
+<tr><th>mode</th> <th>for trajectories use run(traject=TRUE)</th></tr>
+<tr><th>newton</th> <th>newton()</th></tr>
+<tr><th>noise</th> <th>use run(after=)</th></tr>
+<tr><th>nullcline</th> <th>plane(show=)</th></tr>
+<tr><th>option</th> <th>several options have replacements:</th></tr>
+<tr><th>option adjust</th> <th>obsolete, but see the chaos.R example</th></tr>
+<tr><th>option backwards</th> <th>see the separatrix.R example</th></tr>
+<tr><th>option initial</th> <th>the pch option in run()</th></tr>
+<tr><th>option map</th> <th>use run(method="euler"); see the logisticMap.R example</th></tr>
+<tr><th>option mark</th> <th>newton(plot=TRUE)</th></tr>
+<tr><th>option points</th> <th>run(draw=points)</th></tr>
+<tr><th>option positive</th> <th>run(after="state<-ifelse(state<0,0,state)")</th></tr>
+<tr><th>option truncate</th> <th>play with: run(after="if(min(state)<0)break")</th></tr>
+<tr><th>output</th> <th>run(show=)</th></tr>
+<tr><th>parameters</th> <th>p</th></tr>
+<tr><th>perturb</th> <th>see the separatrix.R example</th></tr>
+<tr><th>plot</th> <th>use R's plot() function</th></tr>
+<tr><th>poincare</th> <th>not implemented (see chaos.R for an alternative)</th></tr>
+<tr><th>rgb</th> <th>redefine colors[]</th></tr>
+<tr><th>readfile</th> <th>obsolete</th></tr>
+<tr><th>run</th> <th>run()</th></tr>
+<tr><th>shade</th> <th>not implemented</th></tr>
+<tr><th>takens </th> <th>see the examples logisticMap.R and chaos.R</th></tr>
+<tr><th>timeplot</th> <th>timePlot()</th></tr>
+<tr><th>triangle</th> <th>not implemented</th></tr>
+<tr><th>value</th> <th>not implemented</th></tr>
+<tr><th>vector</th> <th>plane(vector=TRUE)</th></tr>
+<tr><th>where</th> <th>not implemented; s provides the initial state</th></tr>
+</table>
+
+</body>
+</html>

@@ -1,0 +1,50 @@
+The R-script grind.R is a wrapper around the deSolve, rootSolve and FME
+R-libraries making it very easy to perform phase plane analysis and fit
+ODE models to data.
+
+Make sure that the libraries deSolve, rootSolve and FME are installed,
+source the grind.R script and then run any of the models provided here.
+
+The tutorial.pdf file provides a full manual.
+
+Also check the Lotka Volterra model on the interactive webpage
+https://grind.shinyapps.io/lotka/ 
+
+Enjoy
+
+Rob de Boer
+-----------
+
+History:
+
+01-12-2017
+- minor bug fixes
+
+06-11-2017
+- minor bug fixes
+
+23-10-2017
+- bug in the call of trajectories corrected
+- added options col and pch to plane() and run() for the color and symbol used for trajectories
+
+10-10-2017
+- added automatic scaling of ymin in fit()
+- add-on cube.R for 3D projection was added to directory
+
+31-7-2017
+- added the option delay to run() for solving delay differential equations
+
+21-7-2017
+- renamed who into free
+- continue() now turns at saddle-node bifurcations
+- improved the passing of ellipsis (...) to other functions
+- grind.R now sets: options(stringsAsFactors=FALSE)
+- changed all T and F in TRUE and FALSE
+
+31-5-2017
+- Added numeric events to arrest
+- Added elipses (...) to modCost
+- Added timePlot=, cost=, add= to options of fit
+- Corrected bug in call of timePlot in fit
+
+
