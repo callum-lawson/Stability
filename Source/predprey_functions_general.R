@@ -28,22 +28,18 @@ arrrate <- function(zt,e0,e1){
 
 e0 <- c(
   m = 10^-6, # 10^-5,
-  r = 8.715*10^-7,
   k = 5.623,
   a = 6*10^-7, # 3.181989*10^-9, # estimated from data
   h = 0.61, # 1685.586,     # estimated from data
-  x = 2.689*10^-6
-  # e = 0
+  mu = 2.689*10^-6
 )
 
 e1 <- c(
   m = 0,
-  r = 0, # from mortality rates # 0.84,
   k = 0, # -0.772,
   a = -0.03, # 0.5091663,   # estimated from data
   h = -0.19, # -0.4660012, # estimated from data
-  x = 0.639
-  # e = 0.639
+  mu = 0.639
 )
 
 # r units are per SECOND; pop more than triples every 24h
@@ -72,27 +68,22 @@ parmsvar <- function(e0,e1,zmu,zsig){
 
 # Flux rates --------------------------------------------------------------
 
-g <- function(R,m,r,k,chi=0){
-  (m + r * R) * (1 - R/k) - chi
+g <- function(R,m,k){
+  m * (k - R)
 }
-  # at 20C, chi=0
-  # add difference in x as increase temperature above this
-  # could weight this (exponential) difference by body mass
-  # equivalent to perturbing m/K without altering m or K
+  # For closed nutrients, have to specify total starting biomass
+  # model closed resource growth later: 1/alpha * d(C,mu)
 
-f <- function(R,C,a,h,omega=0,Rhat=R){
-  R * C * a / (1 + a*h*Rhat + a*omega*h*R)
+f <- function(R,C,a,h,w=0,Q=C){
+  R * C * a / (1 + a*h*R + a*w*Q)
 }
-  # - b = 0 -> density-independent attack rates
-  # - a is a constant for consumer interference because they have no refuges
-  #   (so interference rates always equals max possible attack rate)
   # - effective handling time can be increased by:
   #   1. already-parasitised prey (discrete-time models):
   #     Rhat = R + E, where E are consumer eggs
   #   2. omega is ratio of predator interference time : prey handling time
 
-d <- function(C,x){
-  x * C
+d <- function(C,mu){
+  mu * C
 }
 
 # Multiple prey: individual prey attack rates with same, summed handling time
@@ -100,25 +91,35 @@ d <- function(C,x){
 
 # Continuous dynamics -----------------------------------------------------
 
-dRC_cont <- function(y,m,r,k,a,h,x,alpha=0.85){
+dRC_cont <- function(y,m,k,a,h,mu,alpha=0.85){
   R <- y[1]
   C <- y[2]
-  Ft <- f(R,C,a,h)
-  dR <- g(R,m,r,k) - Ft
-  dC <- alpha * Ft - d(C,x)
+  fRC <- f(R,C,a,h)
+  dR <- g(R,m,k) - fRC
+  dC <- alpha * fRC - d(C,mu)
   list(c(dR=dR,dC=dC))
+}
+
+dRt_cons <- function(t,y,parms){
+  R <- y[1]
+  with(parms, list(dR = g(R,m,k) -  f(R,C,a,h) ) )
+}
+
+dCt_cons <- function(t,y,parms,alpha=0.85){
+  C <- y[1]
+  with(parms, alpha * f(R,C,a,h) - d(C,mu) )
 }
 
 dRCt_cont <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-  with(parmst, dRC_cont(y,m,r,k,a,h,x) )
+  with(parmst, dRC_cont(y,m,k,a,h,mu) )
 }
 
 rR <- Vectorize(
   function(zt,R,parms){
     parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-    with(parmst, dRC_cont(c(R,0),m,r,k,a,h,x)[[1]]["dR"]/R)
+    with(parmst, dRC_cont(c(R,0),m,k,a,h,mu)[[1]]["dR"]/R)
   },
   vectorize.args=c("zt","R")
 )
@@ -126,12 +127,21 @@ rR <- Vectorize(
 rC <- Vectorize(
   function(zt,R,C,parms){
     parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-    with(parmst, dRC_cont(c(R,C),m,r,k,a,h,x)[[1]]["dC"]/C)
+    with(parmst, dRC_cont(c(R,C),m,k,a,h,mu)[[1]]["dC"]/C)
   },
   vectorize.args=c("zt","R","C")
 )
 
-# Lagged dynamics ---------------------------------------------------------
+# Random structure --------------------------------------------------------
+
+  # add "p" function later
+  # F_wA = q/(2-q)*F_wJ
+
+# Density-dependent lags --------------------------------------------------
+  
+  # modelled with additional state variable, or with p function?
+
+# Fixed lags --------------------------------------------------------------
 
 dRCt_delay <- function(t,y,parms,alpha=0.85){
   
@@ -153,8 +163,8 @@ dRCt_delay <- function(t,y,parms,alpha=0.85){
   }
   
   with(parmst, {
-    dR <- g(R,m,r,k) - f(R,C,a,h)
-    dC <- alpha * f_lag - d(C,x)
+    dR <- g(R,m,k) - f(R,C,a,h)
+    dC <- alpha * f_lag - d(C,mu)
     return( list(c(dR=dR,dC=dC)) )
   })
   
@@ -162,16 +172,16 @@ dRCt_delay <- function(t,y,parms,alpha=0.85){
 # never used in conjunction with dRC_disc because two alternative methods
 # of introducing time delays
 
-# Discrete dynamics -------------------------------------------------------
+# Discrete lags -----------------------------------------------------------
 
-dRC_disc <- function(y,m,r,k,a,h,x,alpha=0.85,phi=1,kappa=0){
+dRC_disc <- function(y,m,k,a,h,mu,alpha=0.85,phi=1,w=0){
   R <- y[1]
   C <- y[2]
   E <- y[3]
-  Ft <- f0(R,C,a,h,Rhat=R+kappa*E)
-  dR <- g1(R,m,r,k) - Ft
-  dC <- - d(C,x)
-  dE <- alpha * Ft - phi * d(E,x) 
+  fRC <- f(R,C,a,h,w,Q=E)
+  dR <- g(R,m,k) - fRC
+  dC <- - d(C,mu)
+  dE <- alpha * fRC # - phi * d(E,mu) # PUT PARAM HERE
   list(c(dR=dR,dC=dC,dE=dE))
 }
   # consumer eggs die at same rate as adult consumers
@@ -181,7 +191,7 @@ dRC_disc <- function(y,m,r,k,a,h,x,alpha=0.85,phi=1,kappa=0){
 dRCt_disc <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-  with(parmst, dRC_disc(y,m,r,k,a,h,x) )
+  with(parmst, dRC_disc(y,m,k,a,h,mu) )
 }
 
 DRCt_disc <- function(y0,tseq,sf,parms){
@@ -228,20 +238,21 @@ DRCt_disc <- function(y0,tseq,sf,parms){
 
 ### Continuous
 
-dR_cont <- function(R,C,m,r,k,a,h,x){
-  g(R,m,r,k) - f(R,C,a,h)
+dR_cont <- function(R,C,m,k,a,h,mu){
+  g(R,m,k) - f(R,C,a,h)
 }
 
-dC_cont <- function(R,C,m,r,k,a,h,x,alpha=0.85){
-  alpha * f(R,C,a,h) - d(C,x)
+dC_cont <- function(R,C,m,k,a,h,mu,alpha=0.85){
+  alpha * f(R,C,a,h) - d(C,mu)
 }
 
+# uniroto:
 rC_separate <- Vectorize(
   function(zt,C,parms){
     parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
     try1 <- try(
       root1 <- with(parmst, uniroot(dR_cont,
-                       C=C,m=m,r=r,k=k,a=a,h=h,x=x,
+                       C=C,m=m,k=k,a=a,h=h,mu=mu,
                        lower=10^-10,
                        upper=10^10
                        ))
@@ -252,7 +263,24 @@ rC_separate <- Vectorize(
     else{
       Rstar <- root1$root
     } 
-    with(parmst, dC_cont(Rstar,C,m,r,k,a,h,x)/C)
+    with(parmst, dC_cont(Rstar,C,m,k,a,h,mu)/C)
   },
   vectorize.args=c("zt","C")
+)
+
+# runsteady
+
+Rstarcalc <- Vectorize(
+  function(C,z,eparms){
+    require(rootSolve)
+    parms <- with(eparms, as.list(c( C=C, arrrate(z,e0,e1) )) )
+    # C is fixed, so enters as parameter instead of state variable
+    steady(y=parms$k, # using resource k as starting value
+           parms=parms,
+           fun=dRt_cons, 
+           times=c(0,Inf),
+           method="runsteady"
+    )$y
+  }, 
+  vectorize.args=c("C","z")
 )

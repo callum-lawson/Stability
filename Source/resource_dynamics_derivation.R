@@ -162,3 +162,22 @@ curve(hi2(x,1,1,1,1),xlim=c(0,10))
 
 curve(x/(1+1),xlim=c(0,100))
 curve(x/(1+2),add=T,lty=2)
+
+# Beverton-Holt Consumer --------------------------------------------------
+
+dC_BH <- function(C,i,e,alpha,a,mu){
+  alpha * a * i / (e + a*C) - mu
+}
+
+curve(dC_BH(10^(x),i=0.5,e=1,alpha=1,a=2,mu=0.1),col="red",xlim=c(0,1))
+curve(dC_BH(10^(x),i=0.5,e=1,alpha=1,a=1,mu=0.1),col="black",add=T)
+curve(dC_BH(10^(x),i=0.5,e=1,alpha=1,a=0.5,mu=0.1),col="blue",add=T)
+abline(h=0,lty=2,col="gray")
+
+Cseq <- 10^(seq(0,1,length.out=100))
+rmean <- apply(cbind(
+  dC_BH(Cseq,i=0.5,e=1,alpha=1,a=2,mu=0.1),
+  dC_BH(Cseq,i=0.5,e=1,alpha=1,a=1,mu=0.1),
+  dC_BH(Cseq,i=0.5,e=1,alpha=1,a=0.5,mu=0.1)
+  ),1,mean)
+lines(log10(Cseq),rmean,col="gray")
