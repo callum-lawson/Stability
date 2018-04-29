@@ -20,8 +20,8 @@ arrtemp <- function(zt,z0=293.15,kB=8.6173303*10^-5){ # intercept = 20C!
   zt / (kB*(zt+z0)*z0) # (zt-z0) / (k*zt*z0)
 } 
 
-arrrate <- function(zt,e0,e1){
-  e0 * exp(e1 * arrtemp(zt))
+arrrate <- function(zt,M,e0,e1,e2){
+  e0 * exp(e1 * arrtemp(zt)) * M ^ e2
 }
 
 # Parameter values --------------------------------------------------------
@@ -46,17 +46,19 @@ e1 <- c(
 
 # Non-linear averaging ----------------------------------------------------
 
-arrrate_z <- function(zt,zmu,zsig,e0,e1){
-  dnorm(zt,zmu,zsig) * arrrate(zt,e0,e1)
+arrrate_z <- function(zt,M,zmu,zsig,e0,e1,e2){
+  dnorm(zt,zmu,zsig) * arrrate(zt,M,e0,e1,e2)
 } 
 
 arrint <- function(zmu,zsig,e0,e1){
   if(zsig==0){
-    return( arrrate(zmu,e0,e1) )
+    return( arrrate(zmu,M,e0,e1,e2) )
   }
   if(zsig>0){
     return(
-      integrate(arrrate_z,lower=-200,upper=200,zmu=zmu,zsig=zsig,e0=e0,e1=e1)$value
+      integrate(arrrate_z,lower=-200,upper=200,
+                zmu=zmu,zsig=zsig,
+                M=M,e0=e0,e1=e1,e2=e2)$value
     )
   }
 }
@@ -112,13 +114,13 @@ dCt_cons <- function(t,y,parms,alpha){
 
 dRCt_cont <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
-  parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
+  parmst <- with(parms, as.list( arrrate(zt,M,e0,e1,e2) ) )
   with(parmst, dRC_cont(y,m,k,a,h,mu,alpha) )
 }
 
 rR <- Vectorize(
   function(zt,R,parms){
-    parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
+    parmst <- with(parms, as.list( arrrate(zt,M,e0,e1,e2) ) )
     with(parmst, dRC_cont(c(R,0),m,k,a,h,mu,alpha)[[1]]["dR"]/R)
   },
   vectorize.args=c("zt","R")
@@ -126,7 +128,7 @@ rR <- Vectorize(
 
 rC <- Vectorize(
   function(zt,R,C,parms){
-    parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
+    parmst <- with(parms, as.list( arrrate(zt,M,e0,e1,e2) ) )
     with(parmst, dRC_cont(c(R,C),m,k,a,h,mu,alpha)[[1]]["dC"]/C)
   },
   vectorize.args=c("zt","R","C")
@@ -146,7 +148,7 @@ rC <- Vectorize(
 dRCt_delay <- function(t,y,parms,alpha){
   
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
-  parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
+  parmst <- with(parms, as.list( arrrate(zt,M,e0,e1,e2) ) )
   
   R <- y[1]
   C <- y[2]
@@ -157,7 +159,7 @@ dRCt_delay <- function(t,y,parms,alpha){
   
   if(t > parms$tau){
     zt_lag <- with(parms, zt_cyclic(t-tau,zmu,zsig,zl) )
-    parmst_lag <- with(parms, as.list( arrrate(zt_lag,e0,e1) ) )
+    parmst_lag <- with(parms, as.list( arrrate(zt_lag,M,e0,e1,e2) ) )
     RC_lag <- lagvalue(t - parms$tau)
     f_lag <- with(parmst_lag, f(RC_lag[1],RC_lag[2],a,h))
   }
@@ -190,7 +192,7 @@ dRC_disc <- function(y,m,k,a,h,mu,alpha,phi=0,w=0){
 
 dRCt_disc <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
-  parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
+  parmst <- with(parms, as.list( arrrate(zt,M,e0,e1,e2) ) )
   with(parmst, dRC_disc(y,m,k,a,h,mu,alpha) )
 }
 
@@ -253,7 +255,7 @@ dC_cont <- function(R,C,m,k,a,h,mu,alpha){
 # uniroto:
 rC_separate <- Vectorize(
   function(zt,C,parms){
-    parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
+    parmst <- with(parms, as.list( arrrate(zt,M,e0,e1,e2) ) )
     try1 <- try(
       root1 <- with(parmst, uniroot(dR_cont,
                        C=C,m=m,k=k,a=a,h=h,mu=mu,
@@ -277,7 +279,7 @@ rC_separate <- Vectorize(
 Rstarcalc <- Vectorize(
   function(C,z,eparms){
     require(rootSolve)
-    parms <- with(eparms, as.list(c( C=C, arrrate(z,e0,e1) )) )
+    parms <- with(eparms, as.list(c( C=C, arrrate(z,M,e0,e1,e2) )) )
     # C is fixed, so enters as parameter instead of state variable
     steady(y=parms$k, # using resource k as starting value
            parms=parms,
@@ -293,7 +295,7 @@ Rstarcalc <- Vectorize(
 
 dCCdt <- Vectorize(
   function(R,C,z,eparms){
-    parms <- with(eparms, as.list(c( R=R, arrrate(z,e0,e1) )) )
+    parms <- with(eparms, as.list(c( R=R, arrrate(z,M,e0,e1,e2) )) )
     dCt_cons(t=0,y=C,parms=parms)/C
   }, 
   vectorize.args=c("R","C","z")
@@ -301,7 +303,7 @@ dCCdt <- Vectorize(
 
 DCC <- Vectorize(
   function(R,C,z,eparms,sl){
-    parms <- with(eparms, as.list( arrrate(z,e0,e1) ) )
+    parms <- with(eparms, as.list( arrrate(z,M,e0,e1,e2) ) )
     N <- ode(y=c(R=R,C=C,E=0),
         times=c(0,sl),
         func=dRCt_disc_cons,
@@ -311,3 +313,24 @@ DCC <- Vectorize(
   },
   vectorize.args=c("R","C","z")
 )
+
+# Three-species food chain ------------------------------------------------
+
+dRC3 <- function(y,parms1,parms2){
+  R <- y[1]
+  C1 <- y[2]  
+  C2 <- y[3]
+  fRC1 <- with(parms1, f(R,C1,a,h) )
+  fRC2 <- with(parms2, f(C1,C2,a,h) ) # add mass-relative attack rates later
+  dR <- with(parms1, g(R,m,k) - fRC1 )
+  dC1 <- with(parms1, alpha * fRC1 - d(C1,mu) - fRC2 )
+  dC2 <- with(parms2, alpha * fRC2 - d(C2,mu) )
+  list(c(dR=dR,dC1=dC1,dC2=dC2))
+}
+
+dRCt3 <- function(t,y,parms){
+  zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
+  parms1 <- with(parms, as.list( arrrate(zt,M[1],e0,e1,e2)) )
+  parms2 <- with(parms, as.list( arrrate(zt,M[2],e0,e1,e2)) )
+  dRC3(y,parms1,parms2)
+}

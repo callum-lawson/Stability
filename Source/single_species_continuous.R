@@ -37,8 +37,20 @@ e1 <- c(
   phi = 0
 )
 
+e2 <- c(
+  m = 0,
+  k = 0, 
+  a = 0, 
+  h = 0, 
+  mu = -1/4, # metabolic rate per unit mass (could also be -1/3)
+  alpha = 0,
+  phi = 0
+)
+
+M <- 1
+
 zparms <- list(zmu=zmu,zsig=zsig,zl=zl)
-eparms <- list(e0=e0,e1=e1)
+eparms <- list(M=M,e0=e0,e1=e1,e2=e2)
 
 R0 <- 10^1
 C0 <- 10^1
