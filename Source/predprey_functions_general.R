@@ -91,7 +91,7 @@ d <- function(C,mu){
 
 # Continuous dynamics -----------------------------------------------------
 
-dRC_cont <- function(y,m,k,a,h,mu,alpha=0.85){
+dRC_cont <- function(y,m,k,a,h,mu,alpha){
   R <- y[1]
   C <- y[2]
   fRC <- f(R,C,a,h)
@@ -105,7 +105,7 @@ dRt_cons <- function(t,y,parms){
   with(parms, list(dR = g(R,m,k) -  f(R,C,a,h) ) )
 }
 
-dCt_cons <- function(t,y,parms,alpha=0.85){
+dCt_cons <- function(t,y,parms,alpha){
   C <- y[1]
   with(parms, alpha * f(R,C,a,h) - d(C,mu) )
 }
@@ -113,13 +113,13 @@ dCt_cons <- function(t,y,parms,alpha=0.85){
 dRCt_cont <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-  with(parmst, dRC_cont(y,m,k,a,h,mu) )
+  with(parmst, dRC_cont(y,m,k,a,h,mu,alpha) )
 }
 
 rR <- Vectorize(
   function(zt,R,parms){
     parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-    with(parmst, dRC_cont(c(R,0),m,k,a,h,mu)[[1]]["dR"]/R)
+    with(parmst, dRC_cont(c(R,0),m,k,a,h,mu,alpha)[[1]]["dR"]/R)
   },
   vectorize.args=c("zt","R")
 )
@@ -127,7 +127,7 @@ rR <- Vectorize(
 rC <- Vectorize(
   function(zt,R,C,parms){
     parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-    with(parmst, dRC_cont(c(R,C),m,k,a,h,mu)[[1]]["dC"]/C)
+    with(parmst, dRC_cont(c(R,C),m,k,a,h,mu,alpha)[[1]]["dC"]/C)
   },
   vectorize.args=c("zt","R","C")
 )
@@ -143,7 +143,7 @@ rC <- Vectorize(
 
 # Fixed lags --------------------------------------------------------------
 
-dRCt_delay <- function(t,y,parms,alpha=0.85){
+dRCt_delay <- function(t,y,parms,alpha){
   
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
@@ -174,14 +174,14 @@ dRCt_delay <- function(t,y,parms,alpha=0.85){
 
 # Discrete lags -----------------------------------------------------------
 
-dRC_disc <- function(y,m,k,a,h,mu,alpha=0.85,phi=1,w=0){
+dRC_disc <- function(y,m,k,a,h,mu,alpha,phi=0,w=0){
   R <- y[1]
   C <- y[2]
   E <- y[3]
   fRC <- f(R,C,a,h,w,Q=E)
   dR <- g(R,m,k) - fRC
   dC <- - d(C,mu)
-  dE <- alpha * fRC # - phi * d(E,mu) # PUT PARAM HERE
+  dE <- alpha * fRC - d(E, phi * mu)
   list(c(dR=dR,dC=dC,dE=dE))
 }
   # consumer eggs die at same rate as adult consumers
@@ -191,7 +191,11 @@ dRC_disc <- function(y,m,k,a,h,mu,alpha=0.85,phi=1,w=0){
 dRCt_disc <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,e0,e1) ) )
-  with(parmst, dRC_disc(y,m,k,a,h,mu) )
+  with(parmst, dRC_disc(y,m,k,a,h,mu,alpha) )
+}
+
+dRCt_disc_cons <- function(t,y,parms){
+  with(parms, dRC_disc(y,m,k,a,h,mu,alpha,phi))
 }
 
 DRCt_disc <- function(y0,tseq,sf,parms){
@@ -242,7 +246,7 @@ dR_cont <- function(R,C,m,k,a,h,mu){
   g(R,m,k) - f(R,C,a,h)
 }
 
-dC_cont <- function(R,C,m,k,a,h,mu,alpha=0.85){
+dC_cont <- function(R,C,m,k,a,h,mu,alpha){
   alpha * f(R,C,a,h) - d(C,mu)
 }
 
@@ -283,4 +287,27 @@ Rstarcalc <- Vectorize(
     )$y
   }, 
   vectorize.args=c("C","z")
+)
+
+# Growth rate curves ------------------------------------------------------
+
+dCCdt <- Vectorize(
+  function(R,C,z,eparms){
+    parms <- with(eparms, as.list(c( R=R, arrrate(z,e0,e1) )) )
+    dCt_cons(t=0,y=C,parms=parms)/C
+  }, 
+  vectorize.args=c("R","C","z")
+)
+
+DCC <- Vectorize(
+  function(R,C,z,eparms,sl){
+    parms <- with(eparms, as.list( arrrate(z,e0,e1) ) )
+    N <- ode(y=c(R=R,C=C,E=0),
+        times=c(0,sl),
+        func=dRCt_disc_cons,
+        parms=parms
+    )
+    N[2,"C"] + N[2,"E"]
+  },
+  vectorize.args=c("R","C","z")
 )
