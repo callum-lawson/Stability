@@ -24,26 +24,6 @@ arrrate <- function(zt,M,e0,e1,e2){
   e0 * exp(e1 * arrtemp(zt)) * M ^ e2
 }
 
-# Parameter values --------------------------------------------------------
-
-e0 <- c(
-  m = 10^-6, # 10^-5,
-  k = 5.623,
-  a = 6*10^-7, # 3.181989*10^-9, # estimated from data
-  h = 0.61, # 1685.586,     # estimated from data
-  mu = 2.689*10^-6
-)
-
-e1 <- c(
-  m = 0,
-  k = 0, # -0.772,
-  a = -0.03, # 0.5091663,   # estimated from data
-  h = -0.19, # -0.4660012, # estimated from data
-  mu = 0.639
-)
-
-# r units are per SECOND; pop more than triples every 24h
-
 # Non-linear averaging ----------------------------------------------------
 
 arrrate_z <- function(zt,M,zmu,zsig,e0,e1,e2){
@@ -76,7 +56,7 @@ g <- function(R,m,k){
   # For closed nutrients, have to specify total starting biomass
   # model closed resource growth later: 1/alpha * d(C,mu)
 
-f <- function(R,C,a,h,w=0,Q=C){
+f <- function(R,C,a,h,w,Q=C){
   R * C * a / (1 + a*h*R + a*w*Q)
 }
   # - effective handling time can be increased by:
@@ -93,10 +73,10 @@ d <- function(C,mu){
 
 # Continuous dynamics -----------------------------------------------------
 
-dRC_cont <- function(y,m,k,a,h,mu,alpha){
+dRC_cont <- function(y,m,k,a,h,w,mu,alpha){
   R <- y[1]
   C <- y[2]
-  fRC <- f(R,C,a,h)
+  fRC <- f(R,C,a,h,w)
   dR <- g(R,m,k) - fRC
   dC <- alpha * fRC - d(C,mu)
   list(c(dR=dR,dC=dC))
@@ -104,24 +84,24 @@ dRC_cont <- function(y,m,k,a,h,mu,alpha){
 
 dRt_cons <- function(t,y,parms){
   R <- y[1]
-  with(parms, list(dR = g(R,m,k) -  f(R,C,a,h) ) )
+  with(parms, list(dR = g(R,m,k) -  f(R,C,a,h,w) ) )
 }
 
 dCt_cons <- function(t,y,parms,alpha){
   C <- y[1]
-  with(parms, alpha * f(R,C,a,h) - d(C,mu) )
+  with(parms, alpha * f(R,C,a,h,w) - d(C,mu) )
 }
 
 dRCt_cont <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,M,e0,e1,e2) ) )
-  with(parmst, dRC_cont(y,m,k,a,h,mu,alpha) )
+  with(parmst, dRC_cont(y,m,k,a,h,w,mu,alpha) )
 }
 
 rR <- Vectorize(
   function(zt,R,parms){
     parmst <- with(parms, as.list( arrrate(zt,M,e0,e1,e2) ) )
-    with(parmst, dRC_cont(c(R,0),m,k,a,h,mu,alpha)[[1]]["dR"]/R)
+    with(parmst, dRC_cont(c(R,0),m,k,a,h,w,mu,alpha)[[1]]["dR"]/R)
   },
   vectorize.args=c("zt","R")
 )
@@ -129,7 +109,7 @@ rR <- Vectorize(
 rC <- Vectorize(
   function(zt,R,C,parms){
     parmst <- with(parms, as.list( arrrate(zt,M,e0,e1,e2) ) )
-    with(parmst, dRC_cont(c(R,C),m,k,a,h,mu,alpha)[[1]]["dC"]/C)
+    with(parmst, dRC_cont(c(R,C),m,k,a,h,w,mu,alpha)[[1]]["dC"]/C)
   },
   vectorize.args=c("zt","R","C")
 )
@@ -161,11 +141,11 @@ dRCt_delay <- function(t,y,parms,alpha){
     zt_lag <- with(parms, zt_cyclic(t-tau,zmu,zsig,zl) )
     parmst_lag <- with(parms, as.list( arrrate(zt_lag,M,e0,e1,e2) ) )
     RC_lag <- lagvalue(t - parms$tau)
-    f_lag <- with(parmst_lag, f(RC_lag[1],RC_lag[2],a,h))
+    f_lag <- with(parmst_lag, f(RC_lag[1],RC_lag[2],a,h,w))
   }
   
   with(parmst, {
-    dR <- g(R,m,k) - f(R,C,a,h)
+    dR <- g(R,m,k) - f(R,C,a,h,w)
     dC <- alpha * f_lag - d(C,mu)
     return( list(c(dR=dR,dC=dC)) )
   })
@@ -176,7 +156,7 @@ dRCt_delay <- function(t,y,parms,alpha){
 
 # Discrete lags -----------------------------------------------------------
 
-dRC_disc <- function(y,m,k,a,h,mu,alpha,phi=0,w=0){
+dRC_disc <- function(y,m,k,a,h,w,mu,alpha,phi=0){
   R <- y[1]
   C <- y[2]
   E <- y[3]
@@ -193,11 +173,11 @@ dRC_disc <- function(y,m,k,a,h,mu,alpha,phi=0,w=0){
 dRCt_disc <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,M,e0,e1,e2) ) )
-  with(parmst, dRC_disc(y,m,k,a,h,mu,alpha) )
+  with(parmst, dRC_disc(y,m,k,a,h,w,mu,alpha) )
 }
 
 dRCt_disc_cons <- function(t,y,parms){
-  with(parms, dRC_disc(y,m,k,a,h,mu,alpha,phi))
+  with(parms, dRC_disc(y,m,k,a,h,w,mu,alpha,phi))
 }
 
 DRCt_disc <- function(y0,tseq,sf,parms){
@@ -244,12 +224,12 @@ DRCt_disc <- function(y0,tseq,sf,parms){
 
 ### Continuous
 
-dR_cont <- function(R,C,m,k,a,h,mu){
-  g(R,m,k) - f(R,C,a,h)
+dR_cont <- function(R,C,m,k,a,h,w,mu){
+  g(R,m,k) - f(R,C,a,h,w)
 }
 
-dC_cont <- function(R,C,m,k,a,h,mu,alpha){
-  alpha * f(R,C,a,h) - d(C,mu)
+dC_cont <- function(R,C,m,k,a,h,w,mu,alpha){
+  alpha * f(R,C,a,h,w) - d(C,mu)
 }
 
 # uniroto:
@@ -258,7 +238,7 @@ rC_separate <- Vectorize(
     parmst <- with(parms, as.list( arrrate(zt,M,e0,e1,e2) ) )
     try1 <- try(
       root1 <- with(parmst, uniroot(dR_cont,
-                       C=C,m=m,k=k,a=a,h=h,mu=mu,
+                       C=C,m=m,k=k,a=a,h=h,w=w,mu=mu,
                        lower=10^-10,
                        upper=10^10
                        ))
@@ -269,7 +249,7 @@ rC_separate <- Vectorize(
     else{
       Rstar <- root1$root
     } 
-    with(parmst, dC_cont(Rstar,C,m,k,a,h,mu)/C)
+    with(parmst, dC_cont(Rstar,C,m,k,a,h,w,mu)/C)
   },
   vectorize.args=c("zt","C")
 )
@@ -320,8 +300,8 @@ dRC3 <- function(y,parms1,parms2){
   R <- y[1]
   C1 <- y[2]  
   C2 <- y[3]
-  fRC1 <- with(parms1, f(R,C1,a,h) )
-  fRC2 <- with(parms2, f(C1,C2,a,h) ) # add mass-relative attack rates later
+  fRC1 <- with(parms1, f(R,C1,a,h,w) )
+  fRC2 <- with(parms2, f(C1,C2,a,h,w) ) # add mass-relative attack rates later
   dR <- with(parms1, g(R,m,k) - fRC1 )
   dC1 <- with(parms1, alpha * fRC1 - d(C1,mu) - fRC2 )
   dC2 <- with(parms2, alpha * fRC2 - d(C2,mu) )

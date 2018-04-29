@@ -21,7 +21,8 @@ e0 <- c(
   m = 10^-5, # very high value relative to consumer
   k = 10,
   a = 6*10^-7, # 3.181989*10^-9, # estimated from data
-  h = 60^2, # 0.61, # 1685.586,     # estimated from data
+  h = 12*60^2, # 0.61, # 1685.586,     # estimated from data
+  w = 12*60^2,
   mu = 0.1 * 2.689*10^-6, # 2.689*10^-6,
   alpha = 0.1 * 0.85,
   phi = 0.1 # relative death rate of eggs
@@ -32,6 +33,7 @@ e1 <- c(
   k = 0, # -0.772,
   a = 0.5091663, # -0.03,   # estimated from data
   h = 0, # -1.9, # -0.19, # -0.4660012, # estimated from data
+  w = 0,
   mu = 0, # 0.639
   alpha = 0,
   phi = 0
@@ -42,6 +44,7 @@ e2 <- c(
   k = 0, 
   a = 0, 
   h = 0, 
+  w = 0,
   mu = -1/4, # metabolic rate per unit mass (could also be -1/3)
   alpha = 0,
   phi = 0
