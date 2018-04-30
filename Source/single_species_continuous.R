@@ -6,8 +6,6 @@ source("Source/predprey_functions_general.R")
 
 # Input parameters --------------------------------------------------------
 
-x0 <- arrrate(0,e0["x"],e1["x"])
-
 tmax <- 60^2 * 24 * 7 * 52 * 10 # maximum length of time in seconds
 tf <- 10001
 tseq <- seq(0,tmax,length.out=tf)

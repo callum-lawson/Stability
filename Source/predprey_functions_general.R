@@ -156,7 +156,7 @@ dRCt_delay <- function(t,y,parms,alpha){
 
 # Discrete lags -----------------------------------------------------------
 
-dRC_disc <- function(y,m,k,a,h,w,mu,alpha,phi=0){
+dRC_disc <- function(y,m,k,a,h,w,mu,alpha,phi){
   R <- y[1]
   C <- y[2]
   E <- y[3]
@@ -256,6 +256,10 @@ rC_separate <- Vectorize(
 
 # runsteady
 
+# Equilibrium resource size -----------------------------------------------
+
+### R*: Two-species model
+
 Rstarcalc <- Vectorize(
   function(C,z,eparms){
     require(rootSolve)
@@ -269,6 +273,37 @@ Rstarcalc <- Vectorize(
     )$y
   }, 
   vectorize.args=c("C","z")
+)
+
+### C*: three-species model
+
+dRC_cons3 <- function(t,y,parms){
+  R <- y[1]
+  C1 <- y[2]
+  # C2 = constant
+  fRC1 <- with(parms$parms1, f(R,C1,a,h,w) )
+  fRC2 <- with(parms$parms2, f(C1,C2,a,h,w) )
+  dR <- with(parms$parms1, g(R,m,k) - fRC1)
+  dC1 <- with(parms$parms1, alpha * fRC1 - d(C1,mu) - fRC2 )
+  list(c(dR=dR,dC1=dC1))
+}
+
+Rstarcalc2 <- Vectorize(
+  function(C2,z,eparms){
+    require(rootSolve)
+    parms <- with(eparms, list( 
+      parms1 = as.list( arrrate(z,M[1],e0,e1,e2) ),
+      parms2 = as.list(c( arrrate(z,M[2],e0,e1,e2), C2=C2 ))
+    ))
+    # C2 is fixed, so enters as parameter instead of state variable
+    stars <- steady(y=c(R=1,C1=1),
+           parms=parms,
+           fun=dRC_cons3, 
+           times=c(0,Inf),
+           method="runsteady"
+    )$y
+  }, 
+  vectorize.args=c("C2","z")
 )
 
 # Growth rate curves ------------------------------------------------------
@@ -296,6 +331,8 @@ DCC <- Vectorize(
 
 # Three-species food chain ------------------------------------------------
 
+### Continuous time
+
 dRC3 <- function(y,parms1,parms2){
   R <- y[1]
   C1 <- y[2]  
@@ -313,4 +350,88 @@ dRCt3 <- function(t,y,parms){
   parms1 <- with(parms, as.list( arrrate(zt,M[1],e0,e1,e2)) )
   parms2 <- with(parms, as.list( arrrate(zt,M[2],e0,e1,e2)) )
   dRC3(y,parms1,parms2)
+}
+
+### Discrete time
+
+dRC_disc3 <- function(y,parms1,parms2){
+  R <- y[1]
+  C1 <- y[2]
+  C2 <- y[3]
+  E <- y[4]
+  fRC1 <- with(parms1, f(R,C1,a,h,w) )
+  fRC2 <- with(parms2, f(C1,C2,a,h,w) )
+  dR <- with(parms1, g(R,m,k) - fRC1 )
+  dC1 <- with(parms1,  alpha * fRC1 - d(C1,mu) - fRC2 )
+  dC2 <- with(parms2, - d(C2,mu) )
+  dE <- with(parms2, alpha * fRC2 - d(E, phi * mu) )
+  list(c(dR=dR,dC1=dC1,dC2=dC2,dE=dE))
+}
+
+dRCt_disc3 <- function(t,y,parms){
+  zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
+  parms1 <- with(parms, as.list( arrrate(zt,M[1],e0,e1,e2)) )
+  parms2 <- with(parms, as.list( arrrate(zt,M[2],e0,e1,e2)) )
+  dRC_disc3(y,parms1,parms2)
+}
+
+DRCt_disc3 <- function(y0,tseq,sf,parms){
+
+  tmax <- max(tseq)
+  sstart <- seq(0,tmax,length.out=sf+1)
+  sseq <- sseqgen(tseq,sstart)
+  
+  nt <- length(tseq)
+  ns <- max(sseq)
+  
+  yd <- cbind(t=tseq,R=rep(NA,nt),C1=rep(NA,nt),C2=rep(NA,nt))
+  yd[1,"R"] <- y0[1]
+  yd[1,"C1"] <- y0[2]
+  yd[1,"C2"] <- y0[3]
+  
+  for(s in 1:ns){
+    
+    if(s<ns)  savetimes <- c(sstart[s],tseq[sseq==s],sstart[s+1])
+    if(s==ns) savetimes <- c(sstart[s],tseq[sseq==s])
+    
+    y1 <- ode(y=c(y0,E=0),times=savetimes,func=dRCt_disc3,parms=parms)
+    
+    nts <- nrow(y1)
+    if(s<ns)  droprows <- c(1,nts)
+    if(s==ns) droprows <- 1
+    saverows <- which(sseq==s)
+    yd[saverows,"R"] <- y1[-droprows,"R"]
+    yd[saverows,"C1"] <- y1[-droprows,"C1"] 
+    yd[saverows,"C2"] <- y1[-droprows,"C2"] 
+    
+    y0[1] <- y1[nts,"R"]
+    y0[2] <- y1[nts,"C1"]
+    y0[3] <- y1[nts,"C2"] + y1[nts,"E"] 
+  }
+  return(yd)
+}
+
+# Four-species food chain -------------------------------------------------
+
+dRC4 <- function(y,parms1,parms2,parms3){
+  R <- y[1]
+  C1 <- y[2]  
+  C2 <- y[3]
+  C3 <- y[4]
+  fRC1 <- with(parms1, f(R,C1,a,h,w) )
+  fRC2 <- with(parms2, f(C1,C2,a,h,w) ) 
+  fRC3 <- with(parms3, f(C2,C3,a,h,w) ) 
+  dR <- with(parms1, g(R,m,k) - fRC1 )
+  dC1 <- with(parms1, alpha * fRC1 - d(C1,mu) - fRC2 )
+  dC2 <- with(parms2, alpha * fRC2 - d(C2,mu) - fRC3 )
+  dC3 <- with(parms3, alpha * fRC3 - d(C3,mu) )
+  list(c(dR=dR,dC1=dC1,dC2=dC2,dC3=dC3))
+}
+
+dRCt4 <- function(t,y,parms){
+  zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
+  parms1 <- with(parms, as.list( arrrate(zt,M[1],e0,e1,e2)) )
+  parms2 <- with(parms, as.list( arrrate(zt,M[2],e0,e1,e2)) )
+  parms3 <- with(parms, as.list( arrrate(zt,M[3],e0,e1,e2)) )
+  dRC4(y,parms1,parms2,parms3)
 }
