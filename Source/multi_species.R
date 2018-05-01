@@ -93,23 +93,38 @@ C2t <- hvar[,4]
 plot(diff(log(C1t[-(1:100)]))~log(C1t[-(1:100)][-1]))
 plot(diff(log(C2t[-(1:100)]))~log(C2t[-(1:100)][-1]))
 
-### Growth rate curves
+# Growth rate curves ------------------------------------------------------
+
+e0 <- c(
+  m = 10^-5, # very high value relative to consumer
+  k = 10^2,
+  a = 6*10^-7, # 3.181989*10^-9, # estimated from data
+  h = 60^2, # 0.61, # 1685.586,     # estimated from data
+  w = 0*60^2,
+  mu = 2.689*10^-7, # 2.689*10^-6,
+  alpha = 0.5,
+  phi = 0.1 # relative death rate of eggs
+)
+
+eparms <- list(M=M,e0=e0,e1=e1,e2=e2)
 
 library(reshape2)
 C2seq <- exp(seq(-5,5,length.out=100))
-zseq <- seq(zmu-5,zmu+5,length.out=10)
+zseq <- seq(zmu-5,zmu+5,length.out=3)
 rd2 <- expand.grid(C2=C2seq,z=zseq)
-Rstar2 <- with(rd2, t( Rstarcalc2(C2,z,eparms=eparms) ) )
+Cstar <- with(rd2, t( Cstarcalc(C2,z,eparms=eparms) ) )
 
-plot(Rstar2)
+# plot(Cstar)
 
 parms2 <- eparms
 parms2$M <- eparms$M[2]
-rd2$r <- with(rd2, dCCdt(R=Rstar2[,"C1"],C=C2,z=z,eparms=parms2))
+rd2$r <- with(rd2, dCCdt(R=Cstar[,"C1"],C=C2,z=z,eparms=parms2))
 
 ra2 <- acast(melt(rd2,id=c("C2","z")),C2~z)
-matplot(C2seq,ra2,type="l",lty=1,col=heat.colors(10))
+matplot(log(C2seq),ra2,type="l",lty=1,col=heat.colors(3))
 abline(h=0,lty=3,col="grey")
+# matplot(log(C2seq[log(C2seq)>3]),ra2[log(C2seq)>3,],type="l",lty=1,col=heat.colors(3))
+# abline(h=0,lty=3,col="grey")
 
 # Three-species - discrete ------------------------------------------------
 

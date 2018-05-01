@@ -173,7 +173,7 @@ dRC_disc <- function(y,m,k,a,h,w,mu,alpha,phi){
 dRCt_disc <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
   parmst <- with(parms, as.list( arrrate(zt,M,e0,e1,e2) ) )
-  with(parmst, dRC_disc(y,m,k,a,h,w,mu,alpha) )
+  with(parmst, dRC_disc(y,m,k,a,h,w,mu,alpha,phi) )
 }
 
 dRCt_disc_cons <- function(t,y,parms){
@@ -288,7 +288,7 @@ dRC_cons3 <- function(t,y,parms){
   list(c(dR=dR,dC1=dC1))
 }
 
-Rstarcalc2 <- Vectorize(
+Cstarcalc <- Vectorize(
   function(C2,z,eparms){
     require(rootSolve)
     parms <- with(eparms, list( 
