@@ -2,12 +2,15 @@
 
 require(plyr)
 require(lme4)
-source("Source/predprey_functions_general.R")
+source("Source/consumer_resource_functions.R")
+
+# Load feeding rates ------------------------------------------------------
 
 # frf <- read.csv("Data/DatabaseXX2_corr.csv",header=T)
 frf <- read.csv("Data/DatabaseXX2_Apr2016_rechecked.csv",header=T)
 
-T0 <- 293.15
+T0 <- 273.15 # 0°C = 293.15 K 
+z0 <- 293.15 # intercept for models (K)
 frf$temperature.kelvin <- frf$temperature.degree.celcius + T0
 fr <- subset(frf,select=c("publication.short",
                          "ecosystem.type",
@@ -36,60 +39,152 @@ fr <- rename(fr,replace=c(
              "temperature.kelvin"="Tk"
              ))
 
+
+# Load metabolic rates ----------------------------------------------------
+
+mrf <- read.csv("Data/Lang_et_al_2017_data.csv",skip=1) 
+  # assimilation efficiency and respiration data
+mr <- subset(mrf,select=c(
+  "taxonomic.group.consumer",
+  "consumer.type",
+  "body.size.gram",
+  "temperature.degree.C",
+  "assimilation.efficiency",
+  "metabolism.J.h",
+  "reference.short"
+  )) 
+mr <- rename(mr,replace=c(
+  "taxonomic.group.consumer" = "group",
+  "consumer.type" = "guild",
+  "body.size.gram" = "cmass",
+  "temperature.degree.C" = "Tc",
+  "assimilation.efficiency" = "alpha",
+  "metabolism.J.h" = "mu",
+  "reference.short" = "pub"
+))
+
+# Analyse feeding rates ---------------------------------------------------
+
+fr <- subset(fr,!metgroup %in% c("endovert","unicell"))
+  # temporarily remove small-sample-size groups
 fr$group <- with(fr, droplevels(system:metgroup))
-fr$Tr <- with(fr, arrtemp(Tk))
-ma <- lmer(log(a) ~  log(cmass) + log(rmass) + Tr + (1|pub) + (1+Tr|group), data=fr)
-mh <- lmer(log(h) ~  log(cmass) + log(rmass) + Tr + (1|pub) + (1+Tr|group), data=fr)
+fr$Tr <- with(fr, arrtemp(Tk,z0=z0) / log(10))
+  # using log10 to improve model convergence
+  # log_a(x) = log_b(x)/log_b(a)
+  # changes intercept but not other parameters
+fr$al <- with(fr, log10(a * 60^2) )
+fr$hl <- with(fr, log10(1/(h * 60^2)) )
+  # rates per hour instead of per second
+fr$cml <- with(fr, log10(cmass * 1000) ) 
+# mass in mg
+fr$rml <- with(fr, log10(cmass/rmass) )
 
-coef_a <- as.matrix(coef(ma)[[1]][as.numeric(fr$pub),])
-coef_h <- as.matrix(coef(mh)[[1]][as.numeric(fr$pub),])
-  # modify to account for random group effects
-  
-modmat_a <- model.matrix(ma)
-modmat_h <- model.matrix(mh)
+ma <- lmer(al ~ cml + rml + Tr + (1|pub) + (1+cml+Tr|group), data=fr)
+mh <- lmer(hl ~ cml + rml + Tr + (1|pub) + (1+cml+Tr|group), data=fr)
 
-varnames <- colnames(coef_a)
-notT <- varnames!="Tr"
-notc <- varnames!="log(cmass)"
-notr <- varnames!="log(rmass)"
-notcr <- !varnames %in% c("log(cmass)","log(rmass)")
+# Analyse metabolic rates -------------------------------------------------
 
-ares_T <- log(fr$a) - rowSums(coef_a[,notT] * modmat_a[,notT] )
-ares_c <- log(fr$a) - rowSums(coef_a[,notc] * modmat_a[,notc] )
-ares_r <- log(fr$a) - rowSums(coef_a[,notr] * modmat_a[,notr] )
-ares_cr <- log(fr$a) - rowSums(coef_a[,notcr] * modmat_a[,notcr] )
+mr[mr==-999.9] <- NA
+mr$Tk <- mr$Tc + T0
+mr$Tr <- arrtemp(mr$Tk, z0=z0) / log(10)
+mr$cml <- log10(mr$cmass * 1000)
+  # mass in mg
+qlogis10 <- function(x) log10(x/(1-x))
+mr$el <- qlogis10(mr$alpha)
+mr$ml <- log10(mr$mu)
 
-hres_T <- log(fr$h) - rowSums(coef_h[,notT] * modmat_h[,notT] )
-hres_c <- log(fr$h) - rowSums(coef_h[,notc] * modmat_h[,notc] )
-hres_r <- log(fr$h) - rowSums(coef_h[,notr] * modmat_h[,notr] )
-hres_cr <- log(fr$h) - rowSums(coef_h[,notcr] * modmat_h[,notcr] )
+me <- lmer(el ~ cml + Tr + (1+Tr+cml|guild) + (1|group) + (1|pub), data=mr)
+mm <- lmer(ml ~ cml + Tr + (1+Tr+cml|guild) + (1|group) + (1|pub), data=mr)
+  # mass as offset?
+
+# Plot residuals ----------------------------------------------------------
+
+resd <- function(m){
+  dat <- m@frame
+  fix <- fixef(m)
+  varnames <- names(fix)[-1] # delete intercept
+  res <- residuals(m)
+  adjd <- lapply(varnames,function(n){
+    x = dat[,n]
+    y = res + fix[n] * x 
+    # total difference = residuals + fixed effect
+    return(data.frame(x,y))
+  })
+  return(adjd)
+}
 
 quickplot <- function(x,y){
   plot(y~x,pch="+")
-  lines(supsmu(x,y),col="red")
+  lines(supsmu(x,y,bass=5),col="red")
 }
 
-par(mfrow=c(2,3))
-with(fr, quickplot(Tk,ares_T))
-with(fr, quickplot(log(cmass),ares_c))
-with(fr, quickplot(log(rmass),ares_r))
-with(fr, quickplot(Tk,hres_T))
-with(fr, quickplot(log(cmass),hres_c))
-with(fr, quickplot(log(rmass),hres_r))
+resplots <- function(l){
+  lapply(l,function(d) with(d, quickplot(x,y)))
+} 
 
-par(mfrow=c(1,2))
-with(fr, quickplot(log(cmass/rmass),ares_r))
-with(fr, quickplot(log(cmass/rmass),hres_r))
-  # the bigger the consumer relative to its prey,
-  # the more slowly it attacks it but the faster it consumes it?
+reslist <- lapply(mlist,resd)
+
+par(mfrow=c(2,3))
+resplots(reslist$ma)
+resplots(reslist$mh)
+par(mfrow=c(2,2))
+resplots(reslist$me)
+resplots(reslist$mm)
+
+# Extract and save parameters ---------------------------------------------
+
+fixadj <- function(m){
+  fixcoef <- fixef(m)
+  fixcoef["(Intercept)"] <- fixcoef["(Intercept)"] * log(10)
+  return(fixcoef)
+}
+# convert intercept from base 10 to base e
+# (needs to be done for any intercept-related parameters)
+
+mlist <- list(ma=ma,mh=mh,me=me,mm=mm)
+( fixlist <- lapply(mlist,fixadj) )
+
+saveRDS(fixlist,
+        paste0("Output/rate_parameters_marginal_",
+               format(Sys.Date(),"%d%b%Y"),
+               ".rds")
+        )
+
+
+# Judge the size of temperature effects -----------------------------------
+
+tempchange <- function(m){
+  exp(diff(fixef(m)["Tr"]*arrtemp(c(0,5),z0=z0)))
+}
+
+tm <- sapply(mlist,tempchange)
+
+baseparrs <- function(m){
+  exp(fixef(m)["(Intercept)"])
+}
+
+bp <- sapply(mlist,baseparrs)
+
+curve(10^-1*bp[3]*bp[1]*exp(x)/(1+bp[1]*(1/bp[2])*exp(x))-bp[4],xlim=c(-2,2))
+curve(10^-1*bp[3]*tm[3]*bp[1]*tm[1]*exp(x)/(1+bp[1]*tm[1]*(1/(bp[2]*tm[2]))*exp(x))-bp[4]*tm[4],add=T,col="red")
+  # 10^-1 is aribrary scaler to match intake and mortality rates
+
+tm[4] # mortality
+tm[2] * tm[3] # high food
+tm[1] * tm[3] # low food
+  # when little food, increasing efficiency / attack makes little difference 
+  #   relative to mortality
+  # but when lots of food, handling time can make a big difference 
+  #   (big food multiplier, whereas mortality still has same base rate)
+
 
 # Predictions for simulations ---------------------------------------------
 
 E0a <- as.numeric(
-  exp(predict(ma,data.frame(cmass=10^-4,rmass=10^-6,Tr=arrtemp(T0)),re.form=~0))
+  exp(predict(ma,data.frame(cmass=10^-4,rmass=10^-6,Tr=arrtemp(z0)),re.form=~0))
   )
 E0h <- as.numeric(
-  exp(predict(mh,data.frame(cmass=10^-4,rmass=10^-6,Tr=arrtemp(T0)),re.form=~0))
+  exp(predict(mh,data.frame(cmass=10^-4,rmass=10^-6,Tr=arrtemp(z0)),re.form=~0))
   )
   # 100 mg consumer, 1 mg prey
 E1a <- as.numeric(fixef(ma)[names(fixef(ma))=="Tr"])

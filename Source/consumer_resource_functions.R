@@ -16,12 +16,62 @@ zt_cyclic <- function(t,zmu,zsig,zl){
 
 # Basic parameters --------------------------------------------------------
 
-arrtemp <- function(zt,z0=293.15,kB=8.6173303*10^-5){ # intercept = 20C!
-  zt / (kB*(zt+z0)*z0) # (zt-z0) / (k*zt*z0)
+e0 <- c(
+  m = 10^-5, # very high value relative to consumer
+  k = 10,
+  a = 6*10^-7, # 3.181989*10^-9, # estimated from data
+  h = 12*60^2, # 0.61, # 1685.586,     # estimated from data
+  w = 12*60^2,
+  mu = 0.1 * 2.689*10^-6, # 2.689*10^-6,
+  alpha = 0.1 * 0.85,
+  phi = 0.1 # relative death rate of eggs
+)
+
+e1 <- c(
+  m = 0, # 0.639,
+  k = 0, # -0.772,
+  a = 0.5091663, # -0.03,   # estimated from data
+  h = 0, # -1.9, # -0.19, # -0.4660012, # estimated from data
+  w = 0,
+  mu = 0, # 0.639
+  alpha = 0,
+  phi = 0
+)
+
+e2 <- c(
+  m = 0,
+  k = 0, 
+  a = 0, 
+  h = 0, 
+  w = 0,
+  mu = -1/4, # metabolic rate per unit mass (could also be -1/3)
+  alpha = 0,
+  phi = 0
+)
+
+# arratel()
+
+# M <- 1
+# 
+# zparms <- list(zmu=zmu,zsig=zsig,zl=zl)
+# eparms <- list(M=M,e0=e0,e1=e1,e2=e2)
+
+arrtempK <- function(z,kB=8.6173303*10^-5){
+  - 1/(kB*z)
+}
+
+arrtemp <- function(z,z0=293.15,kB=8.6173303*10^-5){ 
+  - 1/kB * ( 1/(z+z0) - 1/z0 )
 } 
+  # first part re-scales temperature so that 0 = 20°C = 293.15 K 
+  # second part re-scales intercept so that gives rates at 20°C
 
 arrrate <- function(zt,M,e0,e1,e2){
   e0 * exp(e1 * arrtemp(zt)) * M ^ e2
+}
+
+arrratel <- function(zt,M,e0,e1,e2){
+  as.list(arrate(zt,M,e0,e1,e2))
 }
 
 # Non-linear averaging ----------------------------------------------------
@@ -75,28 +125,59 @@ d <- function(C,mu){
 
 # Continuous dynamics -----------------------------------------------------
 
+# return:
+# - grouped derivatives
+# - individual derivatives
+# - grouped derivatives for specified time (temperature series)
+# - individual per-capita derivatives (vectorised)
+# - grouped derivatives with continuous lag
+# - grouped derivatives with eggs (combine with above?)
+# - grouped derivatives with eggs for specified time (temperature series)
+# - grouped derivatives with eggs for single temperature
+# - discrete time series combining eggs and adults at intervals
+# - equilibrium resource size (two-species model)
+# - equilibrium consumer size (three-species model
+# - per-capita derivatives (discrete-time model)
+# - grouped derivatives (three- and four-species models)
+# - discrete time series (three-species model)
+
 # others:
 # - multiple resource or consumer species (with which differences?)
 # - protected resources
 
-dRC_cont <- function(y,m,k,a,h,w,mu,alpha){
-  R <- y[1]
-  C <- y[2]
-  fRC <- f(R,C,a,h,w)
-  dR <- g(R,m,k) - fRC
-  dC <- alpha * fRC - d(C,mu)
-  list(c(dR=dR,dC=dC))
+# y <- 1 # vector of states
+#   
+# zt <- with(parms$z, zt_cyclic(t,zmu,zsig,zl) ) # add stochastic function
+
+d_chain <- function(t=0,y,parms){
+  Y <- length(y)
+  fN <- dN <- vector(mode="numeric",length=Y)
+  parmst <- vector(mode="list",length=Y)
+  for(i in 2:Y){
+    parmst[[i]] <- with(parms[[i]], arrratel(zt,M,e0,e1,e2))
+    fN[i] <- with(parms[[i]], f(y[i-1],y[i],a,h,w) )
+    dN[i] <- with(parms[[i]], alpha * fRC[i] - d(C,mu) )
+  }
+  dN[1] <- g(N[1],m,k) - fN[2]
+  as.list(c(dR,dC)) # automatic naming?
 }
 
-dRt_cons <- function(t,y,parms){
-  R <- y[1]
-  with(parms, list( dR = g(R,m,k) -  f(R,C,a,h,w) ) )
+d_bridge <- function(t=0,y,parms){
+  # protection, eggs, generalist?
+  # lag, random, DD, discrete
 }
 
-dCt_cons <- function(t,y,parms,alpha){
-  C <- y[1]
-  with(parms, alpha * f(R,C,a,h,w) - d(C,mu) )
-}
+# chain, chain, link top
+
+# dRt_cons <- function(t,y,parms){
+#   R <- y[1]
+#   with(parms, list( dR = g(R,m,k) -  f(R,C,a,h,w) ) )
+# }
+# 
+# dCt_cons <- function(t,y,parms,alpha){
+#   C <- y[1]
+#   with(parms, alpha * f(R,C,a,h,w) - d(C,mu) )
+# }
 
 dRCt_cont <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
