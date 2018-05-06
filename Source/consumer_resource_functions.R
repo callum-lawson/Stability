@@ -16,87 +16,22 @@ zt_cyclic <- function(t,zmu,zsig,zl){
 
 # Basic parameters --------------------------------------------------------
 
-e0 <- c(
-  m = 10^-5, # very high value relative to consumer
-  k = 10,
-  a = 6*10^-7, # 3.181989*10^-9, # estimated from data
-  h = 12*60^2, # 0.61, # 1685.586,     # estimated from data
-  w = 12*60^2,
-  mu = 0.1 * 2.689*10^-6, # 2.689*10^-6,
-  alpha = 0.1 * 0.85,
-  phi = 0.1 # relative death rate of eggs
-)
+hi <- readRDS("Output/rate_parameters_marginal_06May2018.rds")
 
-e1 <- c(
-  m = 0, # 0.639,
-  k = 0, # -0.772,
-  a = 0.5091663, # -0.03,   # estimated from data
-  h = 0, # -1.9, # -0.19, # -0.4660012, # estimated from data
-  w = 0,
-  mu = 0, # 0.639
-  alpha = 0,
-  phi = 0
-)
-
-e2 <- c(
-  m = 0,
-  k = 0, 
-  a = 0, 
-  h = 0, 
-  w = 0,
-  mu = -1/4, # metabolic rate per unit mass (could also be -1/3)
-  alpha = 0,
-  phi = 0
-)
-
-# arratel()
-
-# M <- 1
-# 
-# zparms <- list(zmu=zmu,zsig=zsig,zl=zl)
-# eparms <- list(M=M,e0=e0,e1=e1,e2=e2)
-
-arrtempK <- function(z,kB=8.6173303*10^-5){
-  - 1/(kB*z)
-}
-
-arrtemp <- function(z,z0=293.15,kB=8.6173303*10^-5){ 
-  - 1/kB * ( 1/(z+z0) - 1/z0 )
+arrtemp <- function(z,z0=20,T0=273.15,kB=8.6173303*10^-5){ 
+  - 1/kB * ( 1/(z+T0) - 1/(T0+z0) )
 } 
-  # first part re-scales temperature so that 0 = 20°C = 293.15 K 
+  # z in C
+  # first part re-scales z so that 0 = 20°C = 293.15 K 
   # second part re-scales intercept so that gives rates at 20°C
 
-arrrate <- function(zt,M,e0,e1,e2){
-  e0 * exp(e1 * arrtemp(zt)) * M ^ e2
+ratef <- function(z,M,b){
+  with(b, b0 * exp(bz * arrtemp(z)) * M ^ bm )
 }
 
 arrratel <- function(zt,M,e0,e1,e2){
   as.list(arrate(zt,M,e0,e1,e2))
 }
-
-# Non-linear averaging ----------------------------------------------------
-
-arrrate_z <- function(zt,M,zmu,zsig,e0,e1,e2){
-  dnorm(zt,zmu,zsig) * arrrate(zt,M,e0,e1,e2)
-} 
-
-arrint <- function(zmu,zsig,e0,e1){
-  if(zsig==0){
-    return( arrrate(zmu,M,e0,e1,e2) )
-  }
-  if(zsig>0){
-    return(
-      integrate(arrrate_z,lower=-200,upper=200,
-                zmu=zmu,zsig=zsig,
-                M=M,e0=e0,e1=e1,e2=e2)$value
-    )
-  }
-}
-
-parmsvar <- function(e0,e1,zmu,zsig){
-  mapply(arrint,e0=e0,e1=e1,MoreArgs=list(zmu=zmu,zsig=zsig))
-}
-  # applies arrint to multiple pars at once
 
 # Flux rates --------------------------------------------------------------
 
@@ -107,17 +42,17 @@ g <- function(R,m,k){
   # inflow proportional to decomposing material 
   # outflow is zero
   # additional parameter = starting total biomass (R0 + C0 ...)
-  # model closed resource growth later: 1/alpha * d(C,mu)
+  # model closed resource growth later: 1/alpha * x(C,mu)
 
-f <- function(R,C,a,h,w,Q=C){
-  R * C * a / (1 + a*h*R + a*w*Q)
+f <- function(R,C,a,h,psi,Q=C){
+  R * C * a / (1 + a*h*R + a*psi*h*Q)
 }
   # - effective handling time can be increased by:
   #   1. already-parasitised prey (discrete-time models):
   #     Rhat = R + E, where E are consumer eggs
   #   2. omega is ratio of predator interference time : prey handling time
 
-d <- function(C,mu){
+x <- function(C,mu){
   mu * C
 }
   # Multiple prey: individual prey attack rates with same, summed handling time
@@ -149,18 +84,91 @@ d <- function(C,mu){
 #   
 # zt <- with(parms$z, zt_cyclic(t,zmu,zsig,zl) ) # add stochastic function
 
-d_chain <- function(t=0,y,parms){
-  Y <- length(y)
-  fN <- dN <- vector(mode="numeric",length=Y)
-  parmst <- vector(mode="list",length=Y)
-  for(i in 2:Y){
-    parmst[[i]] <- with(parms[[i]], arrratel(zt,M,e0,e1,e2))
-    fN[i] <- with(parms[[i]], f(y[i-1],y[i],a,h,w) )
-    dN[i] <- with(parms[[i]], alpha * fRC[i] - d(C,mu) )
-  }
-  dN[1] <- g(N[1],m,k) - fN[2]
-  as.list(c(dR,dC)) # automatic naming?
+# params:
+# - resource - possibly state-dependent
+# - consumer, t-dependent
+# - consumer, constant
+
+d_integrate <- function(t=0,y,parms){
+  
 }
+
+# integration routine requires that this be done separately for each t
+
+y <- c(1,1,1)
+z <- 0
+
+bt <- lapply(hi,ratef,M=c(1,10),z=0)
+
+bc <- list(
+  m = 10^-5, # very high value relative to consumer
+  k = 10,
+  psi = 1, # relative handling time
+  phi = 0.1 # relative death rate of eggs
+)
+
+parms <- as.list(c(bt,bc))
+
+d_chain <- function(y,z,parms){
+  with(parms, {
+    Y <- length(y) # enters as par
+    dy <- vector(mode="numeric",length=Y)
+    fy <- f(y[-Y],y[-1],a,h,psi)
+    dy[1] <-  g(y[1],m,k) - fy[2]
+    dy[2:Y] <- alpha * fy - x(y[2:Y],mu)
+    return(dy) # automatic naming?
+  })
+}
+
+nC <- 1 # number of chains
+
+if(structure==TRUE | nC==2){
+  
+  if(level=="consumer"){
+    ypos <- Y
+  }
+  if(level=="resource"){
+    ypos <- Y-1
+  }
+    
+  if(stype=="lag"){
+    if(t <= parms$tau)
+    if(t > parms$tau){
+      zt_lag <- with(parms, zt_cyclic(t-tau,zmu,zsig,zl) )
+      parmst_lag <- with(parms, as.list( arrrate(zt_lag,M,e0,e1,e2) ) )
+      RC_lag <- lagvalue(t - parms$tau)
+      f_lag <- with(parmst_lag, f(RC_lag[1],RC_lag[2],a,h,w))
+      dy[ypos] <- dy[ypos] + f_lag
+    }
+  }
+  
+  if(stype=="store"){
+    w <- i(E) - e(y[ypos])
+    dy[ypos] <- dy[ypos] + w
+    dE <- -w - x()
+  }
+  
+  if(stype=="swap"){
+    w <- i(y2[ypos]) - e(y[ypos])
+    dy[ypos] <- dy[ypos] + w
+    dy2[ypos] <- dy2[ypos] - w
+    }
+
+}
+
+chainlevel <- 1 # top or next-top
+twochain <- F
+# rates: 
+# - straight-up lag (not needed for two-chain models)
+# - stochastic (exponential)
+# - accumulating (one-way) - special case of stochastic with zero backflow
+
+# rates describe inflow to left-hand chain
+
+d_chain(y,z,parms)
+
+ypos <- 1 # chain position to exchange with
+  # need to incorporate swaps between generalists
 
 d_bridge <- function(t=0,y,parms){
   # protection, eggs, generalist?
@@ -176,7 +184,7 @@ d_bridge <- function(t=0,y,parms){
 # 
 # dCt_cons <- function(t,y,parms,alpha){
 #   C <- y[1]
-#   with(parms, alpha * f(R,C,a,h,w) - d(C,mu) )
+#   with(parms, alpha * f(R,C,a,h,w) - x(C,mu) )
 # }
 
 dRCt_cont <- function(t,y,parms){
@@ -233,7 +241,7 @@ dRCt_delay <- function(t,y,parms,alpha){
   
   with(parmst, {
     dR <- g(R,m,k) - f(R,C,a,h,w)
-    dC <- alpha * f_lag - d(C,mu)
+    dC <- alpha * f_lag - x(C,mu)
     return( list(c(dR=dR,dC=dC)) )
   })
   
@@ -249,8 +257,8 @@ dRC_disc <- function(y,m,k,a,h,w,mu,alpha,phi){
   E <- y[3]
   fRC <- f(R,C,a,h,w,Q=E)
   dR <- g(R,m,k) - fRC
-  dC <- - d(C,mu)
-  dE <- alpha * fRC - d(E, phi * mu)
+  dC <- - x(C,mu)
+  dE <- alpha * fRC - x(E, phi * mu)
   list(c(dR=dR,dC=dC,dE=dE))
 }
   # consumer eggs die at same rate as adult consumers
@@ -316,7 +324,7 @@ dR_cont <- function(R,C,m,k,a,h,w,mu){
 }
 
 dC_cont <- function(R,C,m,k,a,h,w,mu,alpha){
-  alpha * f(R,C,a,h,w) - d(C,mu)
+  alpha * f(R,C,a,h,w) - x(C,mu)
 }
 
 # uniroto:
@@ -371,7 +379,7 @@ dRC_cons3 <- function(t,y,parms){
   fRC1 <- with(parms$parms1, f(R,C1,a,h,w) )
   fRC2 <- with(parms$parms2, f(C1,C2,a,h,w) )
   dR <- with(parms$parms1, g(R,m,k) - fRC1)
-  dC1 <- with(parms$parms1, alpha * fRC1 - d(C1,mu) - fRC2 )
+  dC1 <- with(parms$parms1, alpha * fRC1 - x(C1,mu) - fRC2 )
   list(c(dR=dR,dC1=dC1))
 }
 
@@ -427,8 +435,8 @@ dRC3 <- function(y,parms1,parms2){
   fRC1 <- with(parms1, f(R,C1,a,h,w) )
   fRC2 <- with(parms2, f(C1,C2,a,h,w) ) # add mass-relative attack rates later
   dR <- with(parms1, g(R,m,k) - fRC1 )
-  dC1 <- with(parms1, alpha * fRC1 - d(C1,mu) - fRC2 )
-  dC2 <- with(parms2, alpha * fRC2 - d(C2,mu) )
+  dC1 <- with(parms1, alpha * fRC1 - x(C1,mu) - fRC2 )
+  dC2 <- with(parms2, alpha * fRC2 - x(C2,mu) )
   list(c(dR=dR,dC1=dC1,dC2=dC2))
 }
 
@@ -449,9 +457,9 @@ dRC_disc3 <- function(y,parms1,parms2){
   fRC1 <- with(parms1, f(R,C1,a,h,w) )
   fRC2 <- with(parms2, f(C1,C2,a,h,w) )
   dR <- with(parms1, g(R,m,k) - fRC1 )
-  dC1 <- with(parms1,  alpha * fRC1 - d(C1,mu) - fRC2 )
-  dC2 <- with(parms2, - d(C2,mu) )
-  dE <- with(parms2, alpha * fRC2 - d(E, phi * mu) )
+  dC1 <- with(parms1,  alpha * fRC1 - x(C1,mu) - fRC2 )
+  dC2 <- with(parms2, - x(C2,mu) )
+  dE <- with(parms2, alpha * fRC2 - x(E, phi * mu) )
   list(c(dR=dR,dC1=dC1,dC2=dC2,dE=dE))
 }
 
@@ -509,9 +517,9 @@ dRC4 <- function(y,parms1,parms2,parms3){
   fRC2 <- with(parms2, f(C1,C2,a,h,w) ) 
   fRC3 <- with(parms3, f(C2,C3,a,h,w) ) 
   dR <- with(parms1, g(R,m,k) - fRC1 )
-  dC1 <- with(parms1, alpha * fRC1 - d(C1,mu) - fRC2 )
-  dC2 <- with(parms2, alpha * fRC2 - d(C2,mu) - fRC3 )
-  dC3 <- with(parms3, alpha * fRC3 - d(C3,mu) )
+  dC1 <- with(parms1, alpha * fRC1 - x(C1,mu) - fRC2 )
+  dC2 <- with(parms2, alpha * fRC2 - x(C2,mu) - fRC3 )
+  dC3 <- with(parms3, alpha * fRC3 - x(C3,mu) )
   list(c(dR=dR,dC1=dC1,dC2=dC2,dC3=dC3))
 }
 
@@ -522,3 +530,28 @@ dRCt4 <- function(t,y,parms){
   parms3 <- with(parms, as.list( arrrate(zt,M[3],e0,e1,e2)) )
   dRC4(y,parms1,parms2,parms3)
 }
+
+
+# Non-linear averaging ----------------------------------------------------
+
+arrrate_z <- function(zt,M,zmu,zsig,e0,e1,e2){
+  dnorm(zt,zmu,zsig) * arrrate(zt,M,e0,e1,e2)
+} 
+
+arrint <- function(zmu,zsig,e0,e1){
+  if(zsig==0){
+    return( arrrate(zmu,M,e0,e1,e2) )
+  }
+  if(zsig>0){
+    return(
+      integrate(arrrate_z,lower=-200,upper=200,
+                zmu=zmu,zsig=zsig,
+                M=M,e0=e0,e1=e1,e2=e2)$value
+    )
+  }
+}
+
+parmsvar <- function(e0,e1,zmu,zsig){
+  mapply(arrint,e0=e0,e1=e1,MoreArgs=list(zmu=zmu,zsig=zsig))
+}
+  # applies arrint to multiple pars at once

@@ -9,9 +9,6 @@ source("Source/consumer_resource_functions.R")
 # frf <- read.csv("Data/DatabaseXX2_corr.csv",header=T)
 frf <- read.csv("Data/DatabaseXX2_Apr2016_rechecked.csv",header=T)
 
-T0 <- 273.15 # 0°C = 293.15 K 
-z0 <- 293.15 # intercept for models (K)
-frf$temperature.kelvin <- frf$temperature.degree.celcius + T0
 fr <- subset(frf,select=c("publication.short",
                          "ecosystem.type",
                          "predator.met.group",
@@ -22,7 +19,7 @@ fr <- subset(frf,select=c("publication.short",
                          "half.saturation.density",
                          "maximum.ingestion.rate",
                          "hill.exponent",
-                         "temperature.kelvin"
+                         "temperature.degree.celcius"
                          ))
 
 fr <- rename(fr,replace=c(
@@ -36,7 +33,7 @@ fr <- rename(fr,replace=c(
              "half.saturation.density"="Rhalf",
              "maximum.ingestion.rate"="fmax",
              "hill.exponent"="hill",
-             "temperature.kelvin"="Tk"
+             "temperature.degree.celcius"="Tc"
              ))
 
 
@@ -68,16 +65,17 @@ mr <- rename(mr,replace=c(
 fr <- subset(fr,!metgroup %in% c("endovert","unicell"))
   # temporarily remove small-sample-size groups
 fr$group <- with(fr, droplevels(system:metgroup))
-fr$Tr <- with(fr, arrtemp(Tk,z0=z0) / log(10))
+fr$Tr <- with(fr, arrtempC(Tc) / log(10))
   # using log10 to improve model convergence
   # log_a(x) = log_b(x)/log_b(a)
   # changes intercept but not other parameters
 fr$al <- with(fr, log10(a * 60^2) )
-fr$hl <- with(fr, log10(1/(h * 60^2)) )
+fr$hl <- with(fr, log10(1/(h / 60^2)) )
   # rates per hour instead of per second
 fr$cml <- with(fr, log10(cmass * 1000) ) 
 # mass in mg
-fr$rml <- with(fr, log10(cmass/rmass) )
+fr$rml <- with(fr, log10(0.01*cmass/rmass) )
+  # sets intercept with consumer 100 times larger than resource
 
 ma <- lmer(al ~ cml + rml + Tr + (1|pub) + (1+cml+Tr|group), data=fr)
 mh <- lmer(hl ~ cml + rml + Tr + (1|pub) + (1+cml+Tr|group), data=fr)
@@ -85,8 +83,7 @@ mh <- lmer(hl ~ cml + rml + Tr + (1|pub) + (1+cml+Tr|group), data=fr)
 # Analyse metabolic rates -------------------------------------------------
 
 mr[mr==-999.9] <- NA
-mr$Tk <- mr$Tc + T0
-mr$Tr <- arrtemp(mr$Tk, z0=z0) / log(10)
+mr$Tr <- arrtemp(mr$Tc) / log(10)
 mr$cml <- log10(mr$cmass * 1000)
   # mass in mg
 qlogis10 <- function(x) log10(x/(1-x))
@@ -135,21 +132,32 @@ resplots(reslist$mm)
 
 fixadj <- function(m){
   fixcoef <- fixef(m)
-  fixcoef["(Intercept)"] <- fixcoef["(Intercept)"] * log(10)
-  return(fixcoef)
+  fixcoef["(Intercept)"] <- 10 ^ fixcoef["(Intercept)"] * 1000 ^ fixcoef["cml"]
+  fixcoef <- rename(fixcoef,replace=c(
+    "(Intercept)" = "b0",
+    "cml" = "bm",
+    "Tr" = "bz",
+    "rml" = "br"
+  ))
+  return(as.list(fixcoef))
 }
-# convert intercept from base 10 to base e
-# (needs to be done for any intercept-related parameters)
+  # changes intercept to absolute (un-logged) scale
+  # shifts intercept to consumer mass of 1g instead of 1mg
+  # (needs to be done for any intercept-related parameters)
 
-mlist <- list(ma=ma,mh=mh,me=me,mm=mm)
+mlist <- list(a=ma,h=mh,alpha=me,mu=mm)
 ( fixlist <- lapply(mlist,fixadj) )
 
+fixlist$mu$b0 <- fixlist$mu$b0 * 16
+  # protein = 16 kJ/g = 16 J/mg
+  # so lose 1mg for every 16 J of mass
+  # https://en.wikipedia.org/wiki/Specific_energy#Energy_density_of_food
+  
 saveRDS(fixlist,
         paste0("Output/rate_parameters_marginal_",
                format(Sys.Date(),"%d%b%Y"),
                ".rds")
         )
-
 
 # Judge the size of temperature effects -----------------------------------
 
