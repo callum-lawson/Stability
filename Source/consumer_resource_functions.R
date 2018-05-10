@@ -11,12 +11,10 @@ sseqgen <- function(x,y){
 
 zt_cyclic <- function(t,zmu,zsig,zl){
   if(zsig==0) return( rep(zmu, length(t)) )
-  if(zsig>0)  return( zmu + zsig * sin(2*pi*t / zl) )
+  if(zsig>0)  return( zmu + zsig * sin(2*pi * t/zl) )
 }
 
 # Basic parameters --------------------------------------------------------
-
-hi <- readRDS("Output/rate_parameters_marginal_06May2018.rds")
 
 arrtemp <- function(z,z0=20,T0=273.15,kB=8.6173303*10^-5){ 
   - 1/kB * ( 1/(z+T0) - 1/(T0+z0) )
@@ -29,14 +27,10 @@ ratef <- function(z,M,b){
   with(b, b0 * exp(bz * arrtemp(z)) * M ^ bm )
 }
 
-arrratel <- function(zt,M,e0,e1,e2){
-  as.list(arrate(zt,M,e0,e1,e2))
-}
-
 # Flux rates --------------------------------------------------------------
 
-g <- function(R,m,k){
-  m * (k - R)
+g <- function(R,v,k){
+  v * (k - R)
 }
   # For closed nutrients, 
   # inflow proportional to decomposing material 
@@ -52,8 +46,8 @@ f <- function(R,C,a,h,psi,Q=C){
   #     Rhat = R + E, where E are consumer eggs
   #   2. omega is ratio of predator interference time : prey handling time
 
-x <- function(C,mu){
-  mu * C
+x <- function(C,mu,phi=1){
+  phi * mu * C
 }
   # Multiple prey: individual prey attack rates with same, summed handling time
   # denominator (koen-Alonso)
@@ -76,106 +70,215 @@ x <- function(C,mu){
 # - grouped derivatives (three- and four-species models)
 # - discrete time series (three-species model)
 
-# others:
-# - multiple resource or consumer species (with which differences?)
-# - protected resources
+# Derivative functions ----------------------------------------------------
 
-# y <- 1 # vector of states
-#   
-# zt <- with(parms$z, zt_cyclic(t,zmu,zsig,zl) ) # add stochastic function
-
-# params:
-# - resource - possibly state-dependent
-# - consumer, t-dependent
-# - consumer, constant
-
-d_integrate <- function(t=0,y,parms){
-  
-}
-
-# integration routine requires that this be done separately for each t
-
-y <- c(1,1,1)
-z <- 0
-
-bt <- lapply(hi,ratef,M=c(1,10),z=0)
-
-bc <- list(
-  m = 10^-5, # very high value relative to consumer
-  k = 10,
-  psi = 1, # relative handling time
-  phi = 0.1 # relative death rate of eggs
-)
-
-parms <- as.list(c(bt,bc))
-
-d_chain <- function(y,z,parms){
-  with(parms, {
-    Y <- length(y) # enters as par
-    dy <- vector(mode="numeric",length=Y)
+d_chain <- function(y,z,b,Y){
+  with(b, {
+    dy <- y # convenient way to assign same names as y
     fy <- f(y[-Y],y[-1],a,h,psi)
-    dy[1] <-  g(y[1],m,k) - fy[2]
-    dy[2:Y] <- alpha * fy - x(y[2:Y],mu)
-    return(dy) # automatic naming?
+    dy[1] <-  g(y[1],v,k) - fy[1]
+    dy[-1] <- alpha * fy - x(y[-1],mu,phi)
+    list(dy=dy,fy=fy)
   })
 }
 
-nC <- 1 # number of chains
+# test d_bridge with real params to see if need ratio of dy/(dy-c)
 
-if(structure==TRUE | nC==2){
+d_bridge <- function(y1,y2,f1,f2=NULL,bc,bridgetype="fraction"){
+  with(bc, {
+    # random, discrete (fixed lag covered elsewhere)
+    if(bridgetype=="fraction"){
+      u1 <- u * y2
+      u2 <- 1 * y1
+      # fraction active at equilibrium = w2/(w1+w2)
+    }
+    if(bridgetype=="waiting"){
+      u1 <- u * y2
+      u2 <- f1
+      # bigger pop -> less food -> more individuals feeding (are non-eggs)
+      #   -> lower fraction protected (= constant refuges)
+      # generally maladaptive because just delays
+    } 
+    if(bridgetype=="hiding"){
+      u1 <- f1
+      u2 <- (1/u) * y1
+      # density-dependent germination: higher R -> lower food -> more protected
+    }
+    if(bridgetype=="switch"){
+      u1 <- f1
+      u2 <- f2
+      # feeding rates given same body masses, so same index of Y1
+      # could be reparameterised to include mortality rates
+      # can apply to consumer, or resource moving between patches
+    }
+    return( m * (u1 - u2) )
+  })
+}
+  # w = estimated fitness 
+  # m = flow rate
+  # overall idea: fraction can depend on R (via resource density), or not
+  # indirectly depends on C (because -> lower R) 
+  # ignore case in which unprotected don't eat (no evolutionary justification)
+  # when f -> eggs, fs cancel and adults only grow through development
+  # bridge rate describes inflow to left-hand chain
+  #   = immigration from y2 minus emigration from y1
+  # when m is high, *can be subsumed into C or R equations*
+
+d_web <- function(t,y,parms){
   
-  if(level=="consumer"){
-    ypos <- Y
-  }
-  if(level=="resource"){
-    ypos <- Y-1
-  }
+  with(parms, {
     
-  if(stype=="lag"){
-    if(t <= parms$tau)
-    if(t > parms$tau){
-      zt_lag <- with(parms, zt_cyclic(t-tau,zmu,zsig,zl) )
-      parmst_lag <- with(parms, as.list( arrrate(zt_lag,M,e0,e1,e2) ) )
-      RC_lag <- lagvalue(t - parms$tau)
-      f_lag <- with(parmst_lag, f(RC_lag[1],RC_lag[2],a,h,w))
-      dy[ypos] <- dy[ypos] + f_lag
+    if(structure==FALSE)                  Y <- length(y) 
+    if(structure==TRUE & twochain==FALSE) Y <- length(y) - 1 
+    if(structure==TRUE & twochain==TRUE)  Y <- length(y) / 2 
+    # need a generalism option here too
+    
+    # t-specific parameters
+    zt <- with(zparms, zt_cyclic(t,zmu,zsig,zl))
+      # deSolve requires that this be done separately for each t
+    bt <- c(lapply(bhat,ratef,M=M,z=zt),bc)
+    
+    # total chain length
+    
+    if(structure==FALSE){
+      list(d_chain(y,zt,bt,Y)$dy)
     }
-  }
-  
-  if(stype=="store"){
-    w <- i(E) - e(y[ypos])
-    dy[ypos] <- dy[ypos] + w
-    dE <- -w - x()
-  }
-  
-  if(stype=="swap"){
-    w <- i(y2[ypos]) - e(y[ypos])
-    dy[ypos] <- dy[ypos] + w
-    dy2[ypos] <- dy2[ypos] - w
-    }
+    
+    if(structure==TRUE){
+      
+      if(slevel=="consumer") Y1 <- Y
+      if(slevel=="resource") Y1 <- Y-1
+      
+      y1 <- y[1:Y1]
+      y2 <- y[-(1:Y1)]
+      # all states after y1 chain assigned to y2
+      
+      d1 <- d_chain(y1,zt,bt,Y)
+      dy1 <- d1$dy
 
+      if(twochain==FALSE){
+        Y2 <- 1 # y2 consists of just one state variable
+        dy2 <- with(bt, -x(y2,mu[Y1-1],phi))
+        dy21 <- d_bridge(y1[Y1],y2[Y2],
+                         d1$fy[Y1-1],f2=NULL,
+                         bc=bparms$bc,bridgetype
+                         )
+        # if single chain, then other lifestage doesn't feed
+      }
+      if(twochain==TRUE){
+        Y2 <- Y1
+        d2 <- d_chain(y2,z,bt,Y2)
+        dy2 <- d2$dy
+        dy21 <- d_bridge(y1[Y1],y2[Y2],
+                         d1$fy[Y1-1],d2$fy[Y1-1],
+                         bc=bparms$bc,bridgetype
+                         )
+      }
+        # -1 indexing because basal resource has no parameters
+      
+      dy1[Y1] <- dy1[Y1] + dy21
+      dy2[Y2] <- dy2[Y2] - dy21
+      # y2 can be eggs
+      # build in lag (instead of "store") version of this later
+      
+      list(c(dy1,dy2))
+      
+    } # end structural operations
+    
+  })
+    
 }
 
-chainlevel <- 1 # top or next-top
-twochain <- F
+
+# Trial runs --------------------------------------------------------------
+
+### Inputs (parms)
+zmu <- 0 
+zsig <- 1
+zl <- 24*7
+zparms <- list(zmu=zmu,zsig=zsig,zl=zl)
+
+# tau <- 0
+
+structure <- TRUE
+slevel <- "consumer"
+twochain <- FALSE
+bridgetype <- "waiting"
+  # for resource structure, food chain length must be at least 3
+  #   (nutrients assumed inactive, so can't change state)
+
+bc <- list(
+  v = 10, # very high value relative to consumer
+  k = 100,
+  psi = 0,   # relative handling time
+  phi = 0.1, # relative death rate of eggs
+  m = 1,  # rate of population structure adjustment
+  u = 1      # odds of individual being in state 1 at equilibrium
+)
+bhat <- readRDS("Output/rate_parameters_marginal_06May2018.rds")
+M <- 1
+  # different prey need different temp responses
+  # must have length equal to number of consumer stages
+bparms <- list(bc=bc,bhat=bhat)
+
+y0 <- c(R=1,C1=1,C1s=0)
+t <- 0
+parms <- list(zparms=zparms,
+              bparms=bparms,
+              M=M,
+              structure=structure,
+              slevel=slevel,
+              twochain=twochain,
+              bridgetype=bridgetype
+)
+
+tseq <- seq(0,24*365,length.out=100)
+require(deSolve)
+lvar <- ode(y=y0,times=tseq,func=d_web,parms=parms)
+matplot(tseq,log(lvar[,-1]),type="l")
+
+### TODO
+# - generalist
+# - different climate responses in different chains
+# - fixed lag
+
+# zbarf <- function(t,tau,zmu,zsig,zl){
+#   zmu + (zsig / tau * ( cos(2*pi * t/zl) - cos(2*pi * (t+tau)/zl) ) ) / (2*pi)
+# }
+#   # average temperature between t and t + tau
+#   # https://www.youtube.com/watch?v=YF7Ii5dMYIo
+# 
+# 
+# d_bridge_lag <- 
+#   
+#   if(t > parms$tau){
+#     # set dy to without food input
+#     zt_lag <- with(zparms, zt_cyclic(t-tau,zmu,zsig,zl) )
+#     zbar_lag <- with(zparms, zbarf(t,tau,zmu,zsig,zl) )
+#     bt_lag <- with(zparms, lapply(bhat,ratef,M=M,z=zt_lag))
+#     y_lag <- lagvalue(t - parms$tau)
+#     f_lag <- with(bt_lag, f(y_lag[ypos-1],y_lag[ypos],a,h,psi))
+#     dy[ypos] <- with(bparms, dy[ypos] +  exp(x(f_lag,zbar_lag*tau,phi)) )
+#     # = food deposit × fraction surviving
+#   }
+# # if t < lag, do nothing
+# return( m * (w2 * y1 * exp(x(1,zbar_lag*tau,phi=1)) 
+#              - w1 * y2 * exp(x(1,zbar_lag*tau,phi))) )
+
+# *still need true generalist*:
+f(p*R1+(1-p)*R2,C,a,h,psi,Q=C)
+  # assumes same handling times, nutritional values, assimilation rates
+  # Koen-Alonso 1.12, 1.21 (Royama)
+  
+# *need different resource temp responses too*
+
+
+# *timescale separation for development (analytic?)*
+
 # rates: 
-# - straight-up lag (not needed for two-chain models)
+# - straight-up lag
 # - stochastic (exponential)
 # - accumulating (one-way) - special case of stochastic with zero backflow
-
-# rates describe inflow to left-hand chain
-
-d_chain(y,z,parms)
-
-ypos <- 1 # chain position to exchange with
-  # need to incorporate swaps between generalists
-
-d_bridge <- function(t=0,y,parms){
-  # protection, eggs, generalist?
-  # lag, random, DD, discrete
-}
-
-# chain, chain, link top
 
 # dRt_cons <- function(t,y,parms){
 #   R <- y[1]
