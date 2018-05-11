@@ -86,7 +86,6 @@ d_chain <- function(y,z,b,Y){
 
 d_bridge <- function(y1,y2,f1,f2=NULL,bc,bridgetype="fraction"){
   with(bc, {
-    # random, discrete (fixed lag covered elsewhere)
     if(bridgetype=="fraction"){
       u1 <- u * y2
       u2 <- 1 * y1
@@ -124,6 +123,13 @@ d_bridge <- function(y1,y2,f1,f2=NULL,bc,bridgetype="fraction"){
   #   = immigration from y2 minus emigration from y1
   # when m is high, *can be subsumed into C or R equations*
 
+zbarf <- function(t,tau,zmu,zsig,zl){
+  tau * zmu + (zsig * ( cos(2*pi * t/zl) - cos(2*pi * (t+tau)/zl) ) ) / (2*pi)
+}
+  # average temperature between t and t + tau
+  # tau multiplier because want summed mortality [=exp(-mu*tau)]
+  # https://www.youtube.com/watch?v=YF7Ii5dMYIo
+
 d_web <- function(t,y,parms){
   
   with(parms, {
@@ -131,8 +137,8 @@ d_web <- function(t,y,parms){
     if(structure==FALSE)                  Y <- length(y) 
     if(structure==TRUE & twochain==FALSE) Y <- length(y) - 1 
     if(structure==TRUE & twochain==TRUE)  Y <- length(y) / 2 
-    # need a generalism option here too
-    
+    # if(generalist==TRUE)  Y <- (length(y) - 1) / 2 
+
     # t-specific parameters
     zt <- with(zparms, zt_cyclic(t,zmu,zsig,zl))
       # deSolve requires that this be done separately for each t
@@ -141,7 +147,9 @@ d_web <- function(t,y,parms){
     # total chain length
     
     if(structure==FALSE){
+      
       list(d_chain(y,zt,bt,Y)$dy)
+      
     }
     
     if(structure==TRUE){
@@ -157,14 +165,41 @@ d_web <- function(t,y,parms){
       dy1 <- d1$dy
 
       if(twochain==FALSE){
+        
         Y2 <- 1 # y2 consists of just one state variable
         dy2 <- with(bt, -x(y2,mu[Y1-1],phi))
-        dy21 <- d_bridge(y1[Y1],y2[Y2],
-                         d1$fy[Y1-1],f2=NULL,
-                         bc=bparms$bc,bridgetype
-                         )
+          
+        if(bridgetype!="lag"){
+          dy21 <- d_bridge(y1[Y1],y2[Y2],
+                           d1$fy[Y1-1],f2=NULL,
+                           bc=bparms$bc,bridgetype
+                           )
+        }
+        
+        if(bridgetype=="lag"){
+          # lag in {eggs -> adults} only (not vice-versa)
+          if(t <= zparms$tau){
+            u_lag <- 0
+          }
+          if(t > zparms$tau){
+            # set dy to without food input
+            zt_lag <- with(zparms, zt_cyclic(t-tau,zmu,zsig,zl) )
+            zsum_lag <- with(zparms, zbarf(t,tau,zmu,zsig,zl) )
+            bt_lag <- with(zparms, lapply(bhat,ratef,M=M,z=zt_lag))
+            y_lag <- lagvalue(t - zparms$tau)
+            f_lag <- with(bt_lag, f(y_lag[Y1-1],y_lag[Y1],a,h,bparms$bc$psi))
+            u_lag <- with(bparms$bc, exp(x(f_lag,zsum_lag,phi)) )
+            # = food deposit × fraction surviving
+          }
+          dy21 <- d_bridge(y1[Y1],y2[Y2],
+                           u_lag,f2=d1$fy[Y1-1],
+                           bc=bparms$bc,bridgetype="switch"
+          )
+        }
+
         # if single chain, then other lifestage doesn't feed
       }
+      
       if(twochain==TRUE){
         Y2 <- Y1
         d2 <- d_chain(y2,z,bt,Y2)
@@ -189,36 +224,37 @@ d_web <- function(t,y,parms){
     
 }
 
-
 # Trial runs --------------------------------------------------------------
 
 ### Inputs (parms)
 zmu <- 0 
 zsig <- 1
 zl <- 24*7
-zparms <- list(zmu=zmu,zsig=zsig,zl=zl)
+tau = 1    # time delay for lag model
+zparms <- list(zmu=zmu,zsig=zsig,zl=zl,tau=tau)
 
 # tau <- 0
 
 structure <- TRUE
 slevel <- "consumer"
 twochain <- FALSE
-bridgetype <- "waiting"
+bridgetype <- "lag"
   # for resource structure, food chain length must be at least 3
   #   (nutrients assumed inactive, so can't change state)
 
 bc <- list(
-  v = 10, # very high value relative to consumer
+  v = 10,    # very high value relative to consumer
   k = 100,
   psi = 0,   # relative handling time
   phi = 0.1, # relative death rate of eggs
-  m = 1,  # rate of population structure adjustment
-  u = 1      # odds of individual being in state 1 at equilibrium
+  m = 1,     # rate of population structure adjustment
+  u = 1     # odds of individual being in state 1 at equilibrium
 )
 bhat <- readRDS("Output/rate_parameters_marginal_06May2018.rds")
 M <- 1
   # different prey need different temp responses
   # must have length equal to number of consumer stages
+  # generalist must be listed *last*
 bparms <- list(bc=bc,bhat=bhat)
 
 y0 <- c(R=1,C1=1,C1s=0)
@@ -232,21 +268,20 @@ parms <- list(zparms=zparms,
               bridgetype=bridgetype
 )
 
-tseq <- seq(0,24*365,length.out=100)
+tseq <- seq(0,24*7*52,length.out=1000)
 require(deSolve)
-lvar <- ode(y=y0,times=tseq,func=d_web,parms=parms)
+# lvar <- ode(y=y0,times=tseq,func=d_web,parms=parms)
+lvar <- dede(y=y0,times=tseq,func=d_web,parms=parms)
+
 matplot(tseq,log(lvar[,-1]),type="l")
 
 ### TODO
-# - generalist
+# - generalist (with p-function)
 # - different climate responses in different chains
-# - fixed lag
+# - discrete-time integration (u=0, so that zero backflow)
+# - general timescale separation
+# - analytically-simplified f functions?
 
-# zbarf <- function(t,tau,zmu,zsig,zl){
-#   zmu + (zsig / tau * ( cos(2*pi * t/zl) - cos(2*pi * (t+tau)/zl) ) ) / (2*pi)
-# }
-#   # average temperature between t and t + tau
-#   # https://www.youtube.com/watch?v=YF7Ii5dMYIo
 # 
 # 
 # d_bridge_lag <- 
@@ -270,16 +305,6 @@ f(p*R1+(1-p)*R2,C,a,h,psi,Q=C)
   # assumes same handling times, nutritional values, assimilation rates
   # Koen-Alonso 1.12, 1.21 (Royama)
   
-# *need different resource temp responses too*
-
-
-# *timescale separation for development (analytic?)*
-
-# rates: 
-# - straight-up lag
-# - stochastic (exponential)
-# - accumulating (one-way) - special case of stochastic with zero backflow
-
 # dRt_cons <- function(t,y,parms){
 #   R <- y[1]
 #   with(parms, list( dR = g(R,m,k) -  f(R,C,a,h,w) ) )
