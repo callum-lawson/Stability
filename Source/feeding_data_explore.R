@@ -65,34 +65,48 @@ mr <- rename(mr,replace=c(
 fr <- subset(fr,!metgroup %in% c("endovert","unicell"))
   # temporarily remove small-sample-size groups
 fr$group <- with(fr, droplevels(system:metgroup))
-fr$Tr <- with(fr, arrtempC(Tc) / log(10))
+fr$Tr <- with(fr, arrtemp(Tc) / log(10))
   # using log10 to improve model convergence
   # log_a(x) = log_b(x)/log_b(a)
   # changes intercept but not other parameters
 fr$al <- with(fr, log10(a * 60^2) )
-fr$hl <- with(fr, log10(1/(h / 60^2)) )
-  # rates per hour instead of per second
-fr$cml <- with(fr, log10(cmass * 1000) ) 
-# mass in mg
-fr$rml <- with(fr, log10(0.01*cmass/rmass) )
+  # attack rate in Yuanheng's database in m^2 per second
+fr$hl <- with(fr, log10(h / 60^2) )
+  # handling times per hour, instead of per second as in Yuanheng's database
+fr$cml <- with(fr, log10(cmass) ) 
+  # mass in mg
+sigma <- 0.01
+fr$rml <- with(fr, log10(sigma*cmass/rmass) )
   # sets intercept with consumer 100 times larger than resource
 
-ma <- lmer(al ~ cml + rml + Tr + (1|pub) + (1+cml+Tr|group), data=fr)
-mh <- lmer(hl ~ cml + rml + Tr + (1|pub) + (1+cml+Tr|group), data=fr)
-
+ma <- lmer(al ~ offset(cml) + cml + rml + Tr + (1|pub) + (1+cml+Tr|group), data=fr)
+  # mass as offset -> attack and max feeding rates per gram of consumer
+  # so attack rate in m^2 per hour per consumer gram
+  # each gram of consumer covers 0.03 cm^2 per hour!
+mh <- lmer(hl ~ offset(-(rml + log10(sigma))) 
+           + cml + rml + Tr + (1|pub) + (1+cml+Tr|group), 
+           data=fr)
+  # handling time per resource gram per consumer gram, i.e. 
+  #   time for 1 feeding consumer gram to process 1 resource gram
+  # each resource individual yields *M[R] grams*, so handling time needs to be 
+  #   scaled down by amount of grams of in each resource individual
+  # fmax = R/C * M[R]/M[C]
+  #   so handling time scaled by inverse (negative log)
+  
 # Analyse metabolic rates -------------------------------------------------
 
 mr[mr==-999.9] <- NA
 mr$Tr <- arrtemp(mr$Tc) / log(10)
-mr$cml <- log10(mr$cmass * 1000)
-  # mass in mg
+mr$cml <- log10(mr$cmass)
+  # original mass in grams
 qlogis10 <- function(x) log10(x/(1-x))
 mr$el <- qlogis10(mr$alpha)
 mr$ml <- log10(mr$mu)
 
 me <- lmer(el ~ cml + Tr + (1+Tr+cml|guild) + (1|group) + (1|pub), data=mr)
-mm <- lmer(ml ~ cml + Tr + (1+Tr+cml|guild) + (1|group) + (1|pub), data=mr)
-  # mass as offset?
+  # no offset because percentage, not rate
+mm <- lmer(ml ~ offset(cml) + cml + Tr + (1+Tr+cml|guild) + (1|group) + (1|pub), data=mr)
+  # J used by each consumer gram in each hour
 
 # Plot residuals ----------------------------------------------------------
 
@@ -132,7 +146,9 @@ resplots(reslist$mm)
 
 fixadj <- function(m){
   fixcoef <- fixef(m)
-  fixcoef["(Intercept)"] <- 10 ^ fixcoef["(Intercept)"] * 1000 ^ fixcoef["cml"]
+  fixcoef["(Intercept)"] <- 10 ^ fixcoef["(Intercept)"] 
+    # * 1 ^ fixcoef["cml"]
+    # check whether mass power is correct here (was 1000)
   fixcoef <- rename(fixcoef,replace=c(
     "(Intercept)" = "b0",
     "cml" = "bm",
@@ -148,9 +164,10 @@ fixadj <- function(m){
 mlist <- list(a=ma,h=mh,alpha=me,mu=mm)
 ( fixlist <- lapply(mlist,fixadj) )
 
-fixlist$mu$b0 <- fixlist$mu$b0 * 16
+fixlist$mu$b0 <- fixlist$mu$b0 / 16
   # protein = 16 kJ/g = 16 J/mg
-  # so lose 1mg for every 16 J of mass
+  # so lose 1 mg of mass for every 16 J of energy
+  # (original mortality rates in J)
   # https://en.wikipedia.org/wiki/Specific_energy#Energy_density_of_food
   
 saveRDS(fixlist,
@@ -173,18 +190,17 @@ baseparrs <- function(m){
 
 bp <- sapply(mlist,baseparrs)
 
-curve(10^-1*bp[3]*bp[1]*exp(x)/(1+bp[1]*(1/bp[2])*exp(x))-bp[4],xlim=c(-2,2))
-curve(10^-1*bp[3]*tm[3]*bp[1]*tm[1]*exp(x)/(1+bp[1]*tm[1]*(1/(bp[2]*tm[2]))*exp(x))-bp[4]*tm[4],add=T,col="red")
-  # 10^-1 is aribrary scaler to match intake and mortality rates
-
-tm[4] # mortality
-tm[2] * tm[3] # high food
-tm[1] * tm[3] # low food
-  # when little food, increasing efficiency / attack makes little difference 
-  #   relative to mortality
-  # but when lots of food, handling time can make a big difference 
-  #   (big food multiplier, whereas mortality still has same base rate)
-
+# curve(10^-1*bp[3]*bp[1]*exp(x)/(1+bp[1]*(1/bp[2])*exp(x))-bp[4],xlim=c(-2,2))
+# curve(10^-1*bp[3]*tm[3]*bp[1]*tm[1]*exp(x)/(1+bp[1]*tm[1]*(1/(bp[2]*tm[2]))*exp(x))-bp[4]*tm[4],add=T,col="red")
+#   # 10^-1 is aribrary scaler to match intake and mortality rates
+# 
+# tm[4] # mortality
+# tm[2] * tm[3] # high food
+# tm[1] * tm[3] # low food
+#   # when little food, increasing efficiency / attack makes little difference 
+#   #   relative to mortality
+#   # but when lots of food, handling time can make a big difference 
+#   #   (big food multiplier, whereas mortality still has same base rate)
 
 # Predictions for simulations ---------------------------------------------
 

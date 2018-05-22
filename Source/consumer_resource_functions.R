@@ -39,7 +39,7 @@ g <- function(R,v,k){
   # model closed resource growth later: 1/alpha * x(C,mu)
 
 f <- function(R,C,a,h,psi,p=1,Q=0){
-  R * C * a / (1 + a*h*(p*R + (1-p)*Q + psi*C))
+  C * a * R / (1 + a*h*(p*R + (1-p)*Q + psi*C))
 }
   # - effective handling time can be increased by:
   #   1. already-parasitised prey (discrete-time models):
@@ -78,9 +78,9 @@ x <- function(C,mu,phi=1){
 d_chain <- function(y,b,Y,...){
   with(b, {
     dy <- y # convenient way to assign same names as y
-    fy <- f(y[-Y],y[-1],a,h,psi,...)
+    fy <- f(R=y[-Y],C=y[-1],a,h,psi,...)
     dy[1] <-  g(y[1],v,k) - fy[1]
-    dy[-1] <- alpha * fy - x(y[-1],mu)
+    dy[-1] <- alpha * fy - x(y[-1],mu) - c(fy[-1],0)
     list(dy=dy,fy=fy)
   })
 }
@@ -109,7 +109,6 @@ d_bridge <- function(y1,y2,f1,f2=NULL,bc,bridgetype="fraction"){
     if(bridgetype=="switch"){
       u1 <- f1/y1
       u2 <- f2/y2
-      # feeding rates given same body masses, so same index of Y1
       # could be reparameterised to include mortality rates
       # can apply to consumer, or resource moving between patches
       # switching should be according to per-capita fitness, so divide by y
@@ -138,31 +137,31 @@ d_web <- function(t,y,parms){
   
   with(parms, {
     
-    if(structure==FALSE)                  Y <- length(y) 
-    if(structure==TRUE & twochain==FALSE) Y <- length(y) - 1 
-    if(structure==TRUE & twochain==TRUE)  Y <- length(y) / 2 
-
-    # t-specific parameters
     zt <- with(zparms, zt_cyclic(t,zmu,zsig,zl))
+      # t-specific parameters
       # deSolve requires that this be done separately for each t
     bt <- c(lapply(bhat,ratef,M=M,z=zt),bc)
     
-    # total chain length
-    
-    if(structure==FALSE){
+    if(slevel=="none"){
       
-      list(d_chain(y,bt,Y)$dy)
+      Y <- length(y) 
+        # total chain length
+      return( list(d_chain(y,bt,Y)$dy) )
       
     }
     
-    if(structure==TRUE){
+    if(slevel!="none"){
+      
+      if(twochain==FALSE) Y <- length(y) - 1 
+      if(twochain==TRUE)  Y <- length(y) / 2 
+        # total chain length
       
       if(slevel=="consumer") Y1 <- Y
       if(slevel=="resource") Y1 <- Y-1
       
       y1 <- y[1:Y1]
       y2 <- y[-(1:Y1)]
-      # all states after y1 chain assigned to y2
+        # all states after y1 chain assigned to y2
       
       if(generalist==FALSE){
         
@@ -175,11 +174,13 @@ d_web <- function(t,y,parms){
       if(twochain==FALSE){
         
         Y2 <- 1 # y2 consists of just one state variable
-        dy2 <- with(bt, -x(y2,mu[Y1-1],phi))
+        YR <- Y1 - 1 # resource level / feeding rate vector
+        dy2 <- with(bt, -x(y2,mu[YR],phi))
+        
           
         if(bridgetype!="lag"){
           dy21 <- d_bridge(y1[Y1],y2[Y2],
-                           d1$fy[Y1-1],f2=NULL,
+                           d1$fy[YR],f2=NULL,
                            bc=bparms$bc,bridgetype
                            )
         }
@@ -195,12 +196,12 @@ d_web <- function(t,y,parms){
             zsum_lag <- with(zparms, zbarf(t,tau,zmu,zsig,zl) )
             bt_lag <- with(zparms, lapply(bhat,ratef,M=M,z=zt_lag))
             y_lag <- lagvalue(t - zparms$tau)
-            f_lag <- with(bt_lag, f(y_lag[Y1-1],y_lag[Y1],a,h,bparms$bc$psi))
+            f_lag <- with(bt_lag, f(y_lag[YR],y_lag[Y1],a,h,bparms$bc$psi))
             u_lag <- with(bparms$bc, exp(x(f_lag,zsum_lag,phi)) )
             # = food deposit × fraction surviving
           }
           dy21 <- d_bridge(y1[Y1],y2[Y2],
-                           u_lag,f2=d1$fy[Y1-1],
+                           u_lag,f2=d1$fy[YR],
                            bc=bparms$bc,bridgetype="switch"
           )
         }
@@ -210,24 +211,27 @@ d_web <- function(t,y,parms){
       
       if(twochain==TRUE){
         
+        Y2 <- Y1
+        YR <- Y1 - 1 # resource level / feeding rate vector
+        
         if(generalist==FALSE){
-          Y2 <- Y1
+          
           d2 <- d_chain(y2,bt,Y2)
           dy2 <- d2$dy
           dy21 <- d_bridge(y1[Y1],y2[Y2],
-                           d1$fy[Y1-1],d2$fy[Y1-1],
+                           d1$fy[YR],d2$fy[YR],
                            bc=bparms$bc,bridgetype
           )
           # assumes that consumption of R1 produces more R1 hunters
           # (same as switching being proportional to food intake?)
+          
         }
 
         if(generalist==TRUE){
-          Y2 <- Y1
-          YR <- Yf <- Y1-1 # resource level / feeding rate vector
+          
           pt1 <- pt2 <- rep(1,YR)
-          pt1[Yf] <- y1[Y1]/(y1[Y1]+y2[Y2])
-          pt2[Yf] <- 1 - pt1[Yf]
+          pt1[YR] <- y1[Y1]/(y1[Y1]+y2[Y2])
+          pt2[YR] <- 1 - pt1[YR]
           Q1 <- Q2 <- rep(0,YR)
           Q1[YR] <- y2[YR]
           Q2[YR] <- y1[YR]
@@ -239,22 +243,24 @@ d_web <- function(t,y,parms){
           dy2 <- d2$dy
 
           dy21 <- d_bridge(y1[Y1],y2[Y2],
-                           d1$fy[Yf],d2$fy[Yf],
+                           d1$fy[YR],d2$fy[YR],
                            bc=bparms$bc,bridgetype
           )
+          
         }
         
       }
         # -1 indexing because basal resource has no parameters
+        # feeding rates given same body masses, so same index of Y1
       
       dy1[Y1] <- dy1[Y1] + dy21
       dy2[Y2] <- dy2[Y2] - dy21
       # y2 can be eggs
       # build in lag (instead of "store") version of this later
       
-      list(c(dy1,dy2))
+      return( list(c(dy1,dy2)) )
       
-    } # end structural operations
+    } # end structured models
     
   })
     
@@ -269,45 +275,44 @@ zl <- 24*7
 tau <- 0    # time delay for lag model
 zparms <- list(zmu=zmu,zsig=zsig,zl=zl,tau=tau)
 
-structure <- TRUE
-slevel <- "consumer"
-twochain <- TRUE
+slevel <- "none"
+twochain <- FALSE
 bridgetype <- "switch"
   # for resource structure, food chain length must be at least 3
   #   (nutrients assumed inactive, so can't change state)
-generalist <- TRUE
+generalist <- FALSE
 
 bc <- list(
-  v = 1,    # very high value relative to consumer
-  k = 100,
+  v = 1,     # max flow rate = k grams per m^2 per hour
+  k = 10,    # 10g per m^2
   psi = 0,   # relative handling time
-  phi = 0.1, # relative death rate of eggs
-  m = 100,     # rate of population structure adjustment
-  u = 1     # odds of individual being in state 1 at equilibrium
+  phi = 0,   # relative death rate of eggs
+  m = 100,   # rate of population structure adjustment
+  u = 1      # odds of individual being in state 1 at equilibrium
 )
-bhat <- readRDS("Output/rate_parameters_marginal_06May2018.rds")
+bhat <- readRDS("Output/rate_parameters_marginal_22May2018.rds")
 M <- c(0.01,1)
   # different prey need different temp responses
   # must have length equal to number of consumer stages
   # generalist must be listed *last*
 bparms <- list(bc=bc,bhat=bhat)
 
-y0 <- rep(c(R1=1,C1=1,C2=1),2)
+y0 <- y <- c(R1=1,C1=1,C2=1)
 t <- 0
 parms <- list(zparms=zparms,
               bparms=bparms,
               M=M,
-              structure=structure,
               slevel=slevel,
               twochain=twochain,
               bridgetype=bridgetype
 )
 
-tseq <- seq(0,24*7*52,length.out=100)
+tseq <- seq(0,24*60,length.out=100)
 require(deSolve)
 lvar <- ode(y=y0,times=tseq,func=d_web,parms=parms)
 # lvar <- dede(y=y0,times=tseq,func=d_web,parms=parms)
 
+par(mfrow=c(1,1))
 matplot(tseq,log(lvar[,-1]),type="l")
 
 ### TODO
