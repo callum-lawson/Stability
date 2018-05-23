@@ -12,6 +12,7 @@ frf <- read.csv("Data/DatabaseXX2_Apr2016_rechecked.csv",header=T)
 fr <- subset(frf,select=c("publication.short",
                          "ecosystem.type",
                          "predator.met.group",
+                         "predator.Class",
                          "predator.mass.g",
                          "prey.mass.g",
                          "attack.rate",
@@ -26,6 +27,7 @@ fr <- rename(fr,replace=c(
              "publication.short" = "pub",
              "ecosystem.type" = "system",
              "predator.met.group" = "metgroup",
+             "predator.Class" = "group",
              "predator.mass.g"="cmass",
              "prey.mass.g"="rmass",
              "attack.rate"="a",
@@ -62,9 +64,10 @@ mr <- rename(mr,replace=c(
 
 # Analyse feeding rates ---------------------------------------------------
 
-fr <- subset(fr,!metgroup %in% c("endovert","unicell"))
-  # temporarily remove small-sample-size groups
-fr$group <- with(fr, droplevels(system:metgroup))
+# fr <- subset(fr,!metgroup %in% c("endovert","unicell"))
+#   # temporarily remove small-sample-size groups
+# fr$group <- with(fr, droplevels(system:metgroup))
+
 fr$Tr <- with(fr, arrtemp(Tc))
 fr$al <- with(fr, log(a * 60^2) )
   # attack rate in Yuanheng's database in m^2 per second
@@ -76,12 +79,17 @@ sigma <- 0.01
 fr$rml <- with(fr, log(sigma*cmass/rmass) )
   # sets intercept with consumer 100 times larger than resource
 
-ma <- lmer(al ~ offset(cml) + cml + rml + Tr + (1|pub) + (1+cml+Tr|group), data=fr)
+ma <- lmer(al ~ offset(cml) 
+           + Tr + cml + rml  
+           + (1 + Tr + cml + rml | group) + (1 | pub), 
+           data=fr)
   # mass as offset -> attack and max feeding rates per gram of consumer
   # so attack rate in m^2 per hour per consumer gram
-  # each gram of consumer covers 0.03 cm^2 per hour!
+  # not enough observations per group to estimate intercept-slope correlations
+
 mh <- lmer(hl ~ offset(-(rml + log(sigma))) 
-           + cml + rml + Tr + (1|pub) + (1+cml+Tr|group), 
+           + Tr + cml + rml 
+           + (1 + Tr + cml + rml | group) + (1 | pub), 
            data=fr)
   # handling time per resource gram per consumer gram, i.e. 
   #   time for 1 feeding consumer gram to process 1 resource gram
@@ -99,12 +107,24 @@ mr$cml <- log(mr$cmass)
 mr$el <- qlogis(mr$alpha)
 mr$ml <- log(mr$mu)
 
-me <- lmer(el ~ cml + Tr + (1+Tr+cml|guild) + (1|group) + (1|pub), data=mr)
+me <- lmer(el ~ Tr + cml
+           + (1 + Tr + cml | guild) + (1 + Tr + cml | group) + (1|pub), 
+           data=mr)
   # no offset because percentage, not rate
-mm <- lmer(ml ~ offset(cml) + cml + Tr + (1+Tr+cml|guild) + (1|group) + (1|pub), data=mr)
-  # J used by each consumer gram in each hour
+
+mm <- lmer(ml ~ offset(cml - log(16)) 
+           + Tr + cml  
+           + (1 + Tr + cml | guild) + (1 + Tr + cml | group) + (1|pub), 
+           data=mr)
+  # ml = J used by each consumer gram in each hour
+  # protein = 16 kJ/g = 16 J/mg
+  # so lose 1 mg of mass for every 16 J of energy
+  # (original mortality rates in J)
+  # https://en.wikipedia.org/wiki/Specific_energy#Energy_density_of_food
 
 # Extract and save parameters ---------------------------------------------
+
+### Mean parameters
 
 fixadj <- function(m){
   fixcoef <- fixef(m)
@@ -115,8 +135,8 @@ fixadj <- function(m){
   }
   fixcoef <- rename(fixcoef,replace=c(
     "(Intercept)" = "b0",
-    "cml" = "bm",
     "Tr" = "bz",
+    "cml" = "bm",
     "rml" = "br"
   ))
   return(as.list(fixcoef))
@@ -127,14 +147,8 @@ fixadj <- function(m){
 
 mlist <- list(a=ma,h=mh,alpha=me,mu=mm)
 ( fixlist <- lapply(mlist,fixadj) )
-
-fixlist$mu$b0 <- fixlist$mu$b0 - log(16)
-  # protein = 16 kJ/g = 16 J/mg
-  # so lose 1 mg of mass for every 16 J of energy
-  # (original mortality rates in J)
-  # https://en.wikipedia.org/wiki/Specific_energy#Energy_density_of_food
   
-### Mean parameters
+# Save parameters
 
 saveRDS(fixlist,
         paste0("Output/rate_parameters_marginal_",
@@ -144,17 +158,41 @@ saveRDS(fixlist,
 
 ### Randomly-drawn parameters
 
-sdadj <- function(m){
-  sdgroup <- attr(VarCorr(mlist$a)$group, "stddev")
-  fixcoef <- rename(fixcoef,replace=c(
-    "(Intercept)" = "b0",
-    "cml" = "bm",
-    "Tr" = "bz",
-    "rml" = "br"
-  ))
-  return(as.list(fixcoef))
+sdadj <- function(m,n){
+  require(MASS)
+
+  fixcoef <- unlist(fixadj(m))
+  
+  vcgroup <- VarCorr(m)$group
+  sdgroup <- attr(vcgroup, "stddev")
+  corrgroup <- attr(vcgroup, "correlation")
+  
+  sd1 <- sdgroup["(Intercept)"]
+  sd2 <- sdgroup["Tr"]
+  rho <- corrgroup["(Intercept)","Tr"]
+  if(rho < -0.99 | rho > 0.99){
+    rho <- 0
+    # if can't estimate correlation, assume uncorrelated
+  }
+  
+  sig <- matrix(c(sd1^2,rep(rho*sd1*sd2,2),sd2^2),nr=2,nc=2)
+  simd1 <- mvrnorm(n=n, mu=c(fixcoef["b0"],fixcoef["bz"]), Sigma=sig)
+  simd <- data.frame(simd1,bm=rep(fixcoef["bm"],n),br=rep(fixcoef["br"],n))
+
+  return(simd)
 }
  # incomplete - finish later
+ 
+set.seed(1)
+simdlist <- lapply(mlist,sdadj,n=10) 
+
+# Save parameters
+
+saveRDS(simdlist,
+        paste0("Output/rate_parameters_simulated_",
+               format(Sys.Date(),"%d%b%Y"),
+               ".rds")
+)
 
 # Plot residuals ----------------------------------------------------------
 

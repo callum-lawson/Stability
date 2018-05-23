@@ -24,7 +24,7 @@ arrtemp <- function(z,z0=20,T0=273.15,kB=8.6173303*10^-5){
   # second part re-scales intercept so that gives rates at 20°C
 
 ratef <- function(z,M,b){
-  with(b, exp( b0 + bz * arrtemp(z) + bm * ln(M) ) )
+  with(b, exp( b0 + bz * arrtemp(z) + bm * log(M) ) )
 }
 
 # Flux rates --------------------------------------------------------------
@@ -140,13 +140,15 @@ d_web <- function(t,y,parms){
     zt <- with(zparms, zt_cyclic(t,zmu,zsig,zl))
       # t-specific parameters
       # deSolve requires that this be done separately for each t
-    bt <- c(lapply(bhat,ratef,M=M,z=zt),bc)
-    
-    if(slevel=="none"){
+    if(twochain==FALSE){
+      bt <- as.data.frame(lapply(bhat,ratef,M=M,z=zt))
+    }
       
+    if(slevel=="none"){
       Y <- length(y) 
         # total chain length
-      return( list(d_chain(y,bt,Y)$dy) )
+      dy <- d_chain(y,c(bt,bparms$bc),Y)$dy
+      return( list(dy) )
       
     }
     
@@ -156,32 +158,30 @@ d_web <- function(t,y,parms){
       if(twochain==TRUE)  Y <- length(y) / 2 
         # total chain length
       
-      if(slevel=="consumer") Y1 <- Y
-      if(slevel=="resource") Y1 <- Y-1
-      
-      y1 <- y[1:Y1]
-      y2 <- y[-(1:Y1)]
+      if(slevel=="consumer") Ys1 <- Y
+      if(slevel=="resource") Ys1 <- Y - 1
+        # position of first chain structure
+    
+      if(twochain==FALSE) Ys2 <- 1
+        # structure is only thing in second chain
+      if(twochain==TRUE)  Ys2 <- Ys1 
+        # second structure at same chain height
+        
+      Yr <- Ys - 1 # resource level for focal (structured) species
+
+      y1 <- y[1:Y]
+      y2 <- y[-(1:Y)]
         # all states after y1 chain assigned to y2
       
-      if(generalist==FALSE){
-        
-        d1 <- d_chain(y1,bt,Y)
-        dy1 <- d1$dy
-          # generalist requires altered feeding rates (see below)
-        
-      }
-
       if(twochain==FALSE){
         
-        Y2 <- 1 # y2 consists of just one state variable
-        YR <- Y1 - 1 # resource level / feeding rate vector
-        dy2 <- with(bt, -x(y2,mu[YR],phi))
+        dy1 <- d_chain(y1,c(bt,bparms$bc),Y)
+        dy2 <- -x(y2,bt$mu[Ys1],phi)
           # egg mortality = adult mortality scaled by phi
         
-          
         if(bridgetype!="lag"){
-          dy21 <- d_bridge(y1[Y1],y2[Y2],
-                           d1$fy[YR],f2=NULL,
+          dy21 <- d_bridge(y1[Ys1],y2[Ys2],
+                           d1$fy[Yr],f2=NULL,
                            bc=bparms$bc,bridgetype
                            )
         }
@@ -197,14 +197,11 @@ d_web <- function(t,y,parms){
             zsum_lag <- with(zparms, zbarf(t,tau,zmu,zsig,zl) )
             bt_lag <- with(zparms, lapply(bhat,ratef,M=M,z=zt_lag))
             y_lag <- lagvalue(t - zparms$tau)
-            f_lag <- with(bt_lag, f(y_lag[YR],y_lag[Y1],a,h,bparms$bc$psi))
-            u_lag <- with(bparms$bc, exp(x(f_lag,zsum_lag,phi)) )
+            f_lag <- with(bt_lag, f(y_lag[Yr],y_lag[Ys1],a,h,bparms$bc$psi))
+            u_lag <- exp(x(f_lag,zsum_lag,bparms$bc$phi))
             # = food deposit × fraction surviving
           }
-          dy21 <- d_bridge(y1[Y1],y2[Y2],
-                           u_lag,f2=d1$fy[YR],
-                           bc=bparms$bc,bridgetype="switch"
-          )
+          dy21 <- u_lag - d1$fy[Yr]
         }
 
         # if single chain, then other lifestage doesn't feed
@@ -212,15 +209,21 @@ d_web <- function(t,y,parms){
       
       if(twochain==TRUE){
         
-        Y2 <- Y1
-        YR <- Y1 - 1 # resource level / feeding rate vector
+        Yb <- Y - 1 # parameter dataframe length
+        bt1 <- bt[1:Yb,]
+        bt2 <- bt[-(1:Yb),]
         
         if(generalist==FALSE){
           
-          d2 <- d_chain(y2,bt,Y2)
+          d1 <- d_chain(y1,c(bt1,bparms$bc),Y)
+          dy1 <- d1$dy
+          # generalist requires altered feeding rates (see below)
+
+          d2 <- d_chain(y2,c(bt2,bparms$bc),Y)
           dy2 <- d2$dy
-          dy21 <- d_bridge(y1[Y1],y2[Y2],
-                           d1$fy[YR],d2$fy[YR],
+          
+          dy21 <- d_bridge(y1[Ys1],y2[Ys2],
+                           d1$fy[Yr],d2$fy[Yr],
                            bc=bparms$bc,bridgetype
           )
           # assumes that consumption of R1 produces more R1 hunters
@@ -229,22 +232,22 @@ d_web <- function(t,y,parms){
         }
 
         if(generalist==TRUE){
-          
+
           pt1 <- pt2 <- rep(1,YR)
-          pt1[YR] <- y1[Y1]/(y1[Y1]+y2[Y2])
-          pt2[YR] <- 1 - pt1[YR]
-          Q1 <- Q2 <- rep(0,YR)
-          Q1[YR] <- y2[YR]
-          Q2[YR] <- y1[YR]
+          pt1[Ys1] <- y1[Ys1]/(y1[Ys1]+y2[Ys2])
+          pt2[Ys2] <- 1 - pt1[Ys1]
+          Q1 <- Q2 <- rep(0,Yb)
+          Q1[Yr] <- y2[Yr]
+          Q2[Yr] <- y1[Yr]
             # Q refers to resource in *other* chain
           
-          d1 <- d_chain(y1,bt,Y1,p=pt1,Q=Q1)
+          d1 <- d_chain(y1,c(bt1,bparms$bc),Y1,p=pt1,Q=Q1)
           dy1 <- d1$dy
-          d2 <- d_chain(y2,bt,Y2,p=pt2,Q=Q2)
+          d2 <- d_chain(y2,c(bt2,bparms$bc),Y2,p=pt2,Q=Q2)
           dy2 <- d2$dy
 
-          dy21 <- d_bridge(y1[Y1],y2[Y2],
-                           d1$fy[YR],d2$fy[YR],
+          dy21 <- d_bridge(y1[Ys1],y2[Ys2],
+                           d1$fy[Yr],d2$fy[Yr],
                            bc=bparms$bc,bridgetype
           )
           
@@ -254,8 +257,8 @@ d_web <- function(t,y,parms){
         # -1 indexing because basal resource has no parameters
         # feeding rates given same body masses, so same index of Y1
       
-      dy1[Y1] <- dy1[Y1] + dy21
-      dy2[Y2] <- dy2[Y2] - dy21
+      dy1[Ys1] <- dy1[Ys1] + dy21
+      dy2[Ys2] <- dy2[Ys2] - dy21
       # y2 can be eggs
       # build in lag (instead of "store") version of this later
       
@@ -291,14 +294,16 @@ bc <- list(
   m = 100,   # rate of population structure adjustment
   u = 1      # odds of individual being in state 1 at equilibrium
 )
-bhat <- readRDS("Output/rate_parameters_marginal_22May2018.rds")
+# bhat <- readRDS("Output/rate_parameters_marginal_23May2018.rds")
+bhat <- readRDS("Output/rate_parameters_simulated_23May2018.rds")
+bhat <- lapply(bhat,function(x) x[1:4,])
 M <- c(0.01,1)
   # different prey need different temp responses
   # must have length equal to number of consumer stages
   # generalist must be listed *last*
 bparms <- list(bc=bc,bhat=bhat)
 
-y0 <- y <- rep(c(R1=1,C1=1,C2=1),2)
+y0 <- y <- rep(c(R1=1,C1=1,C2=1),2) # c(R1=1,C1=1,C2=1)
 t <- 0
 parms <- list(zparms=zparms,
               bparms=bparms,
@@ -312,6 +317,12 @@ tseq <- seq(0,24*60,length.out=100)
 require(deSolve)
 lvar <- ode(y=y0,times=tseq,func=d_web,parms=parms)
 # lvar <- dede(y=y0,times=tseq,func=d_web,parms=parms)
+
+continuous <- function(){
+  if(nrow(bhat[])!=length(M)) stop("wrong masses or params")
+  # ! generalist + "resource"
+  # 
+}
 
 par(mfrow=c(1,1))
 matplot(tseq,log10(lvar[,-1]),type="l")
