@@ -108,7 +108,67 @@ me <- lmer(el ~ cml + Tr + (1+Tr+cml|guild) + (1|group) + (1|pub), data=mr)
 mm <- lmer(ml ~ offset(cml) + cml + Tr + (1+Tr+cml|guild) + (1|group) + (1|pub), data=mr)
   # J used by each consumer gram in each hour
 
+# Extract and save parameters ---------------------------------------------
+
+fixadj <- function(m){
+  fixcoef <- fixef(m)
+  fixcoef["(Intercept)"] <- 10 ^ fixcoef["(Intercept)"] 
+    # * 1 ^ fixcoef["cml"]
+    # check whether mass power is correct here (was 1000)
+  if(! "rml" %in% names(fixcoef) ){
+    fixcoef <- c(fixcoef,0)
+    names(fixcoef)[length(fixcoef)] <- "rml"
+      # add on zero body mass ratio effect if effect is absent
+  }
+  fixcoef <- rename(fixcoef,replace=c(
+    "(Intercept)" = "b0",
+    "cml" = "bm",
+    "Tr" = "bz",
+    "rml" = "br"
+  ))
+  return(as.list(fixcoef))
+}
+  # changes intercept to absolute (un-logged) scale
+  # shifts intercept to consumer mass of 1g instead of 1mg
+  # (needs to be done for any intercept-related parameters)
+
+mlist <- list(a=ma,h=mh,alpha=me,mu=mm)
+( fixlist <- lapply(mlist,fixadj) )
+
+fixlist$mu$b0 <- fixlist$mu$b0 / 16
+  # protein = 16 kJ/g = 16 J/mg
+  # so lose 1 mg of mass for every 16 J of energy
+  # (original mortality rates in J)
+  # https://en.wikipedia.org/wiki/Specific_energy#Energy_density_of_food
+  
+### Mean parameters
+
+saveRDS(fixlist,
+        paste0("Output/rate_parameters_marginal_",
+               format(Sys.Date(),"%d%b%Y"),
+               ".rds")
+        )
+
+### Randomly-drawn parameters
+
+sdadj <- function(m){
+  sdgroup <- attr(VarCorr(mlist$a)$group, "stddev")
+  fixcoef["(Intercept)"] <- 10 ^ fixcoef["(Intercept)"] 
+  # * 1 ^ fixcoef["cml"]
+  # check whether mass power is correct here (was 1000)
+  fixcoef <- rename(fixcoef,replace=c(
+    "(Intercept)" = "b0",
+    "cml" = "bm",
+    "Tr" = "bz",
+    "rml" = "br"
+  ))
+  return(as.list(fixcoef))
+}
+ # incomplete - finish later
+
 # Plot residuals ----------------------------------------------------------
+
+### Functions
 
 resd <- function(m){
   dat <- m@frame
@@ -133,48 +193,23 @@ resplots <- function(l){
   lapply(l,function(d) with(d, quickplot(x,y)))
 } 
 
+### Plots
+
 reslist <- lapply(mlist,resd)
 
-par(mfrow=c(2,3))
-resplots(reslist$ma)
-resplots(reslist$mh)
+par(mfrow=c(2,3),mar=c(3,3,3,3))
+resplots(reslist$a)
+resplots(reslist$h)
 par(mfrow=c(2,2))
-resplots(reslist$me)
-resplots(reslist$mm)
+resplots(reslist$alpha)
+resplots(reslist$mu)
 
-# Extract and save parameters ---------------------------------------------
+### Covariance
 
-fixadj <- function(m){
-  fixcoef <- fixef(m)
-  fixcoef["(Intercept)"] <- 10 ^ fixcoef["(Intercept)"] 
-    # * 1 ^ fixcoef["cml"]
-    # check whether mass power is correct here (was 1000)
-  fixcoef <- rename(fixcoef,replace=c(
-    "(Intercept)" = "b0",
-    "cml" = "bm",
-    "Tr" = "bz",
-    "rml" = "br"
-  ))
-  return(as.list(fixcoef))
-}
-  # changes intercept to absolute (un-logged) scale
-  # shifts intercept to consumer mass of 1g instead of 1mg
-  # (needs to be done for any intercept-related parameters)
-
-mlist <- list(a=ma,h=mh,alpha=me,mu=mm)
-( fixlist <- lapply(mlist,fixadj) )
-
-fixlist$mu$b0 <- fixlist$mu$b0 / 16
-  # protein = 16 kJ/g = 16 J/mg
-  # so lose 1 mg of mass for every 16 J of energy
-  # (original mortality rates in J)
-  # https://en.wikipedia.org/wiki/Specific_energy#Energy_density_of_food
-  
-saveRDS(fixlist,
-        paste0("Output/rate_parameters_marginal_",
-               format(Sys.Date(),"%d%b%Y"),
-               ".rds")
-        )
+with(fr, quickplot(log10(a),log10(h)))
+with(mlist, quickplot(resid(a),resid(h)))
+  # in data, higher attack rates associated with smaller handling times
+  # but this association largely accounted for by mass and temperature
 
 # Judge the size of temperature effects -----------------------------------
 

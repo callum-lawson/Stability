@@ -17,7 +17,7 @@ zt_cyclic <- function(t,zmu,zsig,zl){
 # Basic parameters --------------------------------------------------------
 
 arrtemp <- function(z,z0=20,T0=273.15,kB=8.6173303*10^-5){ 
-  - 1/kB * ( 1/(z+T0) - 1/(T0+z0) )
+  - 1/kB * ( 1/(T0+z) - 1/(T0+z0) )
 } 
   # z in C
   # first part re-scales z so that 0 = 20°C = 293.15 K 
@@ -176,6 +176,7 @@ d_web <- function(t,y,parms){
         Y2 <- 1 # y2 consists of just one state variable
         YR <- Y1 - 1 # resource level / feeding rate vector
         dy2 <- with(bt, -x(y2,mu[YR],phi))
+          # egg mortality = adult mortality scaled by phi
         
           
         if(bridgetype!="lag"){
@@ -275,12 +276,12 @@ zl <- 24*7
 tau <- 0    # time delay for lag model
 zparms <- list(zmu=zmu,zsig=zsig,zl=zl,tau=tau)
 
-slevel <- "none"
-twochain <- FALSE
+slevel <- "consumer"
+twochain <- TRUE
 bridgetype <- "switch"
   # for resource structure, food chain length must be at least 3
   #   (nutrients assumed inactive, so can't change state)
-generalist <- FALSE
+generalist <- TRUE
 
 bc <- list(
   v = 1,     # max flow rate = k grams per m^2 per hour
@@ -297,7 +298,7 @@ M <- c(0.01,1)
   # generalist must be listed *last*
 bparms <- list(bc=bc,bhat=bhat)
 
-y0 <- y <- c(R1=1,C1=1,C2=1)
+y0 <- y <- rep(c(R1=1,C1=1,C2=1),2)
 t <- 0
 parms <- list(zparms=zparms,
               bparms=bparms,
@@ -313,10 +314,9 @@ lvar <- ode(y=y0,times=tseq,func=d_web,parms=parms)
 # lvar <- dede(y=y0,times=tseq,func=d_web,parms=parms)
 
 par(mfrow=c(1,1))
-matplot(tseq,log(lvar[,-1]),type="l")
+matplot(tseq,log10(lvar[,-1]),type="l")
 
 ### TODO
-# - generalist (with p-function)
 # - different climate responses in different chains
 # - discrete-time integration (u=0, so that zero backflow)
 # - general timescale separation
