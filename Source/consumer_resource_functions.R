@@ -24,7 +24,7 @@ arrtemp <- function(z,z0=20,T0=273.15,kB=8.6173303*10^-5){
   # second part re-scales intercept so that gives rates at 20°C
 
 ratef <- function(z,M,b){
-  with(b, b0 * exp(bz * arrtemp(z)) * M ^ bm )
+  with(b, exp( b0 + bz * arrtemp(z) + bm * ln(M) ) )
 }
 
 # Flux rates --------------------------------------------------------------

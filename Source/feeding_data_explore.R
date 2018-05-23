@@ -65,25 +65,22 @@ mr <- rename(mr,replace=c(
 fr <- subset(fr,!metgroup %in% c("endovert","unicell"))
   # temporarily remove small-sample-size groups
 fr$group <- with(fr, droplevels(system:metgroup))
-fr$Tr <- with(fr, arrtemp(Tc) / log(10))
-  # using log10 to improve model convergence
-  # log_a(x) = log_b(x)/log_b(a)
-  # changes intercept but not other parameters
-fr$al <- with(fr, log10(a * 60^2) )
+fr$Tr <- with(fr, arrtemp(Tc))
+fr$al <- with(fr, log(a * 60^2) )
   # attack rate in Yuanheng's database in m^2 per second
-fr$hl <- with(fr, log10(h / 60^2) )
+fr$hl <- with(fr, log(h / 60^2) )
   # handling times per hour, instead of per second as in Yuanheng's database
-fr$cml <- with(fr, log10(cmass) ) 
+fr$cml <- with(fr, log(cmass) ) 
   # mass in mg
 sigma <- 0.01
-fr$rml <- with(fr, log10(sigma*cmass/rmass) )
+fr$rml <- with(fr, log(sigma*cmass/rmass) )
   # sets intercept with consumer 100 times larger than resource
 
 ma <- lmer(al ~ offset(cml) + cml + rml + Tr + (1|pub) + (1+cml+Tr|group), data=fr)
   # mass as offset -> attack and max feeding rates per gram of consumer
   # so attack rate in m^2 per hour per consumer gram
   # each gram of consumer covers 0.03 cm^2 per hour!
-mh <- lmer(hl ~ offset(-(rml + log10(sigma))) 
+mh <- lmer(hl ~ offset(-(rml + log(sigma))) 
            + cml + rml + Tr + (1|pub) + (1+cml+Tr|group), 
            data=fr)
   # handling time per resource gram per consumer gram, i.e. 
@@ -96,12 +93,11 @@ mh <- lmer(hl ~ offset(-(rml + log10(sigma)))
 # Analyse metabolic rates -------------------------------------------------
 
 mr[mr==-999.9] <- NA
-mr$Tr <- arrtemp(mr$Tc) / log(10)
-mr$cml <- log10(mr$cmass)
+mr$Tr <- arrtemp(mr$Tc) 
+mr$cml <- log(mr$cmass)
   # original mass in grams
-qlogis10 <- function(x) log10(x/(1-x))
-mr$el <- qlogis10(mr$alpha)
-mr$ml <- log10(mr$mu)
+mr$el <- qlogis(mr$alpha)
+mr$ml <- log(mr$mu)
 
 me <- lmer(el ~ cml + Tr + (1+Tr+cml|guild) + (1|group) + (1|pub), data=mr)
   # no offset because percentage, not rate
@@ -112,9 +108,6 @@ mm <- lmer(ml ~ offset(cml) + cml + Tr + (1+Tr+cml|guild) + (1|group) + (1|pub),
 
 fixadj <- function(m){
   fixcoef <- fixef(m)
-  fixcoef["(Intercept)"] <- 10 ^ fixcoef["(Intercept)"] 
-    # * 1 ^ fixcoef["cml"]
-    # check whether mass power is correct here (was 1000)
   if(! "rml" %in% names(fixcoef) ){
     fixcoef <- c(fixcoef,0)
     names(fixcoef)[length(fixcoef)] <- "rml"
@@ -135,7 +128,7 @@ fixadj <- function(m){
 mlist <- list(a=ma,h=mh,alpha=me,mu=mm)
 ( fixlist <- lapply(mlist,fixadj) )
 
-fixlist$mu$b0 <- fixlist$mu$b0 / 16
+fixlist$mu$b0 <- fixlist$mu$b0 - log(16)
   # protein = 16 kJ/g = 16 J/mg
   # so lose 1 mg of mass for every 16 J of energy
   # (original mortality rates in J)
@@ -153,9 +146,6 @@ saveRDS(fixlist,
 
 sdadj <- function(m){
   sdgroup <- attr(VarCorr(mlist$a)$group, "stddev")
-  fixcoef["(Intercept)"] <- 10 ^ fixcoef["(Intercept)"] 
-  # * 1 ^ fixcoef["cml"]
-  # check whether mass power is correct here (was 1000)
   fixcoef <- rename(fixcoef,replace=c(
     "(Intercept)" = "b0",
     "cml" = "bm",
