@@ -85,39 +85,7 @@ d_chain <- function(y,b,Y,...){
   })
 }
 
-# test d_bridge with real params to see if need ratio of dy/(dy-c)
-
-{
-  # lag in {eggs -> adults} only (not vice-versa)
-  if(t <= zparms$tau){
-    u_lag <- 0
-  }
-  if(t > zparms$tau){
-    # set dy to without food input
-    zt_lag <- with(zparms, zt_cyclic(t-tau,zmu,zsig,zl) )
-    zsum_lag <- with(zparms, zbarf(t,tau,zmu,zsig,zl) )
-    bt_lag <- with(zparms, lapply(bhat,ratef,M=M,z=zt_lag))
-    y_lag <- lagvalue(t - zparms$tau)
-    if(bridgetype=="bank"){
-      f_lag <- with(bt_lag, f(y_lag[Yr],y_lag[Ys],a,h,bparms$bc$psi))
-      m_lag <- y_lag[Ys] * exp(x(f_lag,zsum_lag,bparms$bc$phi)) / y[Ys]
-      # = food deposit × fraction surviving
-      dy21 <- d_bridge(y1,y2,f1,f2,m=m_lag,q=NULL,bc,bridgetype)
-    }
-    if(bridgetype=="switch"){
-      y_lag1 <- y_lag[1:Y]
-      y_lag2 <- y_lag[-(1:Y)]
-      bt_lag1 <- bt[1:Yb,]
-      bt_lag2 <- bt[-(1:Yb),]
-      f_lag1 <- with(bt_lag1, f(y_lag1[Yr],y_lag1[Ys],a,h,bparms$bc$psi))
-      f_lag2 <- with(bt_lag2, f(y_lag2[Yr],y_lag2[Ys],a,h,bparms$bc$psi))
-      q_lag <- f_lag1/y1 / ( f1/y1 + f2/y2 )
-      dy21 <- d_bridge(y1,y2,f1,f2,m=m_lag,q=q_lag,bc,bridgetype)
-    }
-  }
-}
-
-d_bridge <- function(y1,y2,f1,f2,m,q=NULL,bc,bridgetype){
+d_bridge_base <- function(y1s,y2s,f1s,f2s,m,q=NULL,bridgetype){
   with(bc, {
     if(bridgetype=="bank") p <- 0; q <- 1
       # bigger pop -> less food -> more individuals feeding (are non-eggs)
@@ -126,15 +94,17 @@ d_bridge <- function(y1,y2,f1,f2,m,q=NULL,bc,bridgetype){
     if(bridgetype=="hide") p <- 1; q <- 0
       # density-dependent germination: higher R -> lower food -> more protected
       # same as model in which births -> adults, and adults turn dormant
-    if(bridgetype %in% c("fraction","switch")) p <- y1 / (y1 + y2) 
+    if(bridgetype %in% c("fraction","switch")) p <- y1s / (y1s + y2s) 
       # births adopt current *distribution*
       # could be adapted to current *preference* (using u)
-    if(bridgetype=="switch") q <- f1/y1 / ( f1/y1 + f2/y2 )
+    if(bridgetype=="switch" & is.null(q)){
+      q <- f1s/y1s / ( f1s/y1s + f2s/y2s )
+    } 
       # if bridgetype = "fraction", q supplied externally
       # could be reparameterised to include mortality rates
       # can apply to consumer, or resource moving between patches
       # switching should be according to per-capita fitness, so divide by y
-    return( (1-p) * f2 - p * f1 + m * (q * y2 - (1-q) * y1) )
+    return( (1-p) * f2s - p * f1s + m * (q * y2s - (1-q) * y1s) )
       # = allocation of new biomass (no choice) 
       # + re-allocation of old biomass (choice)
       # e.g. waiting -> 
@@ -161,6 +131,8 @@ d_bridge <- function(y1,y2,f1,f2,m,q=NULL,bc,bridgetype){
 #   m = fraction of current pop that was created at t-tau (q=1 or 0 still)
 # (no effect on fraction because not responsive?)
 
+# chasing moving ball vs chasing where ball *was*
+
 zbarf <- function(t,tau,zmu,zsig,zl){
   tau * zmu + (zsig * ( cos(2*pi * t/zl) - cos(2*pi * (t+tau)/zl) ) ) / (2*pi)
 }
@@ -168,131 +140,172 @@ zbarf <- function(t,tau,zmu,zsig,zl){
   # tau multiplier because want summed mortality [=exp(-mu*tau)]
   # https://www.youtube.com/watch?v=YF7Ii5dMYIo
 
-i_cont <- function(parms){
-  if(structure==TRUE){
-    Y <- length(y)
-    # total chain length
-  }       
-  if(structure==FALSE){
+d_bridge <- function(y1s,y2s,f1s,f2s,parms){
+  
+  with(parms,{
     
-    if(twochain==FALSE) Y <- length(y) - 1 
-    if(twochain==TRUE)  Y <- length(y) / 2 
-    # total chain length
-    
-    if(slevel=="consumer") Ys <- Y
-    if(slevel=="resource") Ys <- Y - 1
-    # position of structure
-    
-    Yr <- Ys - 1 # resource level for focal (structured) species
-    
-    y1 <- y[1:Y]
-    y2 <- y[-(1:Y)]
-    # all states after y1 chain assigned to y2
-    
-    if(twochain==TRUE) Yb <- Y - 1 # parameter dataframe length
-
+    if(tau>0){
+      # if tau=0, do nothing to m or q
+      
+      if(t <= tau){
+        m <- 0
+      }
+      
+      if(t > tau){
+        
+        zt_lag <- zt_cyclic(t-tau,zmu,zsig,zl)
+        zsum_lag <- zbarf(t,tau,zmu,zsig,zl)
+        
+        bt1_lag <- lapply(bd[Ys,],ratef,M=M[Ys],z=zt_lag)
+        y1_lag <- lagvalue(t - tau, Ys)
+        r1_lag <- lagvalue(t - tau, Ys-1)
+        
+        if(bridgetype %in% c("bank","hide")){
+          f1_lag <- with(bt1_lag, f(r1_lag,y1_lag,a,h,psi))
+          m <- exp(x(f1_lag,zsum_lag,phi)) / y2s
+          # = food deposit × fraction surviving
+        }
+        
+        if(bridgetype=="switch"){
+          Ys2 <- Y + Ys
+          bt2_lag <- lapply(bd[Ys2,],ratef,M=M[Ys2],z=zt_lag)
+          y2_lag <- lagvalue(t - tau, Ys2)
+          r2_lag <- lagvalue(t - tau, Ys2-1)
+          f2_lag <- with(bt_lag2, f(r2_lag,y2_lag,a,h,psi))
+          
+          q <- f1_lag/y1_lag / ( f2_lag/y1_lag + f2_lag/y2_lag )
+        }
+        
+      }
+      
+      dy21 <- d_bridge_base(y1s,y2s,f1s,f2s,m,q,bridgetype)
+      return(dy21)
+      
     }
     
-  }
+  })
+  
 }
 
 d_web <- function(t,y,parms){
   
   with(parms, {
     
-    zt <- with(zparms, zt_cyclic(t,zmu,zsig,zl))
+    zt <- zt_cyclic(t,zmu,zsig,zl)
       # t-specific parameters
       # deSolve requires that this be done separately for each t
-    
-    bt <- as.data.frame(lapply(bhat,ratef,M=M,z=zt))
-      
-    if(structure==TRUE){
-      dy <- d_chain(y,c(bt,bparms$bc),Y)$dy
-      return( list(dy) )
-    }
+    bdt <- as.data.frame(lapply(bd,ratef,M=M,z=zt))
+    bt <- c(bdt,bc)
     
     if(structure==FALSE){
+      dy <- d_chain(y,bt,Y)$dy
+    }
+    
+    if(structure==TRUE){
+      
+      y1 <- y[1:Y]
+      y2 <- y[-(1:Y)]
+      # all states after y1 chain assigned to y2
       
       if(twochain==FALSE){
-        
-        dy1 <- d_chain(y1,c(bt,bparms$bc),Y)
-        dy2 <- -x(y2,bt$mu[Ys1],phi)
+        dy1 <- d_chain(y1,bt,Y)
+        dy2 <- with(bt, -x(y2,mu[Ys1],phi) )
           # egg mortality = adult mortality scaled by phi
           # if single chain, then other lifestage doesn't feed
-        
-        if(bridgetype!="lag"){
-          dy21 <- d_bridge(y1[Ys],y2[1],
-                           f1=d1$fy[Yr],f2=0,
-                           bc=bparms$bc,bridgetype
-                           )
         }
-        
-        if(bridgetype=="lag"){
-
-        }
-
-      }
       
       if(twochain==TRUE){
         
-        bt1 <- bt[1:Yb,]
-        bt2 <- bt[-(1:Yb),]
+        bt1 <- bdt[1:Yb,]
+        bt2 <- bdt[-(1:Yb),]
         
-        if(generalist==FALSE){
-          
-          d1 <- d_chain(y1,c(bt1,bparms$bc),Y)
-          dy1 <- d1$dy
-          # generalist requires altered feeding rates (see below)
-
-          d2 <- d_chain(y2,c(bt2,bparms$bc),Y)
-          dy2 <- d2$dy
-          
-          dy21 <- d_bridge(y1[Ys],y2[Ys],
-                           d1$fy[Yr],d2$fy[Yr],
-                           bc=bparms$bc,bridgetype
-          )
-          # assumes that consumption of R1 produces more R1 hunters
-          # (same as switching being proportional to food intake?)
-          
-        }
+        pt1 <- pt2 <- rep(1,YR)
+        Q1 <- Q2 <- rep(0,Yb)
 
         if(generalist==TRUE){
 
-          pt1 <- pt2 <- rep(1,YR)
           pt1[Ys] <- y1[Ys] / (y1[Ys] + y2[Ys])
           pt2[Ys] <- 1 - pt1[Ys]
-          Q1 <- Q2 <- rep(0,Yb)
           Q1[Yr] <- y2[Yr]
           Q2[Yr] <- y1[Yr]
             # Q refers to resource in *other* chain
           
-          d1 <- d_chain(y1,c(bt1,bparms$bc),Y1,p=pt1,Q=Q1)
-          dy1 <- d1$dy
-          d2 <- d_chain(y2,c(bt2,bparms$bc),Y2,p=pt2,Q=Q2)
-          dy2 <- d2$dy
-
-          dy21 <- d_bridge(y1[Ys],y2[Ys],
-                           d1$fy[Yr],d2$fy[Yr],
-                           bc=bparms$bc,bridgetype
-          )
-          
         }
+          
+        d1 <- d_chain(y1,bt1,Y,p=pt1,Q=Q1)
+        dy1 <- d1$dy
+        d2 <- d_chain(y2,bt2,Y,p=pt2,Q=Q2)
+        dy2 <- d2$dy
         
       }
         # -1 indexing because basal resource has no parameters
-        # feeding rates given same body masses, so same index of Y1
+        # feeding rates given same body masses, so same index of Y
       
+      dy21 <- d_bridge(y1[Ys],y2[Ys],d1$fy[Yr],d2$fy[Yr],parms)   
+    
       dy1[Ys1] <- dy1[Ys1] + dy21
       dy2[Ys2] <- dy2[Ys2] - dy21
       # y2 can be eggs
-      # build in lag (instead of "store") version of this later
-      
-      return( list(c(dy1,dy2)) )
+
+      dy <- c(dy1,dy2)
       
     } # end structured models
     
+    return( list(dy) )
+
   })
     
+}
+
+iparmf <- function(y,sparms){
+  
+  with(sparms, {
+    
+    if(structure==FALSE){
+      
+      Y <- length(y)
+      # total chain length
+      iparms <- list(Y=Y)
+      
+    }       
+    
+    if(structure==TRUE){
+      
+      if(twochain==FALSE) Y <- length(y) - 1 
+      if(twochain==TRUE)  Y <- length(y) / 2 
+      # total chain length
+      
+      if(slevel=="consumer") Ys <- Y
+      if(slevel=="resource") Ys <- Y - 1
+      # position of structure
+      
+      Yr <- Ys - 1 # resource level for focal (structured) species
+      
+      if(twochain==FALSE){
+        
+        iparms <- list(Y=Y,Ys=Ys)
+        
+      }
+      
+      if(twochain==TRUE){
+        
+        Yb <- Y - 1 # parameter dataframe length
+        iparms <- list(Y=Y,Ys=Ys,Yb=Yb)
+        
+      } 
+      
+    }
+    
+    # if(FALSE %in% sapply(iparms,is.integer)){
+    #   stop("error in input variables")
+    # }
+    
+    else{
+      return(iparms)
+    }
+    
+  })
+  
 }
 
 # Trial runs --------------------------------------------------------------
@@ -302,54 +315,61 @@ zmu <- 0
 zsig <- 0
 zl <- 24*7
 tau <- 0    # time delay for lag model
+
 zparms <- list(zmu=zmu,zsig=zsig,zl=zl,tau=tau)
 
-slevel <- "none"
+structure <- TRUE
+slevel <- "consumer"
 twochain <- FALSE
-bridgetype <- "switch"
-  # for resource structure, food chain length must be at least 3
-  #   (nutrients assumed inactive, so can't change state)
+bridgetype <- "bank"
+# for resource structure, food chain length must be at least 3
+#   (nutrients assumed inactive, so can't change state)
 generalist <- FALSE
 
-y0 <- y <- c(R1=1,C1=1,C2=1) # rep(c(R1=1,C1=1,C2=1),2)
+sparms <- list(
+  structure = structure,
+  slevel = slevel,
+  twochain = twochain,
+  bridgetype = bridgetype,
+  generalist = generalist
+)
+
+y0 <- y <- c(R1=1,C1=1,C2=1,C2s=0) # rep(c(R1=1,C1=1,C2=1),2)
 yl <- length(y)
 t <- 0
 
-bc <- list(
+bc <- c(
   v = 1,     # max flow rate = k grams per m^2 per hour
   k = 10,    # 10g per m^2
   psi = 0,   # relative handling time
   phi = 0,   # relative death rate of eggs
   m = 100,   # rate of population structure adjustment
-  u = 1      # odds of individual being in state 1 at equilibrium
+  q = NULL,  # probability of individual being in state 1 at equilibrium
+  tau = 0    # continuous lag in bridge function
 )
 # bhat <- readRDS("Output/rate_parameters_marginal_23May2018.rds")
 bhat <- readRDS("Output/rate_parameters_simulated_23May2018.rds")
-bhat <- lapply(bhat,function(x) x[1:(yl-1),])
-M <- c(0.01,1)
+bparms <- lapply(bhat,function(x) x[1:2,])
+M <- c(M1=0.01,M2=1)
 # different prey need different temp responses
 # must have length equal to number of consumer stages
 # generalist must be listed *last*
-bparms <- list(bc=bc,bhat=bhat)
   # can have zero climate responses lower in chains too (= no sensitivity)
 
-parms <- list(zparms=zparms,
-              bparms=bparms,
-              M=M,
-              slevel=slevel,
-              twochain=twochain,
-              bridgetype=bridgetype
-)
+iparms <- iparmf(y,sparms)
+
+vparms <- list(bd=bd,M=M)
+fparms <- c(bc,M,zparms,sparms,iparms)
+parms <- c(vparms,fparms)
 
 tseq <- seq(0,24*60,length.out=100)
 require(deSolve)
 lvar <- ode(y=y0,times=tseq,func=d_web,parms=parms)
 # lvar <- dede(y=y0,times=tseq,func=d_web,parms=parms)
 
-continuous <- function(){
-  if(nrow(bhat[])!=length(M)) stop("wrong masses or params")
+popint <- function(y0,tseq,parms){
+  # if(nrow(bhat[])!=length(M)) stop("wrong masses or params")
   # ! generalist + "resource"
-  # 
 }
 
 par(mfrow=c(1,1))
@@ -360,6 +380,7 @@ matplot(tseq,log10(lvar[,-1]),type="l")
 # - general timescale separation
 # - analytically-simplified f functions? (timescale separation for states)
 # - include checks and warnings
+# - test d_bridge with real params to see if need ratio of dy/(dy-c)
 
 # 
 # 
