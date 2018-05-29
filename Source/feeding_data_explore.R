@@ -112,7 +112,7 @@ me <- lmer(el ~ Tr + cml
            data=mr)
   # no offset because percentage, not rate
 
-mm <- lmer(ml ~ offset(cml - log(16)) 
+mm <- lmer(ml ~ offset(cml + log(16)) 
            + Tr + cml  
            + (1 + Tr + cml | guild) + (1 + Tr + cml | group) + (1|pub), 
            data=mr)
