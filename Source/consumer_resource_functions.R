@@ -38,8 +38,8 @@ g <- function(R,v,k){
   # additional parameter = starting total biomass (R0 + C0 ...)
   # model closed resource growth later: 1/alpha * x(C,mu)
 
-f <- function(R,C,a,h,psi,p=1,Q=0){
-  C * a * R / (1 + a*h*(p*R + (1-p)*Q + psi*C))
+f <- function(R,C,a,h,psi,omega=1,p=1,Q=0){
+  C * omega * a * R / (1 + a*h*(p*R + (1-p)*Q + psi*C))
 }
   # - effective handling time can be increased by:
   #   1. already-parasitised prey (discrete-time models):
@@ -48,6 +48,8 @@ f <- function(R,C,a,h,psi,p=1,Q=0){
   # assumes different resource species have
   #   same handling times, nutritional values, assimilation rates
   #   Koen-Alonso 1.12, 1.21 (Royama)
+
+  # gamma for feeding juveniles (de Roos)
 
 x <- function(C,mu,phi=1){
   phi * mu * C
@@ -85,42 +87,96 @@ d_chain <- function(y,b,Y,...){
   })
 }
 
-d_bridge_base <- function(y1s,y2s,dy1s,dy2s,f1s,f2s,m,q,bridgetype){
-  if("within") u <- 0  # new biomass allocated within groups
-  if(!"within")    u <- 1
-  if("passthrough") p <- 0; q <- 1  # new biomass first passese through y2
-  if("choice") p <- 1; q <- 0  
-    # new biomass makes more feeders; 
-    # structure is hiding / dormant
-  if("copy") p <- y1s / (y1s + y2s)
+gammaf <- function(nu,mu,phi,fp2s){
+  (fp2s - mu*phi) / (1 - nu ^ (1 - mu*phi/fp2s))
+} # u is ratio of juvenile to adult body mass
 
-  # births adopt current *distribution*
-  # could be adapted to current *preference* (using u)
-  if(bridgetype %in% c("adapt")){
-    q <- dy1s/y1s / ( dy1s/y1s + dy2s/y2s )
-    # q specified externally for constant
-  } 
+d_bridge_base <- function(y1s,y2s,fp1s,fp2s,m,q,bridgetype){
+  
+  # (A) Maximise
+  # - unidirectional
+  # - equilibrium is reached when DD equalises fitnesses
+  # - speed of equilibration controlled by external parameter
+  # (B) Passive
+  # - bidirectional
+  # - equilibrium depends on balance between rates each way
+  # - equilibriation is exponential decay (speed uncontrolled)
+  # - i.e. feeding rate sets speed limit on adjustment
+  
+  # p -> per unit mass
+  
+  ("maximise")
+  u1 <- u * (fp1s - fp2s - (1-phi)*mu)
+  u2 <- -u1
+    # also works for constant growth (e.g. hiding)  
+    # assumes that population can perfectly estimate the fitness of each type
+    # doesn't account for differences in predation
+  
+  ("bank")
+  u1 <- fp1s
+    # can't speed up or slow down food transfer to young (=feeding rate)
+    # new biomass first passes through y2
+  u2 <- u
+    # young mature into adults
+    # can be positive function of food (de Roos / hide)
+    # or a constant (in which case ratio is neg function of food)
+    # ratio at equilibrium = u1/u2 (if u1 and u2 positive)
+    # u shifts this ratio (not relative speed at which it is reached)
+    # fraction can depend on R (via resource density), or not 
+    # (e.g. feeding rates equal and maturation is negative DD)
+  
+  ("hide")
+  u1 <- u
+  u2 <- fp1s 
+    # food gathered by exposed makes more exposed
+    # exit from hiding depends on non-hiding feeding rate
+    # in hide / DD germination, *both* types of individuals are making 
+    #   active decisions, so has to enter both parameters ?
+  
+  ("youngfeed") # de Roos
+  u1 <- fp1s
+  u2 <- q * fp2s 
+    # exit from juvenile depends on juvenile feeding rate
+    # (this parameterisation -> juveniles don't grow in size?
+    #   growth of young instantly makes adults?)
+    # equivalent to offspring from one patch moving to the other
+    # q = fraction of ingested mass allocated to development (or juvenile births)
+    #     instead of growth (decreases fraction maturing per timestep)
+  
+  u2 <- gammaf(nu,fp2s,mu,phi) # e.g. u2 <- fp2s
+    # f2 production automatically added to juveniles
+    # juvenile maturation depends on *their own* feeding rate
+    # maturation rate can be >> feeding rate if A and J body sizes are similar
+    # = *food-dependent lag*
+    # complex, because number maturing at each timestep is a function of 
+    #   *many* previous timesteps (high juvenile feeding at t=T -> many      
+    #   "cohorts" cross boundary and mature at t=T)
+    # also not relevant when juvenile lifestage doesn't feed
+    # development = travel the biomass distance between juvenile and adult:
+    # J |--|----|-|-|------| A
+    # therefore not possible without full IPM for juvenile biomasses?
+    # would only work with random (exponential) maturation
+    # so de Roos functions are like clim-dependent fixed lags
+    # double the feeding rate -> double the transfer / migration rate
+  
+  ("fraction")
+  
+  u1 <- m * u
+  u2 <- m * 1
+  # NB: appears that speed of adjustment differs depending on whether
+  #   y1 or y2 is higher - but *multiplicative* speed effects are equal
+  #   (e.g. 2 y1 - y2 -> )
+  
+  return(u2 * y2s - u1 * y1s)
+  
   # bigger pop -> less food -> more individuals feeding (are non-eggs)
   #   -> lower fraction protected (= constant refuges)
   # generally maladaptive because just delays
+  # same as model in which births -> adults, and adults turn dormant?
+
+  # switch speed
   
-  # if bridgetype = "constant", q supplied externally
-  # could be reparameterised to include mortality rates
-  # can apply to consumer, or resource moving between patches
-  # switching should be according to per-capita fitness, so divide by y
-  # density-dependent germination: higher R -> lower food -> more protected
-  # same as model in which births -> adults, and adults turn dormant
-  return( u * (p * f2s - (1-p) * f1s) + m * (q * y2s - (1-q) * y1s) )
-  # biomass moving *to* y1
-  # = allocation of new biomass (no choice) 
-  # + re-allocation of old biomass (choice)
-  # e.g. waiting -> 
-  #   all new adult biomass to eggs,
-  #   old egg biomass to adults  
 }
-  # q = probability of activity / estimated fitness distribution at equilibrium  
-  # m = flow rate
-  # overall idea: fraction can depend on R (via resource density), or not
   # indirectly depends on C (because -> lower R) 
   # ignore case in which unprotected don't eat (no evolutionary justification)
   # when f -> eggs, fs cancel and adults only grow through development
@@ -243,7 +299,7 @@ d_web <- function(t,y,parms){
         
         dy1 <- d_chain(y1,bt,Y)
         dy2 <- list(dy=NA)
-        dy2$dy <- with(bt, -x(y2,mu[Yr1],phi) )
+        dy2$dy <- with(bt, f(R=y[Yr1],C=y[Ys1],a,h,psi,omega) - x(y2,mu[Yr1],phi) )
           # egg mortality = adult mortality scaled by phi
           # if single chain, then other lifestage doesn't feed
         
@@ -270,9 +326,8 @@ d_web <- function(t,y,parms){
           
         d1 <- d_chain(y1,bt1,Y,p=pt1,Q=Q1)
         dy1 <- d1$dy
-        d2 <- d_chain(y2,bt2,Y,p=pt2,Q=Q2)
+        d2 <- d_chain(y2,bt2,Y,p=pt2,Q=Q2,omega=omega)
         dy2 <- d2$dy
-        
 
       }
         # -1 indexing because basal resource has no parameters
@@ -329,7 +384,8 @@ iparmf <- function(y,sparms){
       Ys1B <- Y + Ys1
       YrB  <- Y + Yr1
 
-      iparms <- list(Y=Y,Ys1=Ys1,Ys2=Ys2,Yr1=Yr1,Yr2=Yr2,Yb=Yb,
+      iparms <- list(Y=Y,Ys1=Ys1,Ys2=Ys2,Yr1=Yr1,Yr2=Yr2,
+                     Yb=Yb,
                      YbB=YbB,Ys1B=Ys1B,YrB=YrB)
         
     }
@@ -380,12 +436,19 @@ bc <- c(
   k = 10,    # 10g per m^2
   psi = 0,   # relative handling time
   phi = 0,   # relative death rate of eggs
+  omega = 0, # relative feeding rate of eggs
   m = 1,   # rate of population structure adjustment
   q = 0.5,   # probability of individual being in state 1 at equilibrium
              # (only used if bridgetype = "constant")
   tau = 1    # continuous lag in bridge function
 )
 # bhat <- readRDS("Output/rate_parameters_marginal_23May2018.rds")
+
+if(twochain==TRUE){
+  omega_new <- rep(1,iparms$Yb)
+  omega_new[iparms$Yr2] <- bc$omega # Yr because 
+  bc$omega <- omega_new
+}
 bhat <- readRDS("Output/rate_parameters_simulated_27May2018.rds")
 
 bdselect <- function(bhat,bpos){
