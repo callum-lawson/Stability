@@ -87,30 +87,46 @@ d_chain <- function(y,b,Y,...){
   })
 }
 
-gammaf <- function(nu,mu,phi,fp2s){
-  (fp2s - mu*phi) / (1 - nu ^ (1 - mu*phi/fp2s))
-} # u is ratio of juvenile to adult body mass
 
-d_bridge_base <- function(y1s,y2s,fp1s,fp2s,m,q,bridgetype){
+d_switch <- function(){
+  # controls non-feeding switches
+  # switch rate can still be fitness-controlled 
+  # can be two-way or one-way
+}
+
+# structure types:
+# - feeding conduit + migration
+# - selection
+# - proportion (selection with no response)
+# feeding types:
+# - one-chain
+# - two-chain
+
+d_feeding_conduit <- function(y1s,y2s,fp1s,fp2s,m,q,bridgetype){
   
-  # (A) Maximise
-  # - unidirectional
-  # - equilibrium is reached when DD equalises fitnesses
-  # - speed of equilibration controlled by external parameter
-  # (B) Passive
-  # - bidirectional
-  # - equilibrium depends on balance between rates each way
-  # - equilibriation is exponential decay (speed uncontrolled)
-  # - i.e. feeding rate sets speed limit on adjustment
+  # q = fraction of resource allocated to *other* consumer type
+    # = 0 [or A/(A+B)?] for fraction 
+    # = 1 for feeding-controlled and stage-structured
+    # = A/(A+B) for generalists or fraction (adults or offspring if lag)
   
   # p -> per unit mass
   
-  ("maximise")
-  u1 <- u * (fp1s - fp2s - (1-phi)*mu)
+  ("selective")
+  u1 <- m * (fp1s - fp2s - (1-phi)*mu)
   u2 <- -u1
     # also works for constant growth (e.g. hiding)  
     # assumes that population can perfectly estimate the fitness of each type
     # doesn't account for differences in predation
+    # both types of individuals making active choices
+    # with "hide", *higher* fraction protected at higher densities
+    # DD germination = DD dispersal between patches
+  
+  ("passive")
+  u1 <- q * fp1s
+  u2 <- u + q * fp2s 
+    # q = fraction of gathered resources allocated to development 
+    #   (assumed equal for adults and juveniles)
+    # equilibrium odds of y1 = u / q * fp1s
   
   ("bank")
   u1 <- fp1s
@@ -126,16 +142,16 @@ d_bridge_base <- function(y1s,y2s,fp1s,fp2s,m,q,bridgetype){
     # (e.g. feeding rates equal and maturation is negative DD)
   
   ("hide")
-  u1 <- u
-  u2 <- fp1s 
+  u1 <- 1 / fp1s
+  u2 <- u 
     # food gathered by exposed makes more exposed
     # exit from hiding depends on non-hiding feeding rate
     # in hide / DD germination, *both* types of individuals are making 
     #   active decisions, so has to enter both parameters ?
+    # always the feeding stage that's vulnerable
   
   ("youngfeed") # de Roos
-  u1 <- fp1s
-  u2 <- q * fp2s 
+
     # exit from juvenile depends on juvenile feeding rate
     # (this parameterisation -> juveniles don't grow in size?
     #   growth of young instantly makes adults?)
@@ -202,6 +218,11 @@ d_bridge_base <- function(y1s,y2s,fp1s,fp2s,m,q,bridgetype){
 # (no effect on fraction because not responsive?)
 
 # chasing moving ball vs chasing where ball *was*
+
+yo <- function(C,v=100,k=1,a=1,mu1=1,mu2=0.1){
+  mu2 / (mu1 + mu2 - a*v*k/(v+a*C))
+}
+curve(yo(C=x),xlim=c(0,100),ylim=c(0,1))
 
 zbarf <- function(t,tau,zmu,zsig,zl){
   tau * zmu + (zsig * ( cos(2*pi * t/zl) - cos(2*pi * (t+tau)/zl) ) ) / (2*pi)
