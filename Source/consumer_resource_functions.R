@@ -81,6 +81,16 @@ x <- function(C,mu,phi=1){
 
 # Derivative functions ----------------------------------------------------
 
+# functions separated by timescale:
+# (allow one variable to adjust while holding others constant; repeat)
+# - structure (assuming not feeding-induced)
+# - resource size
+# - climate: 
+#   1. NLA function instead of zt
+#   (climate-averaging of rates outside of ode, then run in constant env)
+#   2. Allow to reach equilibrium densities before changing z 
+#   (runsteady for whole ode)
+
 d_chain <- function(y,b,Y,...){
   with(b, {
     dy <- y # convenient way to assign same names as y
@@ -100,13 +110,54 @@ d_chain <- function(y,b,Y,...){
 # - one-chain
 # - two-chain
 
-d_bridge_base <- function(y1s,y2s,m,u){
-  m * (y2s - u * y1s)
+pstar <- Vectorize(
+  function(yy){
+    both <- pstarcalc(y=c(yy/2,yy/2),parms) # split evenly
+    both[1]/sum(both)
+  }
+  , vectorize.args=c("yy")
+)
+  
+pstarcalc <- function(y,parms){
+  steady(y=y,
+         parms=parms,
+         fun=d_bridge_ode, 
+         times=c(0,Inf),
+         method="runsteady"
+         )$y
 }
+
+d_bridge_ode <- function(t,y,parms){
+  with(parms, {
+    y1s <- y[1]
+    y2s <- y[2]
+    dy <- d_bridge_base(y1s,y2s,m,u1,u2)
+    return( list(c(dy1s=dy,dy2s=-dy)) )
+  })
+}
+
+parms <- list(m=100,u1=0.1,u2=0.1)
+curve(pstar(x),xlim=c(0.1,1),ylim=c(0,1))
+  # solver fails because of shift to derivative of zero?
+
+d_bridge_base <- function(y1s,y2s,m,u1,u2=0){
+  dys <- m * (y2s - (u1 + u2/y2s) * y1s)
+  dys[y1s==0 | y2s==0] <- 0
+    # vectorise this part?
+  if(u2 > 0){
+    dys[dys < -y1s] <- -y1s
+    dys[dys > +y2s] <- +y2s
+    # safeguard against accelerating movement into a state
+  }
+  return(dys)
+}
+  # same equation as dilution rate
   # u = odds of y1 at equilibrium
   # feeding-mature (one-way diffusion): u = 0
   # select: m = (dyp1 - dyp2); u = -1
   # fraction: m and u set independently
+  # DD: u = u2/y2s (or u2*y2s for reverse?)
+  # Timescale separation - produces Hassell?
 
   # bridge rate = inflow to left-hand chain
   #   = immigration from y2 minus emigration from y1
@@ -129,12 +180,16 @@ d_bridge <- function(y1s,y2s,dyp1s,dyp2s,parms){
   
   with(parms,{
     
-    if(adaptive==TRUE){
+    if(switchtype=="adaptive"){
       m <- m * (dyp1s - dyp2s)
       u <- -1
     }
       # if adaptive==FALSE, use given m and u
       # q set externally
+    
+    if(switchtype=="DD"){
+      u <- u / y2s
+    }
     
     if(tau>0){
       # if tau=0, do nothing to m or q

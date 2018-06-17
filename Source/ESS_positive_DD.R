@@ -1,5 +1,5 @@
 
-pgrow <- function(N,C,v=10,k,a=0.1,b=0.1,h=10,mu=0.5){
+pgrow <- function(N,C,v=10,k=1,a=0.1,b=0.1,h=10,mu=0.5){
   v*k/(v+a*N) - b*C/(1+a*h*N) - mu
 }
 
@@ -68,3 +68,54 @@ plot(qstar1~xseq,ylim=c(0,1),type="l")
 lines(qstar2~xseq,lty=2)
   # still double ESS but pop can't sustain at point of flip
 
+# No predation ------------------------------------------------------------
+
+### Different *k*
+
+xseq <- 1:100
+
+plot(pgrow(N=xseq,k=1.5,C=0),ylim=c(-0.5,1.5),type="l")
+lines(pgrow(N=xseq,k=1,C=0),lty=2)
+
+pstar <- pstarpos(N=xseq,C1=0,C2=0)
+pstar1 <- sapply(pstar, function(x) x[1])
+pstar2 <- sapply(pstar, function(x) if(length(x)==1) x[1] else x[2])
+
+plot(pstar1~xseq,ylim=c(0,1),type="l")
+lines(pstar2~xseq,lty=2)
+
+### Different *a*
+
+hi7 <- function(p,N,v=10,k1=1,k2=1,a1=0.1,a2=0.05,mu1=0.5,mu2=0.5){
+  v*k1/(v+a1*p*N) - v*k2/(v+a2*(1-p)*N) - p*(mu1-mu2)
+}
+
+pstarsearch2 <- Vectorize(
+  function(N){
+    require(rootSolve)
+    try1 <- try(
+      root1 <- uniroot.all(hi7, interval=c(0,1), N=N)
+    )
+    if(class(try1)=="try-error" | length(try1)==0){
+      return(NA)
+    }
+    else{
+      return(root1) # returns p
+    } 
+  },
+  vectorize.args=c("N")
+)
+
+pstarpos2 <- function(N){
+  ifelse(pgrow(N=N,C=0,k=1,a=0.1)>=0 & pgrow(N=N,C=0,k=1,a=0.05)>=0,
+         pstarsearch2(N=N),
+         NA
+  )
+}
+
+pstar <- pstarpos2(N=xseq)
+pstar1 <- sapply(pstar, function(x) x[1])
+pstar2 <- sapply(pstar, function(x) if(length(x)==1) x[1] else x[2])
+
+plot(pstar1~xseq,ylim=c(0,1),type="l")
+lines(pstar2~xseq,lty=2)
