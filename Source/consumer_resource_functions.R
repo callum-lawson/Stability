@@ -31,6 +31,13 @@ ratefs <- function(bdd,re, ...){
   ratef(b=bdd[re,], ...)
 }
 
+zbarf <- function(t,tau,zmu,zsig,zl){
+  tau * zmu + (zsig * ( cos(2*pi * t/zl) - cos(2*pi * (t+tau)/zl) ) ) / (2*pi)
+}
+  # average temperature between t and t + tau
+  # tau multiplier because want summed mortality [=exp(-mu*tau)]
+  # https://www.youtube.com/watch?v=YF7Ii5dMYIo
+
 # Flux rates --------------------------------------------------------------
 
 g <- function(R,v,k){
@@ -110,89 +117,85 @@ d_chain <- function(y,b,Y,...){
 # - one-chain
 # - two-chain
 
-d_bridge_base <- function(y1s,y2s,m,u){
-  m * (y2s - u * y1s)
+migrate_base <- function(A,B,m,u,mtype){
+  # mtype=="diffuse" -> u pre-defined
+  # m always supplied externally (=maturation rate or W diff)
+  if(mtype=="feeding")   u <- 0
+  if(mtype=="selective") u <- -1
+  m * (A - u * B)
 }
   # same equation as dilution rate
-  # u = odds of y1 at equilibrium
-  # feeding-mature (one-way diffusion): u = 0
-  # select: m = (dyp1 - dyp2); u = -1
-  # fraction: m and u set independently
-  # DD: u = u2/y2s (or u2*y2s for reverse?)
-  # Timescale separation - produces Hassell?
-
+  # u = odds of y*2* at equilibrium
   # bridge rate = inflow to left-hand chain
   #   = immigration from y2 minus emigration from y1
-  # when m is high, *can be subsumed into C or R equations*
-
-  # feeding delays are in *new* biomass allocation
-  # switch delays are in *old* biomass allocation
-
-zbarf <- function(t,tau,zmu,zsig,zl){
-  tau * zmu + (zsig * ( cos(2*pi * t/zl) - cos(2*pi * (t+tau)/zl) ) ) / (2*pi)
-}
-  # average temperature between t and t + tau
-  # tau multiplier because want summed mortality [=exp(-mu*tau)]
-  # https://www.youtube.com/watch?v=YF7Ii5dMYIo
+  # when m is high, can be subsumed into C or R equations
 
 # dede does not include methods to deal with delays that are smaller than the
 # stepsize, although in some cases it may be possible to solve such models.
 # For these reasons, it can only solve rather simple delay differential equations.
 
-d_bridge_births <- function(parms){
+migrate_lag <- function(A,B,t,mytau,mtype,parms){
   with(parms,{
-    zsum_lag <- zbarf(t,tau,zmu,zsig,zl)
-
-    bt1_lag <- c(lapply(bd,ratefs,M=M[Yr],z=zt_lag,re=Yr),bc)
-    # is Yr the right body mass here?
-    y1_lag <- lagvalue(t - tau, Ys)
-    r1_lag <- lagvalue(t - tau, Yr)
-    f1_lag <- with(bt1_lag, f(r1_lag,y1_lag,a,h,psi))
     
-    bt2_lag <- c(lapply(bd,ratefs,M=M[YbB],z=zt_lag,re=YbB),bc)
-    y2_lag <- lagvalue(t - tau, Ys1B)
-    r2_lag <- lagvalue(t - tau, YrB)
-    f2_lag <- with(bt2_lag, f(r2_lag,y2_lag,a,h,psi))
+    A_lag <- lagvalue(t - tau, Ys)
+    B_lag <- lagvalue(t - tau, Ys1B)
     
-    dEy <- exp(x(f1_lag+f2_lag,zsum_lag,phi))
-    return(dEy)
-  })
-}
-
-d_bridge_diffuse <- function(Ys11,Ys22){
-  with(parms,{
-    zsum_lag <- zbarf(t,tau,zmu,zsig,zl)
-    y1_lag <- lagvalue(t - tau, Ys11) # Sort out indices
-    y2_lag <- lagvalue(t - tau, Ys22) 
-    y1_left <- exp(x(y1_lag,zsum_lag,phi=1))
-    y2_left <- exp(x(y2_lag,zsum_lag,phi))
-    d_bridge_base(y1_left,y2_left,m,u) # m and u defined externally
-  })
-}
-
-d_bridge_selection <- function(){
-  with(parms,{
-    zt_lag <- zt_cyclic(t-tau,zmu,zsig,zl)
-    zsum_lag <- zbarf(t,tau,zmu,zsig,zl)
+    if(mtype=="diffuse"){
+      u <- u * (A_lag/B_lag) / (A/B)
+        # overestimate of y1 density -> higher than expected movement to y2
+      migrate_base(A,B,m,u) # m and u defined externally
+        # how to deal with lags here?
+    }
     
-    bt1_lag <- c(lapply(bd,ratefs,M=M[Yr],z=zt_lag,re=Yr),bc)
+    if(mtype %in% c("feeding","selective")){
+      
+      btA_lag <- c(lapply(bd,ratefs,M=M[Yr],z=zt_lag,re=Yr),bc)
       # is Yr the right body mass here?
-    y1_lag <- lagvalue(t - tau, Ys)
-    r1_lag <- lagvalue(t - tau, Yr)
-    W1_lag <- with(bt1_lag, f(r1_lag,y1_lag,a,h,psi)/y1_lag)
-  
-    bt2_lag <- c(lapply(bd,ratefs,M=M[YbB],z=zt_lag,re=YbB),bc)
-    y2_lag <- lagvalue(t - tau, Ys1B)
-    r2_lag <- lagvalue(t - tau, YrB)
-    W2_lag <- with(bt2_lag, f(r2_lag,y2_lag,a,h,psi)/y2_lag )
+      rA_lag <- lagvalue(t - tau, Yr)
+      fA_lag <- with(btA_lag, f(rA_lag,A_lag,a,h,psi))
+      
+      if(nchain==2){
+        btB_lag <- c(lapply(bd,ratefs,M=M[YbB],z=zt_lag,re=YbB),bc)
+        rB_lag <- lagvalue(t - tau, YrB)
+        fB_lag <- with(btB_lag, f(rB_lag,B_lag,a,h,psi))
+      }
+
+      ### *need to add in p etc. to account for generalism ###
+      
+      if(mtype=="feeding"){
+        if(nchain==1) f_lag <- fA_lag
+        if(nchain==2) f_lag <- fA_lag + fB_lag
+        zsum_lag <- zbarf(t,tau,zmu,zsig,zl)
+        m <- exp(x(f_lag,zsum_lag,phi))
+      }
+      
+      if(mtype=="selective"){
+        WA_lag <- fA_lag/A_lag
+        WB_lag <- fB_lag/B_lag
+        m <- WA_lag - WB_lag # assuming equal mortality rates
+      }
+    }
     
-    deltaW <- W1_lag - W2_lag # assuming equal mortality rates
-    
-    d_bridge_base(y1s,y2s,m=deltaW,u=-1)
+    delta <- migrate_base(A,B,m,u,mtype)
+    return(delta)
   })
 }
-  # currently only works for generalist consumers (not e.g. hiding)
   # do we want mortality weighting (i.e. only biomass alive at time of signal?)
+
+migrate_all <- function(A,B,t,mytau,mtype,parms){
+  if(mytau==0){
+    delta <- with(parms, migrate_base(A,B,m,u,mtype))
+  }
+  if(mytau>0){
+      if(t<mytau){
+      delta <- 0
+    }
+    if(t>=mytau){
+      delta <- migrate_lag(A,B,t,mytau,mtype,parms)
+    }
+  }
+  return(delta)
+}
 
 d_web <- function(t,y,parms){
   
@@ -205,9 +208,7 @@ d_web <- function(t,y,parms){
     bt <- c(bdt,bc)
     
     if(structure==FALSE){
-      
       dy <- d_chain(y,bt,Y)$dy
-      
     }
     
     if(structure==TRUE){
@@ -218,12 +219,11 @@ d_web <- function(t,y,parms){
       
       y1 <- y[1:Yc]
 
-      ### GATHER FOOD (one- and two-chain)
+      ### GATHER FOOD
       
       if(nchain==1){
         
         dy1 <- d_chain(y1,bt,Y)
-          # could modify this to include juvenile-only feeding
         dyE <- d1$fy[Yr]
         
       }
@@ -238,7 +238,6 @@ d_web <- function(t,y,parms){
         pt1 <- pt2 <- rep(1,Yb) # or should this be Yr?
           # "eat your own" works for juvenile feeding too
         Q1  <- Q2  <- rep(0,Yb)
-
         p <- y1[Ys] / (y1[Ys] + y2[Ys])
         
         if(generalist==TRUE){
@@ -249,70 +248,88 @@ d_web <- function(t,y,parms){
           
           Q1[Yr] <- y2[Yr]
           Q2[Yr] <- y1[Yr]
-            # Q refers to resource in *other* chain
+            # Q refers to resource density in *other* chain
+            # Double-check whether this correctly accounts for R *and* C changes
         
         }
         
         d1 <- d_chain(y1,bt1,Y,p=pt1,Q=Q1)
         d2 <- d_chain(y2,bt2,Y,p=pt2,Q=Q2,omega=omega)
+          # omega should be >0, otherwise use one-chain model
 
         dyE <- d1$fy[Yr] + d2$fy[Yr]
 
       }
 
-      ### DEPOSIT EGGS (one- and two-chain)
+      ### DEPOSIT AND HATCH EGGS
       
-      if(birthlag==TRUE){
-        
+      if(storage==FALSE){
+        dEy <- dyE 
+          # eggs hatch immediately - mirrored straight back
+      }
+      
+      if(storage==TRUE){
         yE <- y[Y] # eggs = last position in chain
-
-        if(tau==0){
-          dEy <- d_bridge_base(y1s,y2s,m,u=0)
+        if(birthstore==FALSE){
+          dEy <- migrate_all(A=y1,B=yE,t=t,mytau=tau_food,mtype="diffuse",
+                             parms=parms)
+            # only need to use this option if one-chain model with storage
         }
-        if(tau>0){
-          dEy <- d_bridge_births(parms)
-        }
-          # maybe put in its own function?
-        
-        dE <- dyE - x(yE,bts$mu,phi) - dEy
-          # egg mortality = adult mortality scaled by phi
-          # using death rate from first chain
-        
+        if(birthstore==TRUE){
+          dEy <- migrate_all(A=0,B=yE,t=t,mytau=tau_food,mtype="feeding",
+                                    parms=parms) - dYE 
+            # do we actually need u to be set to 0 here?
+            # food conduit handled separately to maturation
+        } 
+        dE <- -dEy - x(yE,bts$mu,phi) 
+          # no selective behaviour (e.g. hiding) for one-chain models
       }
       
-      ### MIGRATE
-      
-      if(migrate==TRUE){
-        # NEED THIS TO WORK FOR BOTH TWO-CHAIN AND ONE-CHAIN MODELS
-        # (change in indexing)
-        # add tau_migrate term here later
-        
-        d21 <- d_bridge_wrapper(y1s,y2s,stuff)
-        
-      }
-      
-      ### NET GROWTH
+      ### NET GROWTH - ONE-CHAIN
       
       if(nchain==1){
-        d1$dy <- dEy - d1$xy[Yr1]
+        d1$dy[Ys1] <- d1$dy[Ys1] + dEy 
+          # dyE = net effects due to eggs (can be negative)
+        dy <- d1$dy
       }
       
+      ### MIGRATION AND NET GROWTH - TWO-CHAIN
+      
       if(nchain==2){
-        if(juvfeed==FALSE) q <- p
-        if(juvfeed==TRUE)  q <- 0
-        # need to override earlier p so that all food makes juveniles
         
-        d1$dy[Ys1] <- q     * dEy - d1$xy[Yr1] + dy21
-        d2$dy[Ys2] <- (1-q) * dEy - d2$xy[Yr2] - dy21
+        # movemtype supplied externally
+        
+        if(movemtype!="feeding"){
+          q <- p # food allocated according to abundance
+          if(movemtype=="selective"){
+            m <- m * (dyp1s - dyp2s) # need to *redefine these in $parms*"
+          } 
+            # for diffuse, m supplied as input parameter
+          d21 <- migrate_all(A=y1s,B=y2s,t=t,mytau=tau_move,mtype=movemtype,
+                             parms=parms)
+        }  
+        
+        if(movemtype=="feeding"){
+          q <- 0 # or food?
+          d21 <- migrate_all(A=0,B=y2s,t=t,mytau=tau_move,mtype=movemtype,
+                             parms=parms)
+            # food transfer part dealt with below
+        } 
+        
+        d1$dy[Ys1] <- q     * dEy - d1$xy[Yr1] + d21
+        d2$dy[Ys2] <- (1-q) * dEy - d2$xy[Yr2] - d21
         # y2 can be eggs
         # need to distinguish feeding and mortality
         # q = fraction of resource allocated to consumer type 2
         # = 1 for feeding-controlled and stage-structured
         # = A/(A+B) for generalists OR fraction 
+        # *only works if consumer - otherwise missing deaths due to predation*
+        
+        dy <- c(d1$dy,d2$dy)
       }
       
-      if(birthlag==FALSE) dya <- dy
-      if(birthlag==TRUE)  dya <- c(dy,dE)
+      if(storage==FALSE) dya <- dy
+      if(storage==TRUE)  dya <- c(dy,dE)
       
     } # end structured models
   
@@ -338,8 +355,8 @@ iparmf <- function(y,sparms){
     
       Ya <- Y * nchain
 
-      if(birthlag==FALSE) Y <- Ya
-      if(birthlag==TRUE)  Y <- Ya + 1
+      if(storage==FALSE) Y <- Ya
+      if(storage==TRUE)  Y <- Ya + 1
         # ***CAN BE USED TO LOCATE OFFSPRING VARIABLE***
   
       if(length(nstart)==1) y0 <- rep(nstart,Y)
@@ -365,7 +382,7 @@ iparmf <- function(y,sparms){
 
       bd <- bdselect(bhat,Ybseq)
       
-      if(birthlag==TRUE | juvfeed==TRUE) q <- 0 # ?
+      if(storage==TRUE | juvfeed==TRUE) q <- 0 # ?
       
       iparms <- list(Y=Y,Ys1=Ys1,Ys2=Ys2,Yr1=Yr1,Yr2=Yr2,
                      Yb=Yb,
@@ -399,7 +416,7 @@ nstart <- 1
   # eggs (storage structure) always start at 0
 structure <- TRUE
 slevel <- c("consumer","resource")
-birthlag <- TRUE
+storage <- TRUE
   # if FALSE, births are allocated directly to adults (via q)
 lagtype <- c("none","random","fixed","discrete")
 adaptive <- FALSE
@@ -489,7 +506,7 @@ popint <- function(y0,tseq,parms){
 #   i.e. function to calculate each set of equilibria (P, R, C)
 # - analytically-simplified f functions? (timescale separation for states)
 # - include checks and warnings
-# - test d_bridge with real params to see if need ratio of dy/(dy-c)
+# - test migrate with real params to see if need ratio of dy/(dy-c)
 
 dRCt_cont <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
