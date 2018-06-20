@@ -32,7 +32,7 @@ ratefs <- function(bdd,re, ...){
 }
 
 zbarf <- function(t,tau,zmu,zsig,zl){
-  tau * zmu + (zsig * ( cos(2*pi * t/zl) - cos(2*pi * (t+tau)/zl) ) ) / (2*pi)
+  tau * zmu + (zsig * ( cos(2*pi * t/zl) - cos(2*pi * (t + tau)/zl) ) ) / (2*pi)
 }
   # average temperature between t and t + tau
   # tau multiplier because want summed mortality [=exp(-mu*tau)]
@@ -55,7 +55,7 @@ f <- function(R,C,a,h,psi=0,omega=1,p=1,Q=0){
   # - effective handling time can be increased by:
   #   1. already-parasitised prey (discrete-time models):
   #     Q = E, where E are consumer eggs
-  #   2. omega is ratio of predator interference time : prey handling time
+  #   2. omega = predator interference time in units of prey handling time
   # assumes different resource species have
   #   same handling times, nutritional values, assimilation rates
   #   Koen-Alonso 1.12, 1.21 (Royama)
@@ -67,24 +67,6 @@ x <- function(C,mu,phi=1){
 }
   # Multiple prey: individual prey attack rates with same, summed handling time
   # denominator (koen-Alonso)
-
-# Continuous dynamics -----------------------------------------------------
-
-# return:
-# - grouped derivatives
-# - individual derivatives
-# - grouped derivatives for specified time (temperature series)
-# - individual per-capita derivatives (vectorised)
-# - grouped derivatives with continuous lag
-# - grouped derivatives with eggs (combine with above?)
-# - grouped derivatives with eggs for specified time (temperature series)
-# - grouped derivatives with eggs for single temperature
-# - discrete time series combining eggs and adults at intervals
-# - equilibrium resource size (two-species model)
-# - equilibrium consumer size (three-species model
-# - per-capita derivatives (discrete-time model)
-# - grouped derivatives (three- and four-species models)
-# - discrete time series (three-species model)
 
 # Derivative functions ----------------------------------------------------
 
@@ -118,11 +100,19 @@ d_chain <- function(y,b,Y,...){
 # - two-chain
 
 migrate_base <- function(A,B,m,u,mtype){
-  # mtype=="diffuse" -> u pre-defined
   # m always supplied externally (=maturation rate or W diff)
-  if(mtype=="feeding")   u <- 0
-  if(mtype=="selective") u <- -1
-  m * (A - u * B)
+  # mtype=="diffuse" -> u pre-defined
+  if(mtype=="feeding"){
+    A <- 0; u <- 1 # or m <- 1
+  }
+  if(mtype=="selective"){
+    # u indicates fitness; migration proceeds at constant speed m
+    if(u>0)  return( + m * B )
+    if(u<0)  return( - m * A )
+    if(u==0) return( 0 )
+  }
+  if(mtype!="selective")
+  return( m * (A - u * B) )
 }
   # same equation as dilution rate
   # u = odds of y*2* at equilibrium
@@ -134,7 +124,7 @@ migrate_base <- function(A,B,m,u,mtype){
 # stepsize, although in some cases it may be possible to solve such models.
 # For these reasons, it can only solve rather simple delay differential equations.
 
-migrate_lag <- function(A,B,t,mytau,mtype,parms){
+migrate_lag <- function(A,B,t,tau,mtype,parms){
   with(parms,{
     
     A_lag <- lagvalue(t - tau, Ys)
@@ -160,7 +150,7 @@ migrate_lag <- function(A,B,t,mytau,mtype,parms){
         fB_lag <- with(btB_lag, f(rB_lag,B_lag,a,h,psi))
       }
 
-      ### *need to add in p etc. to account for generalism ###
+      ### *need to add in p etc. to account for generalism* ###
       
       if(mtype=="feeding"){
         if(nchain==1) f_lag <- fA_lag
@@ -182,16 +172,16 @@ migrate_lag <- function(A,B,t,mytau,mtype,parms){
 }
   # do we want mortality weighting (i.e. only biomass alive at time of signal?)
 
-migrate_all <- function(A,B,t,mytau,mtype,parms){
-  if(mytau==0){
+migrate_all <- function(A,B,m,u,t,tau,mtype,parms){
+  if(tau==0){
     delta <- with(parms, migrate_base(A,B,m,u,mtype))
   }
-  if(mytau>0){
-      if(t<mytau){
+  if(tau>0){
+      if(t<tau){
       delta <- 0
     }
-    if(t>=mytau){
-      delta <- migrate_lag(A,B,t,mytau,mtype,parms)
+    if(t>=tau){
+      delta <- migrate_lag(A,B,t,tau,mtype,parms)
     }
   }
   return(delta)
@@ -208,88 +198,105 @@ d_web <- function(t,y,parms){
     bt <- c(bdt,bc)
     
     if(structure==FALSE){
-      dy <- d_chain(y,bt,Y)$dy
+      dy <- d_chain(y,bt,Yc)$dy
     }
     
     if(structure==TRUE){
-      
-      # q = food given to feeders instead of eggs
-      # p = food given to feeders in first patch
-      # dE = total food gathered for timestep
-      
-      y1 <- y[1:Yc]
+    
+      y1 <- y[Ycseq]
 
       ### GATHER FOOD
       
+      # ft = total food gathered for timestep
+      
       if(nchain==1){
         
-        dy1 <- d_chain(y1,bt,Y)
-        dyE <- d1$fy[Yr]
+        d1 <- d_chain(y1,bt,Yc)
+        ft <- d1$fy[Yr]
         
       }
       
       if(nchain==2){
         
-        y2 <- y[(Yc+1):(Yc*2)]
+        y2 <- y[Yc2seq]
         
-        bt1 <- bdt[1:Yb,]
-        bt2 <- bdt[(Yb+1):(Yb*2),]
+        bt1 <- bdt[Ybseq,]
+        bt2 <- bdt[Yb2seq,]
         
-        pt1 <- pt2 <- rep(1,Yb) # or should this be Yr?
+        pt1 <- pt2 <- rep(1,Yb)
+          # pt = fraction of feeding on resource 1 (e.g. time spent in patch 1)
           # "eat your own" works for juvenile feeding too
         Q1  <- Q2  <- rep(0,Yb)
-        p <- y1[Ys] / (y1[Ys] + y2[Ys])
+          # Qx = resource density in chain x
+          # *Double-check whether this correctly accounts for R *and* C changes*
+        
+        p <- y1[Yr] / (y1[Yr] + y2[Yr])
+          # Yr = Ys - 1
         
         if(generalist==TRUE){
           
-          pt1[Ys] <- p
-          pt2[Ys] <- 1 - p
-            # can be fraction eating each resource or fraction in each patch
+          pt1[Yr] <- p
+          pt2[Yr] <- 1 - p
           
-          Q1[Yr] <- y2[Yr]
-          Q2[Yr] <- y1[Yr]
-            # Q refers to resource density in *other* chain
-            # Double-check whether this correctly accounts for R *and* C changes
+          Q1[Yr-1] <- y1[Yr]
+          Q2[Yr-1] <- y2[Yr]
         
         }
         
-        d1 <- d_chain(y1,bt1,Y,p=pt1,Q=Q1)
-        d2 <- d_chain(y2,bt2,Y,p=pt2,Q=Q2,omega=omega)
+        y1ss <- y1
+        y2ss <- y2
+        yss  <- y1[Ys] + y2[Ys]
+        y1ss[Ys] <- yss
+        y2ss[Ys] <- yss
+          # generalist -> whole pop eats both resources
+          # yss variables are only used for calculating derivatives
+          # (dy and xy terms replaced later)
+        
+        d1 <- d_chain(y1ss,bt1,Y,p=pt1,Q=Q2)
+        d2 <- d_chain(y2ss,bt2,Y,p=pt2,Q=Q1,omega=omega)
+          # Q = distraction by food from opposite chain
           # omega should be >0, otherwise use one-chain model
 
-        dyE <- d1$fy[Yr] + d2$fy[Yr]
+        ft <- d1$fy[Yr] + d2$fy[Yr]
 
       }
 
       ### DEPOSIT AND HATCH EGGS
       
-      if(storage==FALSE){
-        dEy <- dyE 
+      if(store==FALSE){
+        dEy <- ft 
           # eggs hatch immediately - mirrored straight back
       }
       
-      if(storage==TRUE){
-        yE <- y[Y] # eggs = last position in chain
-        if(birthstore==FALSE){
-          dEy <- migrate_all(A=y1,B=yE,t=t,mytau=tau_food,mtype="diffuse",
+      if(store==TRUE){
+        bte <- bdt[Yr,]
+        yE <- y[Ya] # eggs = last position in chain
+        if(storetype=="diffuse"){
+          dEy <- migrate_all(A=y1[Ys],B=yE,
+                             m=m_E,u=u_E,
+                             t=t,tau=tau_E,
+                             mtype="diffuse",
                              parms=parms)
             # only need to use this option if one-chain model with storage
         }
-        if(birthstore==TRUE){
-          dEy <- migrate_all(A=0,B=yE,t=t,mytau=tau_food,mtype="feeding",
-                                    parms=parms) - dYE 
+        if(storetype=="feeding"){
+          dEy <- migrate_all(A=0,B=yE,
+                             m=m_E,u=u_E,
+                             t=t,tau=tau_E,
+                             mtype="feeding",
+                             parms=parms) - ft 
             # do we actually need u to be set to 0 here?
-            # food conduit handled separately to maturation
+            # food conduit subtracted because handled separately to maturation
         } 
-        dE <- -dEy - x(yE,bts$mu,phi) 
+        dE <- with(bte, -dEy - x(yE,mu,phi) )
           # no selective behaviour (e.g. hiding) for one-chain models
       }
       
       ### NET GROWTH - ONE-CHAIN
       
       if(nchain==1){
-        d1$dy[Ys1] <- d1$dy[Ys1] + dEy 
-          # dyE = net effects due to eggs (can be negative)
+        d1$dy[Ys] <- d1$dy[Ys] + dEy 
+          # dEy = net transfer {E -> ys}
         dy <- d1$dy
       }
       
@@ -297,27 +304,29 @@ d_web <- function(t,y,parms){
       
       if(nchain==2){
         
-        # movemtype supplied externally
+        # q = food given to feeders instead of eggs
         
-        if(movemtype!="feeding"){
+        if(movetype!="feeding"){
           q <- p # food allocated according to abundance
-          if(movemtype=="selective"){
-            m <- m * (dyp1s - dyp2s) # need to *redefine these in $parms*"
+          if(movetype=="selective"){
+            u <- d1$fy[Yr]/y1[Ys] - d1$fy[Yr]/y2[Ys]
           } 
             # for diffuse, m supplied as input parameter
-          d21 <- migrate_all(A=y1s,B=y2s,t=t,mytau=tau_move,mtype=movemtype,
+          d21 <- migrate_all(A=y1[Ys],B=y2[Ys],m=m_m,u=u_m,
+                             t=t,tau=tau_m,mtype=movetype,
                              parms=parms)
         }  
         
-        if(movemtype=="feeding"){
+        if(movetype=="feeding"){
           q <- 0 # or food?
-          d21 <- migrate_all(A=0,B=y2s,t=t,mytau=tau_move,mtype=movemtype,
+          d21 <- migrate_all(A=0,B=y2[Ys],m=m_m,u=u_m,
+                             t=t,tau=tau_m,mtype=movetype,
                              parms=parms)
             # food transfer part dealt with below
         } 
         
-        d1$dy[Ys1] <- q     * dEy - d1$xy[Yr1] + d21
-        d2$dy[Ys2] <- (1-q) * dEy - d2$xy[Yr2] - d21
+        d1$dy[Ys] <-  q     * dEy - x(y1[Ys],mu=bt1[Yr],phi=1) + d21
+        d2$dy[Ys2] <- (1-q) * dEy - x(y2[Ys],mu=bt2[Yr],phi=1) - d21
         # y2 can be eggs
         # need to distinguish feeding and mortality
         # q = fraction of resource allocated to consumer type 2
@@ -328,8 +337,8 @@ d_web <- function(t,y,parms){
         dy <- c(d1$dy,d2$dy)
       }
       
-      if(storage==FALSE) dya <- dy
-      if(storage==TRUE)  dya <- c(dy,dE)
+      if(store==FALSE) dya <- dy
+      if(store==TRUE)  dya <- c(dy,dE)
       
     } # end structured models
   
@@ -339,110 +348,112 @@ d_web <- function(t,y,parms){
     
 }
 
-iparmf <- function(y,sparms){
+# Index variables:
+#               | - Ya            
+# Yc           | |- Yc2        
+# |- Yb   Ys   | |- Ys2 / Yb2  
+# |       Yr   | |- Yr2        
+# |       |    | |            
+
+iparmf <- function(bhat,sparms){
   
   with(sparms, {
-      
+    
+    structure <- nchain > 1 | store==TRUE
+    
     Yc <- chainlength
     
-    if(structure==FALSE){
-      
-      iparms <- list(Y=Y)
-      
-    } 
+    Yc2 <- Yc * nchain
     
-    if(structure==TRUE){
+    # store==TRUE | tau_E>0?
     
-      Ya <- Y * nchain
-
-      if(storage==FALSE) Y <- Ya
-      if(storage==TRUE)  Y <- Ya + 1
-        # ***CAN BE USED TO LOCATE OFFSPRING VARIABLE***
-  
-      if(length(nstart)==1) y0 <- rep(nstart,Y)
-      if(length(nstart)>1)  y0 <- nstart
-      
-      if(slevel=="consumer") Ys <- Yc
-      if(slevel=="resource") Ys <- Yc - 1
-        # position of structure
-
-      Yr <- Ys - 1 # resource level for focal (structured) species
-      Yb <- Y  - 1
-  
-      # YbB   <- Yb + Yr1
-      # Ys1B <- Y + Ys1
-      # YrB  <- Y + Yr1
-
-      Ybseq <- rep(1:Yb, nchain)
-        # no need for birth lag (egg) parms as selected automatically 
-        #   from focal species in *first* chain
-
-      M <- 10 ^ Ybseq
-        # body masses 2 orders of magnitude apart, starting at 1g
-
+    if(store==FALSE)  Ya <- Yc2
+    if(store==TRUE)   Ya <- Yc2 + 1
+    
+    if(slevel=="consumer") Ys <- Yc
+    if(slevel=="resource") Ys <- Yc - 1
+      # position of structure
+    
+    Ys2 <- Yc + Ys
+    Yr <-  Ys  - 1 # resource level for focal (structured) species
+    Yr2 <- Ys2 - 1
+    Yb <-  Yc  - 1
+    Yb2 <- Yc2 - nchain 
+      # basal resources don't have params
+      # *should indexing be automated using nchain?* #
+    
+    Ycseq  <- 1:Yc
+    Yc2seq <- (Yc+1):Yc2
+    Ybseq  <- 1:Yb
+      # egg parms will be selected from focal species in *first* chain
+    Yb2seq <- (Yb+1):Yb2
+    
+    M <- 10 ^ 2*rep(Ybseq,nchain)
+      # body masses 2 orders of magnitude apart, starting at 1g
+      # same body masses used for same chain positions
+    
+    if(length(nstart)==1) y0 <- rep(nstart,Yc2)
+    if(length(nstart)>1)  y0 <- nstart
+    
+    if(nchain==1){
+      names(y0) <- c("R",paste0(rep("C",Yc-1),1:Yb))
       bd <- bdselect(bhat,Ybseq)
-      
-      if(storage==TRUE | juvfeed==TRUE) q <- 0 # ?
-      
-      iparms <- list(Y=Y,Ys1=Ys1,Ys2=Ys2,Yr1=Yr1,Yr2=Yr2,
-                     Yb=Yb,
-                     YbB=YbB,Ys1B=Ys1B,YrB=YrB)
-        
-      
     }
+    if(nchain==2){
+      names(y0) <- paste0(rep(
+        c("R",paste0(rep("C",Yc-1),1:Yb)),2),
+        rep(c("A","B"),each=Yc)
+      )
+      bd <- bdselect(bhat,c(Ybseq,Yb2seq))
+    }
+
+    if(store==TRUE) y0 <- c(y0,E=0) # set eggs to zero
     
-    names(y0) <- # "P"
-
-    return(iparms)
-
+    list(structure=structure,
+         Ya=Ya,Yc=Yc,Yc2=Yc2,Ys=Ys,Ys2=Ys2,
+         Yr=Yr,Yr2=Yr2,Yb=Yb,Yb2=Yb2,
+         Ycseq=Ycseq,Yc2seq=Yc2seq,
+         Ybseq=Ybseq,Yb2seq=Yb2seq,
+         bd=bd,M=M,y0=y0
+         )
+  
   })
   
+}
+
+bdselect <- function(bhat,bpos){
+  lapply(bhat,function(x) x[bpos,])
 }
 
 # Trial runs --------------------------------------------------------------
 
 ### Inputs (parms)
+source("Source/Consumer_resource_functions.R")
+
 zmu <- 0 
 zsig <- 0
 zl <- 24*7
 
 zparms <- list(zmu=zmu,zsig=zsig,zl=zl)
 
-chainlength <- 2
-  # for resource structure, food chain length must be at least 3
-  #   (nutrients assumed inactive, so can't change state)
-nstart <- 1
-  # single number or vector of length Y
+sparms = list(
+  nchain = 1,
+  chainlength = 2,
+  # single number or vector of length Ya
   # eggs (storage structure) always start at 0
-structure <- TRUE
-slevel <- c("consumer","resource")
-storage <- TRUE
-  # if FALSE, births are allocated directly to adults (via q)
-lagtype <- c("none","random","fixed","discrete")
-adaptive <- FALSE
-  # if TRUE, add fitness difference multiplier to m
-  # migration rate and direction determined by whichever increases fitness
-nchain <- 1
-generalist <- FALSE
+  slevel = c("consumer","resource")[1],
+  store = TRUE,
+  storetype = c("diffuse","births")[1],
+  # if FALSE, births are allocated directly to feeders
+  movetype = c("diffuse","selective")[1],
   # if FALSE, is mixed specialist
-juvfeed <- FALSE
-   # if true, juveniles feed (so all births re-routed to P)
-
-if(generalist==TRUE & adaptive==TRUE & lagtype!="none"){
-  # m applies to offspring production; set generalist switch rate automatically
-}
-
-sparms <- list(
-  structure = structure,
-  slevel = slevel,
-  twochain = twochain,
-  bridgetype = bridgetype,
-  generalist = generalist
+  generalist = FALSE,
+  # does storage operate through births (TRUE) or diffusion (FALSE)?
+  nstart = 1
 )
 
-y0 <- y <- c(R1=1,C1=1,C2=1,C2s=0) # rep(c(R1=1,C1=1,C2=1),2)
-yl <- length(y)
-t <- 2
+# later parms
+# lagtype <- c("none","random","continuous","discrete")
 
 bc <- c(
   v = 1,     # max flow rate = k grams per m^2 per hour
@@ -450,55 +461,61 @@ bc <- c(
   psi = 0,   # interference:handling time ratio
   phi = 0,   # relative death rate of eggs
   omega = 0, # relative feeding rate of eggs
-  u = 0,
+  u = 1,     # odds ratio of y2 at equilibrium
   m = 1,     # rate of population structure adjustment
   q = 0.5,   # probability of individual being in state 1 at equilibrium
-             # (only used if bridgetype = "constant")
-  tau = 1    # continuous lag in bridge function
+  # (only used if bridgetype = "constant")
+  u_E = 1,   # rates in migration functions
+  m_E = 1,
+  u_m = 1,
+  m_m = 1,
+  tau_E = 0, # lags in migration functions
+  tau_m = 0
 )
-  # phi and omega could instead by controlled by body masses
-  #   (in this case, phi can be fraction of adult body mass)
+# phi and omega could instead by controlled by body masses
+#   (in this case, phi can be fraction of adult body mass)
 # bhat <- readRDS("Output/rate_parameters_marginal_23May2018.rds")
 
-if(nchain==2){
-  omega_new <- rep(1,iparms$Yb)
-  omega_new[iparms$Yr] <- bc$omega # Yr because 
-  bc$omega <- omega_new
-}
+# if(nchain==2){
+#   omega_new <- rep(1,iparms$Yb)
+#   omega_new[iparms$Yr] <- bc$omega # Yr because 
+#   bc$omega <- omega_new
+# }
 bhat <- readRDS("Output/rate_parameters_simulated_27May2018.rds")
 
-bdselect <- function(bhat,bpos){
-  lapply(bhat,function(x) x[bpos,])
-}
-
-M <- c(M1=0.01,M2=1)
-# different prey need different temp responses
-# must have length equal to number of consumer stages
-# generalist must be listed *last*
-  # can have zero climate responses lower in chains too (= no sensitivity)
-
-# change change constant parameters (e.g. w) among species by including as
-#   climate-sensitive parameter but then setting climate sensitivity to zero
- 
-iparms <- iparmf(y,sparms)
-
-vparms <- list(bd=bd,M=M)
-fparms <- c(bc,M,zparms,sparms,iparms)
-parms <- c(vparms,fparms)
+iparms <- iparmf(bhat,sparms)
+parms <- c(bc,zparms,sparms,iparms)
 attach(parms)
+t <- 0
+y <- y0
 
-tseq <- seq(0,24*60,length.out=100)
-require(deSolve)
-if(parms$tau==0) lvar <- ode(y=y0,times=tseq,func=d_web,parms=parms)
-if(parms$tau>0) lvar <- dede(y=y0,times=tseq,func=d_web,parms=parms)
+# popint <- function(y0,tseq,parms){
+#   # if(nrow(bhat[])!=length(M)) stop("wrong masses or params")
+#   # ! generalist + "resource"
+# }
+# 
+# tseq <- seq(0,24*60,length.out=100)
+# require(deSolve)
+# if(parms$tau==0) lvar <- ode(y=y0,times=tseq,func=d_web,parms=parms)
+# if(parms$tau>0) lvar <- dede(y=y0,times=tseq,func=d_web,parms=parms)
 
-par(mfrow=c(1,1))
-matplot(tseq,log10(lvar[,-1]),type="l")
+# Continuous dynamics -----------------------------------------------------
 
-popint <- function(y0,tseq,parms){
-  # if(nrow(bhat[])!=length(M)) stop("wrong masses or params")
-  # ! generalist + "resource"
-}
+# return:
+# - grouped derivatives
+# - individual derivatives
+# - grouped derivatives for specified time (temperature series)
+# - individual per-capita derivatives (vectorised)
+# - grouped derivatives with continuous lag
+# - grouped derivatives with eggs (combine with above?)
+# - grouped derivatives with eggs for specified time (temperature series)
+# - grouped derivatives with eggs for single temperature
+# - discrete time series combining eggs and adults at intervals
+# - equilibrium resource size (two-species model)
+# - equilibrium consumer size (three-species model
+# - per-capita derivatives (discrete-time model)
+# - grouped derivatives (three- and four-species models)
+# - discrete time series (three-species model)
 
 ### TODO
 # - discrete-time integration (u=0, so that zero backflow)
@@ -507,6 +524,7 @@ popint <- function(y0,tseq,parms){
 # - analytically-simplified f functions? (timescale separation for states)
 # - include checks and warnings
 # - test migrate with real params to see if need ratio of dy/(dy-c)
+# - different prey need different temp responses
 
 dRCt_cont <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
