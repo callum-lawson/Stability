@@ -12,13 +12,13 @@ zparms <- list(
   )
 
 sparms = list(
-  chainlength = 2,
+  chainlength = 3,
   # single number or vector of length Ya
   # eggs (storage structure) always start at 0
   nchain = 1,
-  store = FALSE,
+  store = TRUE,
   slevel = c("consumer","resource")[1],
-  storetype = c("diffuse","births")[1],
+  storetype = c("diffuse","feeding")[1],
   # if FALSE, births are allocated directly to feeders
   movetype = c("diffuse","selective")[1],
   # if FALSE, is mixed specialist
@@ -31,13 +31,13 @@ sparms = list(
 # lagtype <- c("none","random","continuous","discrete")
 
 bc <- c(
-  v = 1,     # max flow rate = k grams per m^2 per hour
+  v = 0.1,     # max flow rate = k grams per m^2 per hour
   k = 10,    # 10g per m^2
   psi = 0,   # interference:handling time ratio
   phi = 0,   # relative death rate of eggs
   omega = 0, # relative feeding rate of eggs
   u_E = 1,   # rates in migration functions
-  m_E = 1,   # u = odds ratio of y1:y2 at equilibrium
+  m_E = 0.01,   # u = odds ratio of y1:y2 at equilibrium
   u_m = 1,
   m_m = 1,
   tau_E = 0, # lags in migration functions
@@ -45,14 +45,13 @@ bc <- c(
 )
 # phi and omega could instead by controlled by body masses
 #   (in this case, phi can be fraction of adult body mass)
-# bhat <- readRDS("Output/rate_parameters_marginal_23May2018.rds")
 
 # if(nchain==2){
 #   omega_new <- rep(1,iparms$Yb)
 #   omega_new[iparms$Yr] <- bc$omega # Yr because 
 #   bc$omega <- omega_new
 # }
-bhat <- readRDS("Output/rate_parameters_simulated_27May2018.rds")
+bhat <- readRDS("Output/rate_parameters_simulated_21Jun2018.rds")
 
 tparms <- list(
   t0 = 0,

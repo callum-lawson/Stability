@@ -70,9 +70,9 @@ mr <- rename(mr,replace=c(
 
 fr$Tr <- with(fr, arrtemp(Tc))
 fr$al <- with(fr, log(a * 60^2) )
-  # attack rate in Yuanheng's database in m^2 per second
+  # attack rate in m^2 per hour instead of per second as in Yuanheng's database
 fr$hl <- with(fr, log(h / 60^2) )
-  # handling times per hour, instead of per second as in Yuanheng's database
+  # handling times per hour instead of per second as in Yuanheng's database
 fr$cml <- with(fr, log(cmass) ) 
   # mass in mg
 sigma <- 0.01
@@ -86,8 +86,10 @@ ma <- lmer(al ~ offset(cml)
   # mass as offset -> attack and max feeding rates per gram of consumer
   # so attack rate in m^2 per hour per consumer gram
   # not enough observations per group to estimate intercept-slope correlations
+  # bigger body masses increase attack rates per consumer individual (Rall et al.),
+  #   decrease attack rates per consumer gram (splitting up more effective)
 
-mh <- lmer(hl ~ offset(-(rml + log(sigma))) 
+mh <- lmer(hl ~ offset(-rml) 
            + Tr + cml + rml 
            + (1 + Tr + cml + rml | group) + (1 | pub), 
            data=fr)
@@ -267,13 +269,13 @@ bp <- sapply(mlist,baseparrs)
 
 # Predictions for simulations ---------------------------------------------
 
-E0a <- as.numeric(
-  exp(predict(ma,data.frame(cmass=10^-4,rmass=10^-6,Tr=arrtemp(z0)),re.form=~0))
-  )
-E0h <- as.numeric(
-  exp(predict(mh,data.frame(cmass=10^-4,rmass=10^-6,Tr=arrtemp(z0)),re.form=~0))
-  )
-  # 100 mg consumer, 1 mg prey
-E1a <- as.numeric(fixef(ma)[names(fixef(ma))=="Tr"])
-E1h <- as.numeric(fixef(mh)[names(fixef(mh))=="Tr"])
+# E0a <- as.numeric(
+#   exp(predict(ma,data.frame(cmass=10^-4,rmass=10^-6,Tr=arrtemp(z0)),re.form=~0))
+#   )
+# E0h <- as.numeric(
+#   exp(predict(mh,data.frame(cmass=10^-4,rmass=10^-6,Tr=arrtemp(z0)),re.form=~0))
+#   )
+#   # 100 mg consumer, 1 mg prey
+# E1a <- as.numeric(fixef(ma)[names(fixef(ma))=="Tr"])
+# E1h <- as.numeric(fixef(mh)[names(fixef(mh))=="Tr"])
 

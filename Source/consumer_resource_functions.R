@@ -33,9 +33,9 @@ rate_abs <- function(bd,bn,z,M){
   if(bn=="alpha") return( plogis(lp) )
 }
 
-rate_df <- function(bd,z,M){
+rate_arr <- function(bd,z,M){
   bn <- names(bd)
-  as.data.frame(mapply(rate_abs,bd,bn,MoreArgs=list(z=z,M=M)))
+  as.data.frame(mapply(rate_abs,bd,bn,MoreArgs=list(z=z,M=M),SIMPLIFY=FALSE))
 }
   # bd = list of b param dataframes for each rate (a,h,etc.)
 
@@ -95,9 +95,9 @@ x <- function(C,mu,phi=1){
 d_chain <- function(y,b,Y,...){
   with(b, {
     dy <- y # convenient way to assign same names as y
-    fy <- alpha * f(R=y[-Y],C=y[-1],a,h,psi,...)
-    xy <- x(y[-1],mu) + c(fy[-1],0)
-    dy[1] <-  g(y[1],v,k) - fy[1] / alpha[1]
+    fy <- f(R=y[-Y],C=y[-1],a,h,psi,...)
+    xy <- x(y[-1],mu) + c(fy[-1]/alpha[-1],0)
+    dy[1] <-  g(y[1],v,k) - fy[1]/alpha[1]
     dy[-1] <- fy - xy
     list(dy=dy,fy=fy,xy=xy)
   })
@@ -206,7 +206,7 @@ d_web <- function(t,y,parms){
     zt <- zt_cyclic(t,zmu,zsig,zl)
       # t-specific parameters
       # deSolve requires that this be done separately for each t
-    bdt <- rate_df(bd,M=M,z=zt)
+    bdt <- rate_arr(bd,z=zt,M=M)
     bt <- c(bdt,bc)
     
     if(structure==FALSE){
@@ -226,7 +226,7 @@ d_web <- function(t,y,parms){
       if(nchain==1){
         
         d1 <- d_chain(y1,bt,Yc)
-        ft <- d1$fy[Yr]
+        ft <- d1$fy
         
       }
       
@@ -298,7 +298,7 @@ d_web <- function(t,y,parms){
                              m=m_E,u=u_E,
                              t=t,tau=tau_E,
                              mtype="feeding",
-                             parms=parms) - ft 
+                             parms=parms) - ft[Yr] 
             # do we actually need u to be set to 0 here?
             # food conduit subtracted because handled separately to maturation
         } 
