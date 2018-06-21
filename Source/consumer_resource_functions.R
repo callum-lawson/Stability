@@ -247,30 +247,42 @@ d_web <- function(t,y,parms){
         p <- y1[Yr] / (y1[Yr] + y2[Yr])
           # Yr = Ys - 1
         
+        if(generalist==FALSE){
+          
+          d1 <- d_chain(y1,bt1,Yc,p=pt1,Q=Q2)
+          d2 <- d_chain(y2,bt2,Yc,p=pt2,Q=Q1,omega=omega)
+            # rely on bt2 to supply different phi
+            # omega should be >0, otherwise use one-chain model
+          
+          }
+        
         if(generalist==TRUE){
           
           pt1[Yr] <- p
           pt2[Yr] <- 1 - p
           
-          Q1[Yr-1] <- y1[Yr]
-          Q2[Yr-1] <- y2[Yr]
-        
+          Q1[Yr] <- y1[Yr]
+          Q2[Yr] <- y2[Yr]
+            # Q = distraction by food from opposite chain
+          
+          y1ss <- y1
+          y2ss <- y2
+          y1ss[Ys] <- y2ss[Ys] <- y1[Ys] + y2[Ys]
+            # generalist -> whole pop eats both resources
+            # yss variables are only used for calculating derivatives
+            # (dy and xy terms used later to calculate actual densities)
+          
+          d1 <- d_chain(y1ss,bt1,Yc,p=pt1,Q=Q2)
+          d2 <- d_chain(y2ss,bt2,Yc,p=pt2,Q=Q1,omega=omega)
+
+          tl1 <- d2$fy[Yr] * (p/bt1$alpha[Yr] + (1-p)/bt2$alpha[Yr])
+          tl2 <- d1$fy[Yr] * ((1-p)/bt1$alpha[Yr] + p/bt2$alpha[Yr])
+          d1$dy[Yr] <- d1$dy[Yr] + (d1$fy[Yr]/bt1$alpha[Yr]) - tl1 
+          d2$dy[Yr] <- d2$dy[Yr] + (d2$fy[Yr]/bt2$alpha[Yr]) - tl2 
+          # correct for different assimilation efficiencies - *check this*
+          
         }
         
-        y1ss <- y1
-        y2ss <- y2
-        yss  <- y1[Ys] + y2[Ys]
-        y1ss[Ys] <- yss
-        y2ss[Ys] <- yss
-          # generalist -> whole pop eats both resources
-          # yss variables are only used for calculating derivatives
-          # (dy and xy terms used later to calculate actual densities)
-        
-        d1 <- d_chain(y1ss,bt1,Y,p=pt1,Q=Q2)
-        d2 <- d_chain(y2ss,bt2,Y,p=pt2,Q=Q1,omega=omega)
-          # Q = distraction by food from opposite chain
-          # omega should be >0, otherwise use one-chain model
-
         ft <- d1$fy[Yr] + d2$fy[Yr]
 
       }
@@ -340,8 +352,8 @@ d_web <- function(t,y,parms){
             # food transfer part dealt with below
         } 
         
-        d1$dy[Ys] <-  q     * dEy - d1$xy[Yr] + d21
-        d2$dy[Ys2] <- (1-q) * dEy - d2$xy[Yr] - d21 # account for phi here?
+        d1$dy[Ys] <-  q    * dEy - x(y1,bt1$mu[Yr],phi=1)   + d21
+        d2$dy[Ys] <- (1-q) * dEy - x(y1,bt1$mu[Yr],phi=phi) - d21
         # y2 can be eggs
         # need to distinguish feeding and mortality
         # q = fraction of resource allocated to consumer type 2
