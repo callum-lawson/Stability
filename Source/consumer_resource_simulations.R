@@ -12,7 +12,7 @@ zparms <- list(
   )
 
 sparms = list(
-  chainlength = 3,
+  chainlength = 2,
   # single number or vector of length Ya
   # eggs (storage structure) always start at 0
   nchain = 1,

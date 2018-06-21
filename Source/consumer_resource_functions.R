@@ -23,12 +23,24 @@ arrtemp <- function(z,z0=20,T0=273.15,kB=8.6173303*10^-5){
   # first part re-scales z so that 0 = 20°C = 293.15 K 
   # second part re-scales intercept so that gives rates at 20°C
 
-ratef <- function(z,M,b){
-  with(b, exp( b0 + bz * arrtemp(z) + bm * log(M) ) )
+rate_lp <- function(b,z,M){
+  with(b, b0 + bz * arrtemp(z) + bm * log(M))
 }
 
-ratefs <- function(bdd,re, ...){
-  ratef(b=bdd[re,], ...)
+rate_abs <- function(bd,bn,z,M){
+  lp <- rate_lp(bd,z,M)
+  if(bn!="alpha") return( exp(lp) )
+  if(bn=="alpha") return( plogis(lp) )
+}
+
+rate_df <- function(bd,z,M){
+  bn <- names(bd)
+  as.data.frame(mapply(rate_abs,bd,bn,MoreArgs=list(z=z,M=M)))
+}
+  # bd = list of b param dataframes for each rate (a,h,etc.)
+
+rate_dfs <- function(bdd,re, ...){
+  rate_df(b=bdd[re,], ...)
 }
 
 zbarf <- function(t,tau,zmu,zsig,zl){
@@ -194,7 +206,7 @@ d_web <- function(t,y,parms){
     zt <- zt_cyclic(t,zmu,zsig,zl)
       # t-specific parameters
       # deSolve requires that this be done separately for each t
-    bdt <- as.data.frame(lapply(bd,ratef,M=M,z=zt))
+    bdt <- rate_df(bd,M=M,z=zt)
     bt <- c(bdt,bc)
     
     if(structure==FALSE){
@@ -222,8 +234,8 @@ d_web <- function(t,y,parms){
         
         y2 <- y[Yc2seq]
         
-        bt1 <- bdt[Ybseq,]
-        bt2 <- bdt[Yb2seq,]
+        bt1 <- c(bdt[Ybseq,],bc)
+        bt2 <- c(bdt[Yb2seq,],bc)
         
         pt1 <- pt2 <- rep(1,Yb)
           # pt = fraction of feeding on resource 1 (e.g. time spent in patch 1)
