@@ -84,8 +84,8 @@ d_chain <- function(y,b,Y,...){
   with(b, {
     dy <- y # convenient way to assign same names as y
     fy <- alpha * f(R=y[-Y],C=y[-1],a,h,psi,...)
-    xy <- x(y[-1],mu) - c(fy[-1],0)
-    dy[1] <-  g(y[1],v,k) - fy[1] / alpha
+    xy <- x(y[-1],mu) + c(fy[-1],0)
+    dy[1] <-  g(y[1],v,k) - fy[1] / alpha[1]
     dy[-1] <- fy - xy
     list(dy=dy,fy=fy,xy=xy)
   })
@@ -112,10 +112,10 @@ migrate_base <- function(A,B,m,u,mtype){
     if(u==0) return( 0 )
   }
   if(mtype!="selective")
-  return( m * (A - u * B) )
+  return( m * (B - u * A) )
 }
   # same equation as dilution rate
-  # u = odds of y*2* at equilibrium
+  # u = odds of y1 at equilibrium
   # bridge rate = inflow to left-hand chain
   #   = immigration from y2 minus emigration from y1
   # when m is high, can be subsumed into C or R equations
@@ -132,7 +132,7 @@ migrate_lag <- function(A,B,t,tau,mtype,parms){
     
     if(mtype=="diffuse"){
       u <- u * (A_lag/B_lag) / (A/B)
-        # overestimate of y1 density -> higher than expected movement to y2
+        # overestimate of A density -> higher than expected movement to B
       migrate_base(A,B,m,u) # m and u defined externally
         # how to deal with lags here?
     }
@@ -198,7 +198,9 @@ d_web <- function(t,y,parms){
     bt <- c(bdt,bc)
     
     if(structure==FALSE){
-      dy <- d_chain(y,bt,Yc)$dy
+      
+      dya <- d_chain(y,bt,Yc)$dy
+      
     }
     
     if(structure==TRUE){
@@ -250,7 +252,7 @@ d_web <- function(t,y,parms){
         y2ss[Ys] <- yss
           # generalist -> whole pop eats both resources
           # yss variables are only used for calculating derivatives
-          # (dy and xy terms replaced later)
+          # (dy and xy terms used later to calculate actual densities)
         
         d1 <- d_chain(y1ss,bt1,Y,p=pt1,Q=Q2)
         d2 <- d_chain(y2ss,bt2,Y,p=pt2,Q=Q1,omega=omega)
@@ -290,13 +292,14 @@ d_web <- function(t,y,parms){
         } 
         dE <- with(bte, -dEy - x(yE,mu,phi) )
           # no selective behaviour (e.g. hiding) for one-chain models
-      }
+        
+      } # close egg store operations
       
       ### NET GROWTH - ONE-CHAIN
       
       if(nchain==1){
         d1$dy[Ys] <- d1$dy[Ys] + dEy 
-          # dEy = net transfer {E -> ys}
+        # dEy = net transfer {E -> ys}
         dy <- d1$dy
       }
       
@@ -325,8 +328,8 @@ d_web <- function(t,y,parms){
             # food transfer part dealt with below
         } 
         
-        d1$dy[Ys] <-  q     * dEy - x(y1[Ys],mu=bt1[Yr],phi=1) + d21
-        d2$dy[Ys2] <- (1-q) * dEy - x(y2[Ys],mu=bt2[Yr],phi=1) - d21
+        d1$dy[Ys] <-  q     * dEy - d1$xy[Yr] + d21
+        d2$dy[Ys2] <- (1-q) * dEy - d2$xy[Yr] - d21 # account for phi here?
         # y2 can be eggs
         # need to distinguish feeding and mortality
         # q = fraction of resource allocated to consumer type 2
@@ -388,7 +391,7 @@ iparmf <- function(bhat,sparms){
       # egg parms will be selected from focal species in *first* chain
     Yb2seq <- (Yb+1):Yb2
     
-    M <- 10 ^ 2*rep(Ybseq,nchain)
+    M <- 10 ^ (2*rep(Ybseq-1,nchain))
       # body masses 2 orders of magnitude apart, starting at 1g
       # same body masses used for same chain positions
     
@@ -407,7 +410,10 @@ iparmf <- function(bhat,sparms){
       bd <- bdselect(bhat,c(Ybseq,Yb2seq))
     }
 
-    if(store==TRUE) y0 <- c(y0,E=0) # set eggs to zero
+    if(store==TRUE){
+      y0 <- c(y0,E=0) # set eggs to zero
+      names(y0)[Ya] <- paste0("E",names(y0)[Ys])
+    } 
     
     list(structure=structure,
          Ya=Ya,Yc=Yc,Yc2=Yc2,Ys=Ys,Ys2=Ys2,
@@ -424,80 +430,6 @@ iparmf <- function(bhat,sparms){
 bdselect <- function(bhat,bpos){
   lapply(bhat,function(x) x[bpos,])
 }
-
-# Trial runs --------------------------------------------------------------
-
-### Inputs (parms)
-source("Source/Consumer_resource_functions.R")
-
-zmu <- 0 
-zsig <- 0
-zl <- 24*7
-
-zparms <- list(zmu=zmu,zsig=zsig,zl=zl)
-
-sparms = list(
-  nchain = 1,
-  chainlength = 2,
-  # single number or vector of length Ya
-  # eggs (storage structure) always start at 0
-  slevel = c("consumer","resource")[1],
-  store = TRUE,
-  storetype = c("diffuse","births")[1],
-  # if FALSE, births are allocated directly to feeders
-  movetype = c("diffuse","selective")[1],
-  # if FALSE, is mixed specialist
-  generalist = FALSE,
-  # does storage operate through births (TRUE) or diffusion (FALSE)?
-  nstart = 1
-)
-
-# later parms
-# lagtype <- c("none","random","continuous","discrete")
-
-bc <- c(
-  v = 1,     # max flow rate = k grams per m^2 per hour
-  k = 10,    # 10g per m^2
-  psi = 0,   # interference:handling time ratio
-  phi = 0,   # relative death rate of eggs
-  omega = 0, # relative feeding rate of eggs
-  u = 1,     # odds ratio of y2 at equilibrium
-  m = 1,     # rate of population structure adjustment
-  q = 0.5,   # probability of individual being in state 1 at equilibrium
-  # (only used if bridgetype = "constant")
-  u_E = 1,   # rates in migration functions
-  m_E = 1,
-  u_m = 1,
-  m_m = 1,
-  tau_E = 0, # lags in migration functions
-  tau_m = 0
-)
-# phi and omega could instead by controlled by body masses
-#   (in this case, phi can be fraction of adult body mass)
-# bhat <- readRDS("Output/rate_parameters_marginal_23May2018.rds")
-
-# if(nchain==2){
-#   omega_new <- rep(1,iparms$Yb)
-#   omega_new[iparms$Yr] <- bc$omega # Yr because 
-#   bc$omega <- omega_new
-# }
-bhat <- readRDS("Output/rate_parameters_simulated_27May2018.rds")
-
-iparms <- iparmf(bhat,sparms)
-parms <- c(bc,zparms,sparms,iparms)
-attach(parms)
-t <- 0
-y <- y0
-
-# popint <- function(y0,tseq,parms){
-#   # if(nrow(bhat[])!=length(M)) stop("wrong masses or params")
-#   # ! generalist + "resource"
-# }
-# 
-# tseq <- seq(0,24*60,length.out=100)
-# require(deSolve)
-# if(parms$tau==0) lvar <- ode(y=y0,times=tseq,func=d_web,parms=parms)
-# if(parms$tau>0) lvar <- dede(y=y0,times=tseq,func=d_web,parms=parms)
 
 # Continuous dynamics -----------------------------------------------------
 
