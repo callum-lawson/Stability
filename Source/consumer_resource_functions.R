@@ -190,11 +190,17 @@ migrate_all <- function(A,B,m,u,t,tau,mtype,parms){
     delta <- with(parms, migrate_base(A,B,m,u,mtype))
   }
   if(tau>0){
+    if(discrete==FALSE){
       if(t<tau){
-      delta <- 0
+        delta <- 0
+      }
+      if(t>=tau){
+        delta <- migrate_lag(A,B,t,tau,mtype,parms)
+      }
     }
-    if(t>=tau){
-      delta <- migrate_lag(A,B,t,tau,mtype,parms)
+    if(discrete==TRUE){
+      delta <- with(parms, migrate_base(A,B=0,m,u,mtype))
+      # eggs don't hatch, so no migration from B
     }
   }
   return(delta)
@@ -227,7 +233,7 @@ d_web <- function(t,y,parms){
       if(nchain==1){
         
         d1 <- d_chain(y1,bt,Yc)
-        ft <- d1$fy
+        ft <- d1$fy[Yr]
         
       }
       
@@ -276,57 +282,56 @@ d_web <- function(t,y,parms){
           fR2C1 <- with(bt1s,f(y2[Yr],y1[Ys],a,h,alpha,psi,omega=1,1-p,Q1[Yr]))
           fR1C2 <- with(bt2s,f(y1[Yr],y2[Ys],a,h,alpha,psi,omega,  p,  Q2[Yr]))
           
-          d1$fy[Yr] <- d1$fy[Yr] + fR2C1
-          d2$fy[Yr] <- d2$fy[Yr] + fR1C2
-          d1$dy[Ys] <- d1$dy[Ys] + fR2C1
-          d2$dy[Ys] <- d2$dy[Ys] + fR1C2
-          d1$dy[Yr] <- d1$dy[Yr] - fR1C2/bt2s$alpha
-          d2$dy[Yr] <- d2$dy[Yr] - fR2C1/bt1s$alpha
+          d1$fy[Yr] <- d1$fy[Yr] + fR1C2
+          d2$fy[Yr] <- d2$fy[Yr] + fR2C1
+          d1$dy[Ys] <- d1$dy[Ys] + fR1C2
+          d2$dy[Ys] <- d2$dy[Ys] + fR2C1
+          d1$dy[Yr] <- d1$dy[Yr] - fR1C2/bt1s$alpha
+          d2$dy[Yr] <- d2$dy[Yr] - fR2C1/bt2s$alpha
+            # params treated as prey (not pred) characteristics
             # add effects of between-chain transfers
           
         }
         
         ft <- d1$fy[Yr] + d2$fy[Yr]
 
-      }
+      } # finish food for two-chain
 
       ### DEPOSIT AND HATCH EGGS
       
       if(store==FALSE){
         dEy <- ft 
-          # eggs hatch immediately - mirrored straight back
+          # no storage -> eggs mirrored straight back
       }
       
       if(store==TRUE){
-        bte <- bdt[Yr,]
         yE <- y[Ya] # eggs = last position in chain
         if(storetype=="diffuse"){
-          dEy <- migrate_all(A=y1[Ys],B=yE,
-                             m=m_E,u=u_E,
-                             t=t,tau=tau_E,
-                             mtype="diffuse",
-                             parms=parms)
-            # only need to use this option if one-chain model with storage
+          if(nchain==1) yss <- y1[Ys]
+          if(nchain==2) yss <- y1[Ys] + y2[Ys]
         }
         if(storetype=="feeding"){
-          dEy <- migrate_all(A=0,B=yE,
-                             m=m_E,u=u_E,
-                             t=t,tau=tau_E,
-                             mtype="feeding",
-                             parms=parms) - ft[Yr] 
-            # do we actually need u to be set to 0 here?
-            # food conduit subtracted because handled separately to maturation
+          yss <- 0  
         } 
-        dE <- with(bte, -dEy - x(yE,mu,phi_E) )
+        dEy <- migrate_all(A=yss,B=yE,
+                            m=m_E,u=u_E,
+                            t=t,tau=tau_E,
+                            mtype=storetype,
+                            parms=parms)
+          # only need to use this option if one-chain model with storage
+          # do we actually need u to be set to 0 here?
+          # food conduit subtracted because handled separately to maturation
+        dE <- with(bdt[Yr,], ft - dEy - x(yE,mu,phi_E) )
+          # using mu param from y1
           # no selective behaviour (e.g. hiding) for one-chain models
-        
       } # close egg store operations
       
       ### NET GROWTH - ONE-CHAIN
       
       if(nchain==1){
-        d1$dy[Ys] <- d1$dy[Ys] + dEy 
-        # dEy = net transfer {E -> ys}
+        if(store==TRUE) d1$dy[Ys] <- d1$dy[Ys] - d1$fy[Yr] + dEy 
+          # dEy = migration of E to ys
+          # if no storage, no need for this operation
         dy <- d1$dy
       }
       
@@ -339,21 +344,19 @@ d_web <- function(t,y,parms){
         if(movetype!="feeding"){
           q <- p # food allocated according to abundance
           if(movetype=="selective"){
-            u <- d1$fy[Yr]/y1[Ys] - d2$fy[Yr]/y2[Ys]
+            u_m <- d1$fy[Yr]/y1[Ys] - d2$fy[Yr]/y2[Ys]
           } 
             # for diffuse, m supplied as input parameter
-          d21 <- migrate_all(A=y1[Ys],B=y2[Ys],m=m_m,u=u_m,
-                             t=t,tau=tau_m,mtype=movetype,
-                             parms=parms)
+          y1m <- y1[Ys]
         }  
-        
         if(movetype=="feeding"){
           q <- 0
-          d21 <- migrate_all(A=0,B=y2[Ys],m=m_m,u=u_m,
-                             t=t,tau=tau_m,mtype=movetype,
-                             parms=parms)
-            # food transfer part dealt with below
+          y1m <- 0
         } 
+        
+        d21 <- migrate_all(A=y1m,B=y2[Ys],m=m_m,u=u_m,
+                           t=t,tau=tau_m,mtype=movetype,
+                           parms=parms)
         
         d1$dy[Ys] <-  q    * dEy - x(y1[Ys],bt1$mu[Yr],phi=1)     + d21
         d2$dy[Ys] <- (1-q) * dEy - x(y2[Ys],bt2$mu[Yr],phi=phi_m) - d21
@@ -459,6 +462,49 @@ bdselect <- function(bhat,bpos){
   lapply(bhat,function(x) x[bpos,])
 }
 
+# Discrete lags -----------------------------------------------------------
+
+D_web <- function(parms){
+  
+  with(parms, {
+    
+    sstart <- seq(0,tT,length.out=sf+1)
+    sseq <- sseqgen(tseq,sstart)
+    ns <- max(sseq)
+    
+    yd <- matrix(nr=nt,nc=Ya+1,dimnames=list(NULL,c("t",names(y0))))
+    yd[,1] <- tseq
+    yd[1,-1] <- y0
+    
+    for(s in 1:ns){
+      
+      if(s==1) y0s <- y0
+      
+      if(s<ns)  savetimes <- c(sstart[s],tseq[sseq==s],sstart[s+1])
+      if(s==ns) savetimes <- c(sstart[s],tseq[sseq==s])
+      
+      yds <- ode(y=y0,times=savetimes,func=d_web,parms=parms)
+      
+      nts <- nrow(yds) # calculate beforehand?
+      if(s<ns)  droprows <- c(1,nts)
+      if(s==ns) droprows <- 1
+      saverows <- which(sseq==s)
+      yd[saverows,] <- yds[-droprows,]
+      y0s <- yds[nts,]
+      y0s[Ys] <- yds[nts,Ys] + yds[nts,Ya]
+      y0s[Ya] <- 0
+      # eggs become adults
+      # existing resource and consumers carry over
+      # ***adds eggs onto y1 only***
+    }
+    
+    return(yd)
+    
+  })
+  
+}
+
+
 # Continuous dynamics -----------------------------------------------------
 
 # return:
@@ -547,72 +593,6 @@ dRCt_delay <- function(t,y,parms,alpha){
 }
 # never used in conjunction with dRC_disc because two alternative methods
 # of introducing time delays
-
-# Discrete lags -----------------------------------------------------------
-
-dRC_disc <- function(y,m,k,a,h,w,mu,alpha,phi){
-  R <- y[1]
-  C <- y[2]
-  E <- y[3]
-  fRC <- f(R,C,a,h,w,Q=E)
-  dR <- g(R,m,k) - fRC
-  dC <- - x(C,mu)
-  dE <- alpha * fRC - x(E, phi * mu)
-  list(c(dR=dR,dC=dC,dE=dE))
-}
-  # consumer eggs die at same rate as adult consumers
-  # egg mortality can be zero, but consumer mortality can't - 
-  #   otherwise doesn't reduce to continuous model at very short time interval
-
-dRCt_disc <- function(t,y,parms){
-  zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )
-  parmst <- with(parms, as.list( arrrate(zt,M,e0,e1,e2) ) )
-  with(parmst, dRC_disc(y,m,k,a,h,w,mu,alpha,phi) )
-}
-
-dRCt_disc_cons <- function(t,y,parms){
-  with(parms, dRC_disc(y,m,k,a,h,w,mu,alpha,phi))
-}
-
-DRCt_disc <- function(y0,tseq,sf,parms){
-  # write this to accept tau parameter as input instead?
-
-  tmax <- max(tseq)
-  sstart <- seq(0,tmax,length.out=sf+1)
-  sseq <- sseqgen(tseq,sstart)
-  
-  nt <- length(tseq)
-  ns <- max(sseq)
-  
-  yd <- cbind(t=tseq,R=rep(NA,nt),C=rep(NA,nt))
-  yd[1,"R"] <- y0[1]
-  yd[1,"C"] <- y0[2]
-  
-  for(s in 1:ns){
-    
-    if(s<ns)  savetimes <- c(sstart[s],tseq[sseq==s],sstart[s+1])
-    if(s==ns) savetimes <- c(sstart[s],tseq[sseq==s])
-    
-    y1 <- ode(y=c(y0,E=0),
-              times=savetimes,
-              func=dRCt_disc,
-              parms=parms
-              # atol=10^-16
-              )
-    
-    nts <- nrow(y1)
-    if(s<ns)  droprows <- c(1,nts)
-    if(s==ns) droprows <- 1
-    saverows <- which(sseq==s)
-    yd[saverows,"R"] <- y1[-droprows,"R"]
-    yd[saverows,"C"] <- y1[-droprows,"C"] 
-    y0[1] <- y1[nts,"R"]
-    y0[2] <- y1[nts,"C"] + y1[nts,"E"] 
-      # eggs become adults
-      # existing resource and consumers carry over
-  }
-  return(yd)
-}
 
 # Timescale separation ----------------------------------------------------
 
