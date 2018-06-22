@@ -20,11 +20,11 @@ sparms = list(
   slevel = c("consumer","resource")[1],
   storetype = c("diffuse","feeding")[1],
   # if FALSE, births are allocated directly to feeders
-  movetype = c("diffuse","selective")[1],
+  movetype = c("diffuse","selective")[2],
   # if FALSE, is mixed specialist
   generalist = TRUE,
   # does storage operate through births (TRUE) or diffusion (FALSE)?
-  nstart = 1
+  nstart = c(1,1,2, 1,1,1)
 )
 
 # later parms
@@ -34,10 +34,10 @@ bc <- c(
   v = 0.1,     # max flow rate = k grams per m^2 per hour
   k = 10,    # 10g per m^2
   psi = 0,   # interference:handling time ratio
-  phi = 0,   # relative death rate of eggs
+  phi = 1,   # relative death rate of eggs / y2
   omega = 1, # relative feeding rate of eggs
   u_E = 1,   # rates in migration functions
-  m_E = 0.01,   # u = odds ratio of y1:y2 at equilibrium
+  m_E = 1,   # u = odds ratio of y1:y2 at equilibrium
   u_m = 1,
   m_m = 1,
   tau_E = 0, # lags in migration functions
@@ -52,7 +52,7 @@ bc <- c(
 #   bc$omega <- omega_new
 # }
 bhat <- readRDS("Output/rate_parameters_simulated_21Jun2018.rds")
-bhat <- bdselect(bhat,bpos=rep(1:2,2))
+# bhat <- bdselect(bhat,bpos=rep(1:2,2))
 
 tparms <- list(
   t0 = 0,

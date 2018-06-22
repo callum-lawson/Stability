@@ -61,8 +61,8 @@ g <- function(R,v,k){
   # additional parameter = starting total biomass (R0 + C0 ...)
   # model closed resource growth later: 1/alpha * x(C,mu)
 
-f <- function(R,C,a,h,psi=0,omega=1,p=1,Q=0){
-  C * omega * a * R / (1 + a*h*(p*R + (1-p)*Q + psi*C))
+f <- function(R,C,a,h,alpha,psi=0,omega=1,p=1,Q=0){
+  C * alpha * omega * p * a * R / (1 + a*h*(p*R + (1-p)*Q + psi*C/p))
 }
   # - effective handling time can be increased by:
   #   1. already-parasitised prey (discrete-time models):
@@ -71,6 +71,7 @@ f <- function(R,C,a,h,psi=0,omega=1,p=1,Q=0){
   # assumes different resource species have
   #   same handling times, nutritional values, assimilation rates
   #   Koen-Alonso 1.12, 1.21 (Royama)
+  # C = C1 OR C2 (not both)
 
   # gamma for feeding juveniles (de Roos)
 
@@ -95,7 +96,7 @@ x <- function(C,mu,phi=1){
 d_chain <- function(y,b,Y,...){
   with(b, {
     dy <- y # convenient way to assign same names as y
-    fy <- f(R=y[-Y],C=y[-1],a,h,psi,...)
+    fy <- f(R=y[-Y],C=y[-1],a,h,alpha,...)
     xy <- x(y[-1],mu) + c(fy[-1]/alpha[-1],0)
     dy[1] <-  g(y[1],v,k) - fy[1]/alpha[1]
     dy[-1] <- fy - xy
@@ -154,12 +155,12 @@ migrate_lag <- function(A,B,t,tau,mtype,parms){
       btA_lag <- c(lapply(bd,ratefs,M=M[Yr],z=zt_lag,re=Yr),bc)
       # is Yr the right body mass here?
       rA_lag <- lagvalue(t - tau, Yr)
-      fA_lag <- with(btA_lag, f(rA_lag,A_lag,a,h,psi))
+      fA_lag <- with(btA_lag, f(rA_lag,A_lag,a,h,psi,alpha))
       
       if(nchain==2){
         btB_lag <- c(lapply(bd,ratefs,M=M[YbB],z=zt_lag,re=YbB),bc)
         rB_lag <- lagvalue(t - tau, YrB)
-        fB_lag <- with(btB_lag, f(rB_lag,B_lag,a,h,psi))
+        fB_lag <- with(btB_lag, f(rB_lag,B_lag,a,h,psi,alpha))
       }
 
       ### *need to add in p etc. to account for generalism* ###
@@ -242,9 +243,8 @@ d_web <- function(t,y,parms){
           # "eat your own" works for juvenile feeding too
         Q1  <- Q2  <- rep(0,Yb)
           # Qx = resource density in chain x
-          # *Double-check whether this correctly accounts for R *and* C changes*
-        
-        p <- y1[Yr] / (y1[Yr] + y2[Yr])
+
+        p <- y1[Ys] / (y1[Ys] + y2[Ys])
           # Yr = Ys - 1
         
         if(generalist==FALSE){
@@ -260,26 +260,29 @@ d_web <- function(t,y,parms){
           
           pt1[Yr] <- p
           pt2[Yr] <- 1 - p
-          
+            # p = fraction of feeding on chain 1
+            
           Q1[Yr] <- y1[Yr]
           Q2[Yr] <- y2[Yr]
             # Q = distraction by food from opposite chain
           
-          y1ss <- y1
-          y2ss <- y2
-          y1ss[Ys] <- y2ss[Ys] <- y1[Ys] + y2[Ys]
-            # generalist -> whole pop eats both resources
-            # yss variables are only used for calculating derivatives
-            # (dy and xy terms used later to calculate actual densities)
+          d1 <- d_chain(y1,bt1,Yc,p=pt1,Q=Q2,omega=1)
+          d2 <- d_chain(y2,bt2,Yc,p=pt2,Q=Q1,omega=omega)
+            # accounts only for within-chain transfers
           
-          d1 <- d_chain(y1ss,bt1,Yc,p=pt1,Q=Q2)
-          d2 <- d_chain(y2ss,bt2,Yc,p=pt2,Q=Q1,omega=omega)
-
-          tl1 <- d2$fy[Yr] * (p/bt1$alpha[Yr] + (1-p)/bt2$alpha[Yr])
-          tl2 <- d1$fy[Yr] * ((1-p)/bt1$alpha[Yr] + p/bt2$alpha[Yr])
-          d1$dy[Yr] <- d1$dy[Yr] + (d1$fy[Yr]/bt1$alpha[Yr]) - tl1 
-          d2$dy[Yr] <- d2$dy[Yr] + (d2$fy[Yr]/bt2$alpha[Yr]) - tl2 
-          # correct for different assimilation efficiencies - *check this*
+          bt1s <- c(bdt[Yr,], bc)
+          bt2s <- c(bdt[Yb+Yr,],bc)
+          
+          fR2C1 <- with(bt1s,f(y2[Yr],y1[Ys],a,h,alpha,psi,omega=1,1-p,Q1[Yr]))
+          fR1C2 <- with(bt2s,f(y1[Yr],y2[Ys],a,h,alpha,psi,omega,  p,  Q2[Yr]))
+          
+          d1$fy[Yr] <- d1$fy[Yr] + fR2C1
+          d2$fy[Yr] <- d2$fy[Yr] + fR1C2
+          d1$dy[Ys] <- d1$dy[Ys] + fR2C1
+          d2$dy[Ys] <- d2$dy[Ys] + fR1C2
+          d1$dy[Yr] <- d1$dy[Yr] - fR1C2/bt2s$alpha
+          d2$dy[Yr] <- d2$dy[Yr] - fR2C1/bt1s$alpha
+            # add effects of between-chain transfers
           
         }
         
@@ -336,7 +339,7 @@ d_web <- function(t,y,parms){
         if(movetype!="feeding"){
           q <- p # food allocated according to abundance
           if(movetype=="selective"){
-            u <- d1$fy[Yr]/y1[Ys] - d1$fy[Yr]/y2[Ys]
+            u <- d1$fy[Yr]/y1[Ys] - d2$fy[Yr]/y2[Ys]
           } 
             # for diffuse, m supplied as input parameter
           d21 <- migrate_all(A=y1[Ys],B=y2[Ys],m=m_m,u=u_m,
@@ -353,7 +356,7 @@ d_web <- function(t,y,parms){
         } 
         
         d1$dy[Ys] <-  q    * dEy - x(y1,bt1$mu[Yr],phi=1)   + d21
-        d2$dy[Ys] <- (1-q) * dEy - x(y1,bt1$mu[Yr],phi=phi) - d21
+        d2$dy[Ys] <- (1-q) * dEy - x(y2,bt2$mu[Yr],phi=phi) - d21
         # y2 can be eggs
         # need to distinguish feeding and mortality
         # q = fraction of resource allocated to consumer type 2
@@ -376,11 +379,11 @@ d_web <- function(t,y,parms){
 }
 
 # Index variables:
-#               | - Ya            
-# Yc           | |- Yc2        
-# |- Yb   Ys   | |- Ys2 / Yb2  
-# |       Yr   | |- Yr2        
-# |       |    | |            
+#              | - Ya            
+# Yc          | |- Yc2        
+# |- Yb   Ys -| |- Ys2 / Yb2  
+# |       Yr -| |- Yr2        
+# |       Yl -| |            
 
 iparmf <- function(bhat,sparms){
   
@@ -404,6 +407,7 @@ iparmf <- function(bhat,sparms){
     Ys2 <- Yc + Ys
     Yr <-  Ys  - 1 # resource level for focal (structured) species
     Yr2 <- Ys2 - 1
+    Yl <-  Yr - 1
     Yb <-  Yc  - 1
     Yb2 <- Yc2 - nchain 
       # basal resources don't have params
@@ -441,7 +445,7 @@ iparmf <- function(bhat,sparms){
     
     list(structure=structure,
          Ya=Ya,Yc=Yc,Yc2=Yc2,Ys=Ys,Ys2=Ys2,
-         Yr=Yr,Yr2=Yr2,Yb=Yb,Yb2=Yb2,
+         Yr=Yr,Yr2=Yr2,Yl=Yl,Yb=Yb,Yb2=Yb2,
          Ycseq=Ycseq,Yc2seq=Yc2seq,
          Ybseq=Ybseq,Yb2seq=Yb2seq,
          bd=bd,M=M,y0=y0
