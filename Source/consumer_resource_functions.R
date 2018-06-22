@@ -317,7 +317,7 @@ d_web <- function(t,y,parms){
             # do we actually need u to be set to 0 here?
             # food conduit subtracted because handled separately to maturation
         } 
-        dE <- with(bte, -dEy - x(yE,mu,phi) )
+        dE <- with(bte, -dEy - x(yE,mu,phi_E) )
           # no selective behaviour (e.g. hiding) for one-chain models
         
       } # close egg store operations
@@ -348,15 +348,15 @@ d_web <- function(t,y,parms){
         }  
         
         if(movetype=="feeding"){
-          q <- 0 # or food?
+          q <- 0
           d21 <- migrate_all(A=0,B=y2[Ys],m=m_m,u=u_m,
                              t=t,tau=tau_m,mtype=movetype,
                              parms=parms)
             # food transfer part dealt with below
         } 
         
-        d1$dy[Ys] <-  q    * dEy - x(y1,bt1$mu[Yr],phi=1)   + d21
-        d2$dy[Ys] <- (1-q) * dEy - x(y2,bt2$mu[Yr],phi=phi) - d21
+        d1$dy[Ys] <-  q    * dEy - x(y1[Ys],bt1$mu[Yr],phi=1)     + d21
+        d2$dy[Ys] <- (1-q) * dEy - x(y2[Ys],bt2$mu[Yr],phi=phi_m) - d21
         # y2 can be eggs
         # need to distinguish feeding and mortality
         # q = fraction of resource allocated to consumer type 2

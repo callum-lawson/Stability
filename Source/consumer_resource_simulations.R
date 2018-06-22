@@ -7,7 +7,7 @@ source("Source/Consumer_resource_functions.R")
 
 zparms <- list(
   zmu = 0, 
-  zsig = 0,
+  zsig = 5,
   zl = 24*7
   )
 
@@ -20,7 +20,7 @@ sparms = list(
   slevel = c("consumer","resource")[1],
   storetype = c("diffuse","feeding")[1],
   # if FALSE, births are allocated directly to feeders
-  movetype = c("diffuse","selective")[2],
+  movetype = c("diffuse","selective","feeding")[3],
   # if FALSE, is mixed specialist
   generalist = TRUE,
   # does storage operate through births (TRUE) or diffusion (FALSE)?
@@ -34,8 +34,9 @@ bc <- c(
   v = 0.1,     # max flow rate = k grams per m^2 per hour
   k = 10,    # 10g per m^2
   psi = 0,   # interference:handling time ratio
-  phi = 1,   # relative death rate of eggs / y2
-  omega = 1, # relative feeding rate of eggs
+  omega = 1, # relative feeding rate of y2
+  phi_E = 0,
+  phi_m = 1,   # relative death rate of eggs / y2
   u_E = 1,   # rates in migration functions
   m_E = 1,   # u = odds ratio of y1:y2 at equilibrium
   u_m = 1,
