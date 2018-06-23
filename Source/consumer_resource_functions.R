@@ -9,9 +9,11 @@ sseqgen <- function(x,y){
 
 # Temperature -------------------------------------------------------------
 
-zt_cyclic <- function(t,zmu,zsig,zl){
-  if(zsig==0) return( rep(zmu, length(t)) )
-  if(zsig>0)  return( zmu + zsig * sin(2*pi * t/zl) )
+zt_cyclic <- function(t,zparms){
+  with(zparms, {
+    if(zsig==0) return( rep(zmu, length(t)) )
+    if(zsig>0)  return( zmu + zsig * sin(2*pi * t/zl) )
+  })
 }
 
 # Basic parameters --------------------------------------------------------
@@ -206,14 +208,19 @@ migrate_all <- function(A,B,m,u,t,tau,mtype,parms){
   return(delta)
 }
 
+btgen <- function(t,bd,M,zparms,ztype="whatever"){
+  zt <- zt_cyclic(t,zparms)
+  # t-specific parameters
+  # deSolve requires that this be done separately for each t
+  bdt <- rate_arr(bd,z=zt,M=M)
+  return(bdt)
+}
+
 d_web <- function(t,y,parms){
   
   with(parms, {
-    
-    zt <- zt_cyclic(t,zmu,zsig,zl)
-      # t-specific parameters
-      # deSolve requires that this be done separately for each t
-    bdt <- rate_arr(bd,z=zt,M=M)
+
+    bdt <- btgen(t,bd,M,parms)
     bt <- c(bdt,bc)
     
     if(structure==FALSE){
@@ -476,19 +483,17 @@ D_web <- function(parms){
     sseq <- sseqgen(tseq,sstart)
     ns <- max(sseq)
     
-    yd <- matrix(nr=nt,nc=Ya+1,dimnames=list(NULL,c("t",names(y0))))
-    yd[,1] <- tseq
-    yd[1,-1] <- y0
+    yd <- matrix(nr=nt,nc=Ya,dimnames=list(NULL,names(y0)))
+    yd[1,] <- y0s <- y0
     
     for(s in 1:ns){
-      
-      if(s==1) y0s <- y0
       
       if(s<ns)  savetimes <- c(sstart[s],tseq[sseq==s],sstart[s+1])
       if(s==ns) savetimes <- c(sstart[s],tseq[sseq==s])
       
-      yds <- ode(y=y0,times=savetimes,func=d_web,parms=parms)
-      
+      yds <- ode(y=y0s,times=savetimes,func=d_web,parms=parms)[,-1]
+        # -1 removes t variable
+
       nts <- nrow(yds) # calculate beforehand?
       if(s<ns)  droprows <- c(1,nts)
       if(s==ns) droprows <- 1
@@ -502,7 +507,7 @@ D_web <- function(parms){
       # ***adds eggs onto y1 only***
     }
     
-    return(yd)
+    return(cbind(t=tseq,yd))
     
   })
   
@@ -512,7 +517,6 @@ D_web <- function(parms){
 
 popint <- function(parms){
   require(deSolve)
-  tseq <- with(parms, seq(t0,tT,length.out=nt))
   if(discrete==FALSE) with(parms, ode(y=y0,times=tseq,func=d_web,parms=parms)) 
   if(discrete==TRUE)  D_web(parms)
 }

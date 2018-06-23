@@ -21,7 +21,7 @@ sparms = list(
   discrete = TRUE, # taus become season lengths
   tT = 24*7*12,
   nt = 100,
-  sS = 1, # number of seasons over time series
+  sS = 10, # number of seasons over time series
   nstart = 1 # c(1,1,2, 1,1,1),
 )
 
