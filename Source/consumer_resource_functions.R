@@ -446,12 +446,16 @@ iparmf <- function(bhat,sparms){
       names(y0)[Ya] <- paste0("E",names(y0)[Ys])
     } 
     
+    t0 <- 0 # set automatically
+    tseq <- seq(t0,tT,length.out=nt)
+    
     list(structure=structure,
          Ya=Ya,Yc=Yc,Yc2=Yc2,Ys=Ys,Ys2=Ys2,
          Yr=Yr,Yr2=Yr2,Yl=Yl,Yb=Yb,Yb2=Yb2,
          Ycseq=Ycseq,Yc2seq=Yc2seq,
          Ybseq=Ybseq,Yb2seq=Yb2seq,
-         bd=bd,M=M,y0=y0
+         bd=bd,M=M,y0=y0,
+         t0=t0,tseq=tseq
          )
   
   })
@@ -468,7 +472,7 @@ D_web <- function(parms){
   
   with(parms, {
     
-    sstart <- seq(0,tT,length.out=sf+1)
+    sstart <- seq(t0,tT,length.out=sS+1)
     sseq <- sseqgen(tseq,sstart)
     ns <- max(sseq)
     
@@ -504,6 +508,51 @@ D_web <- function(parms){
   
 }
 
+# General derivative function ---------------------------------------------
+
+popint <- function(parms){
+  require(deSolve)
+  tseq <- with(parms, seq(t0,tT,length.out=nt))
+  if(discrete==FALSE) with(parms, ode(y=y0,times=tseq,func=d_web,parms=parms)) 
+  if(discrete==TRUE)  D_web(parms)
+}
+
+# Timescale separation ----------------------------------------------------
+
+# vector of top C densities
+# resulting vector of equilibrium R densities
+# C growth for each of those
+
+# Additions:
+# - discrete: run for a single season using C~Rstar relationships
+# - structure: may need to write total C in terms of pC + (1-p)C
+
+Cmin <- 0.01
+Cmax <- 100
+nC <- 100
+Cseq <- seq(Cmin,Cmax,length.out=nC)
+
+# Rstar <- with(parms, steady(y=parms$k, # using resource k as starting value
+#                 parms=parms,
+#                 fun=d_web,
+#                 times=c(0,Inf),
+#                 method="runsteady"
+# )$y
+
+Rstarcalc <- Vectorize(
+  function(C,z,eparms){
+    require(rootSolve)
+    parms <- with(eparms, as.list(c( C=C, arrrate(z,M,e0,e1,e2) )) )
+    # C is fixed, so enters as parameter instead of state variable
+    steady(y=parms$k, # using resource k as starting value
+           parms=parms,
+           fun=dRt_cons, 
+           times=c(0,Inf),
+           method="runsteady"
+    )$y
+  }, 
+  vectorize.args=c("C","z")
+)
 
 # Continuous dynamics -----------------------------------------------------
 
@@ -524,13 +573,10 @@ D_web <- function(parms){
 # - discrete time series (three-species model)
 
 ### TODO
-# - discrete-time integration (u=0, so that zero backflow)
 # - general timescale separation, 
 #   i.e. function to calculate each set of equilibria (P, R, C)
 # - analytically-simplified f functions? (timescale separation for states)
 # - include checks and warnings
-# - test migrate with real params to see if need ratio of dy/(dy-c)
-# - different prey need different temp responses
 
 dRCt_cont <- function(t,y,parms){
   zt <- with(parms, zt_cyclic(t,zmu,zsig,zl) )

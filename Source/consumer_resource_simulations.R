@@ -5,12 +5,6 @@
 ### Inputs (parms)
 source("Source/Consumer_resource_functions.R")
 
-zparms <- list(
-  zmu = 0, 
-  zsig = 0,
-  zl = 24
-  )
-
 sparms = list(
   chainlength = 3,
   # single number or vector of length Ya
@@ -25,11 +19,17 @@ sparms = list(
   generalist = FALSE,
   # does storage operate through births (TRUE) or diffusion (FALSE)?
   discrete = TRUE, # taus become season lengths
-  nstart = 1 # c(1,1,2, 1,1,1)
+  tT = 24*7*12,
+  nt = 100,
+  sS = 1, # number of seasons over time series
+  nstart = 1 # c(1,1,2, 1,1,1),
 )
 
-# later parms
-# lagtype <- c("none","random","continuous","discrete")
+zparms <- list(
+  zmu = 0, 
+  zsig = 0,
+  zl = 24
+)
 
 bc <- c(
   v = 0.1,   # max flow rate = k grams per m^2 per hour
@@ -45,38 +45,20 @@ bc <- c(
   tau_E = 1, # lags in migration functions
   tau_m = 0
 )
-# phi and omega could instead by controlled by body masses
-#   (in this case, phi can be fraction of adult body mass)
+  # phi and omega could instead by controlled by body masses
+  #   (in this case, phi can be fraction of adult body mass)
 
-# if(nchain==2){
-#   omega_new <- rep(1,iparms$Yb)
-#   omega_new[iparms$Yr] <- bc$omega # Yr because 
-#   bc$omega <- omega_new
-# }
 bhat <- readRDS("Output/rate_parameters_simulated_21Jun2018.rds")
 bhat <- bdselect(bhat,bpos=rep(1:2,2))
 
-tparms <- list(
-  t0 = 0,
-  tT = 24*7*12,
-  nt = 100,
-  sf = 10 # number of seasons over time series
-)
-
 iparms <- iparmf(bhat,sparms)
-parms <- c(bc,zparms,sparms,iparms,tparms)
+parms <- c(sparms,iparms,zparms,bc)
 attach(parms)
 t <- 0
 y <- y0
+hi <- popint(parms)
 
-tseq <- with(tparms, seq(t0,tT,length.out=nt))
-require(deSolve)
-popint <- function(parms){
-  if(discrete==FALSE) with(parms, ode(y=y0,times=tseq,func=d_web,parms=parms)) 
-  if(discrete==TRUE)  D_web(parms)
-}
-
-# matplot(log(hi[,-1]),type="l")
+matplot(log(hi[,-1]),type="l")
 
 # popint <- function(y0,tseq,parms){
 #   # if(nrow(bhat[])!=length(M)) stop("wrong masses or params")
