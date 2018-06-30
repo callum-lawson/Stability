@@ -10,7 +10,7 @@ sparms = list(
   # single number or vector of length Ya
   # eggs (storage structure) always start at 0
   nchain = 1,
-  store = TRUE,
+  store = FALSE,
   slevel = c("consumer","resource")[1],
   storetype = c("diffuse","feeding")[2],
   # if FALSE, births are allocated directly to feeders
@@ -18,10 +18,11 @@ sparms = list(
   # if FALSE, is mixed specialist
   generalist = FALSE,
   # does storage operate through births (TRUE) or diffusion (FALSE)?
-  discrete = TRUE, # taus become season lengths
-  tT = 24*7*12,
+  discrete = FALSE, # taus become season lengths
+  tT = 24*7*24,
   nt = 100,
-  sS = 10, # number of seasons over time series
+  sS = 1, # number of seasons over time series
+  bdt=NULL,   #  bdt can be supplied here
   nstart = 1 # c(1,1,2, 1,1,1),
 )
 
@@ -42,23 +43,43 @@ bc <- c(
   m_E = 1,   # u = odds ratio of y1:y2 at equilibrium
   u_m = 1,
   m_m = 0.01,
-  tau_E = 1, # lags in migration functions
+  tau_E = 0, # lags in migration functions
   tau_m = 0
 )
   # phi and omega could instead by controlled by body masses
   #   (in this case, phi can be fraction of adult body mass)
 
 bhat <- readRDS("Output/rate_parameters_simulated_21Jun2018.rds")
-bhat <- bdselect(bhat,bpos=rep(1:2,2))
+# bhat <- bdselect(bhat,bpos=rep(1:2,2))
 
 iparms <- iparmf(bhat,sparms)
 parms <- c(sparms,iparms,zparms,bc)
 attach(parms)
 t <- 0
 y <- y0
-hi <- popint(parms)
+# hi <- popint(parms)
 
-matplot(log(hi[,-1]),type="l")
+# matplot(parms$tseq,log(hi[,-1]),type="l")
+
+Cmin <- 0
+Cmax <- 3
+nC <- 100
+Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
+
+wow1 <- growthvec(Cseq,parms) / Cseq # *per-capita* growth 
+parms2 <- parms
+parms2$zmu <- 5
+wow2 <- growthvec(Cseq,parms2) / Cseq 
+
+parms3 <- parms
+parms3$zsig <- 10
+parms3$bdt <- twof(mydata=bd,dataname=names(bd),parms=parms3)
+wow3 <- growthvec(Cseq,parms3) / Cseq 
+
+plot(wow2~log10(Cseq),type="l")
+lines(wow~log10(Cseq),col="blue")
+lines(wow3~log10(Cseq),col="green")
+abline(h=0,col="red")
 
 # popint <- function(y0,tseq,parms){
 #   # if(nrow(bhat[])!=length(M)) stop("wrong masses or params")

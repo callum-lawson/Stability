@@ -52,6 +52,50 @@ zbarf <- function(t,tau,zmu,zsig,zl){
   # tau multiplier because want summed mortality [=exp(-mu*tau)]
   # https://www.youtube.com/watch?v=YF7Ii5dMYIo
 
+# Non-linear averaging ----------------------------------------------------
+
+rate_weight <- function(z,bi,bni,Mi,parms){
+  with(parms, dnorm(z,zmu,zsig) * rate_abs(bi,bni,z,Mi) )
+} 
+
+rate_int <- function(bi,bni,Mi,parms){
+  with(parms, {
+    if(zsig==0){
+      return( rate_abs(bi,bni,z=zmu,Mi) )
+    }
+    if(zsig>0){
+      return(
+        integrate(rate_weight,lower=-Inf,upper=Inf,
+                  bi=bi,bni=bni,Mi=Mi,parms=parms)$value
+        # if errors, try finite bounds
+      )
+    }
+  })
+}
+
+onef <- function(mydata,dataname,parms){
+  mapply(rate_int,
+         bi=split(mydata,1:nrow(mydata)),
+         Mi=parms$M,
+         MoreArgs=list(bni=dataname,parms=parms)
+  )
+}
+
+twof <- function(mydata,dataname,parms){
+  as.data.frame(
+    mapply(onef,mydata=mydata,dataname=dataname,MoreArgs=list(parms=parms))
+  )
+}
+  # integral over multiple pars
+
+# Population parameters ---------------------------------------------------
+
+btf <- function(t,bd,M,parms,ztype="whatever"){
+  zt <- zt_cyclic(t,parms)
+  bdt <- rate_arr(bd,z=zt,M)
+  return(bdt)
+}
+
 # Flux rates --------------------------------------------------------------
 
 g <- function(R,v,k){
@@ -208,19 +252,13 @@ migrate_all <- function(A,B,m,u,t,tau,mtype,parms){
   return(delta)
 }
 
-btgen <- function(t,bd,M,zparms,ztype="whatever"){
-  zt <- zt_cyclic(t,zparms)
-  # t-specific parameters
-  # deSolve requires that this be done separately for each t
-  bdt <- rate_arr(bd,z=zt,M=M)
-  return(bdt)
-}
-
-d_web <- function(t,y,parms){
+d_web <- function(t,y,parms,hold=FALSE){
   
   with(parms, {
 
-    bdt <- btgen(t,bd,M,parms)
+    if(is.null(bdt)){
+      bdt <- btf(t,bd,M,parms) 
+    }
     bt <- c(bdt,bc)
     
     if(structure==FALSE){
@@ -336,7 +374,7 @@ d_web <- function(t,y,parms){
       ### NET GROWTH - ONE-CHAIN
       
       if(nchain==1){
-        if(store==TRUE) d1$dy[Ys] <- d1$dy[Ys] - d1$fy[Yr] + dEy 
+        if(store==TRUE) d1$dy[Ys] <- d1$dy[Ys] - d1$fy[Yr]
           # dEy = migration of E to ys
           # if no storage, no need for this operation
         dy <- d1$dy
@@ -377,11 +415,14 @@ d_web <- function(t,y,parms){
         dy <- c(d1$dy,d2$dy)
       }
       
-      if(store==FALSE) dya <- dy
+      if(store==FALSE)  dya <- dy
       if(store==TRUE)  dya <- c(dy,dE)
       
     } # end structured models
   
+    if(hold==TRUE)  dya[c(Yc,Yc2)] <- 0
+      # adapt for eggs
+    
     return( list(dya) )
 
   })
@@ -517,8 +558,10 @@ D_web <- function(parms){
 
 popint <- function(parms){
   require(deSolve)
-  if(discrete==FALSE) with(parms, ode(y=y0,times=tseq,func=d_web,parms=parms)) 
-  if(discrete==TRUE)  D_web(parms)
+  with(parms, {
+    if(discrete==FALSE) ode(y=y0,times=tseq,func=d_web,parms=parms)
+    if(discrete==TRUE)  D_web(parms)
+  })
 }
 
 # Timescale separation ----------------------------------------------------
@@ -527,21 +570,30 @@ popint <- function(parms){
 # resulting vector of equilibrium R densities
 # C growth for each of those
 
+growth <- function(C,parms){
+  require(rootSolve)
+  parms$y0[Yc] <- C
+  with(parms, {
+    Rstar <- steady(y=y0,
+                    parms=parms,
+                    fun=d_web,
+                    times=c(0,Inf),
+                    method="runsteady",
+                    hold=TRUE
+    )$y
+    unlist(d_web(t=0, y=Rstar, parms))[Yc]
+  })
+}
+
+growthvec <- Vectorize(growth,vectorize.args=c("C"))
+
 # Additions:
 # - discrete: run for a single season using C~Rstar relationships
+#   (or should we just run without timescale sparation? How does timescale
+#   separation help here?)
 # - structure: may need to write total C in terms of pC + (1-p)C
 
-Cmin <- 0.01
-Cmax <- 100
-nC <- 100
-Cseq <- seq(Cmin,Cmax,length.out=nC)
-
-# Rstar <- with(parms, steady(y=parms$k, # using resource k as starting value
-#                 parms=parms,
-#                 fun=d_web,
-#                 times=c(0,Inf),
-#                 method="runsteady"
-# )$y
+###################### OLD ###################################
 
 Rstarcalc <- Vectorize(
   function(C,z,eparms){
@@ -644,7 +696,7 @@ dRCt_delay <- function(t,y,parms,alpha){
 # never used in conjunction with dRC_disc because two alternative methods
 # of introducing time delays
 
-# Timescale separation ----------------------------------------------------
+### Timescale separation (old)
 
 ### Continuous
 
@@ -861,7 +913,7 @@ dRCt4 <- function(t,y,parms){
 }
 
 
-# Non-linear averaging ----------------------------------------------------
+### Non-linear averaging
 
 arrrate_z <- function(zt,M,zmu,zsig,e0,e1,e2){
   dnorm(zt,zmu,zsig) * arrrate(zt,M,e0,e1,e2)
