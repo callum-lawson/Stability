@@ -87,6 +87,10 @@ lines(wow3~log10(Cseq),col="green")
 lines(wow4~log10(Cseq),col="blue")
 abline(h=0,col="black",lty=2)
 
+Cstar <- sapply(list(parms,parms2,parms3,parms4),Cstarf)
+points(log10(Cstar),rep(0,length(Cstar)))
+  # next up: function for Cstar calculation over vector of different z
+
 # popint <- function(y0,tseq,parms){
 #   # if(nrow(bhat[])!=length(M)) stop("wrong masses or params")
 #   # ! generalist + "resource"

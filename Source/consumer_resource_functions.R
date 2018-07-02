@@ -594,6 +594,21 @@ rCf <- function(C,parms){
 
 rCfv <- Vectorize(rCf,vectorize.args=c("C"))
 
+# Carrying capacities -----------------------------------------------------
+
+Cstarf <- function(parms){
+  require(rootSolve)
+  with(parms, {
+    steady(y=y0,
+           parms=parms,
+           fun=d_web,
+           times=c(0,Inf),
+           method="runsteady",
+           hold=FALSE
+           )$y[Yc]
+  })
+}
+
 # Additions:
 # - discrete: run for a single season using C~Rstar relationships
 #   (or should we just run without timescale sparation? How does timescale
