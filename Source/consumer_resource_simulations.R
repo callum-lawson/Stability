@@ -61,25 +61,31 @@ y <- y0
 
 # matplot(parms$tseq,log(hi[,-1]),type="l")
 
-Cmin <- 0
-Cmax <- 3
+Cmin <- 1.4
+Cmax <- 1.7
 nC <- 100
 Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
 
-wow1 <- growthvec(Cseq,parms) / Cseq # *per-capita* growth 
+wow1 <- rCfv(Cseq,parms) / Cseq # *per-capita* growth 
+
 parms2 <- parms
 parms2$zmu <- 5
-wow2 <- growthvec(Cseq,parms2) / Cseq 
+wow2 <- rCfv(Cseq,parms2) / Cseq 
 
 parms3 <- parms
-parms3$zsig <- 10
-parms3$bdt <- twof(mydata=bd,dataname=names(bd),parms=parms3)
-wow3 <- growthvec(Cseq,parms3) / Cseq 
+parms3$zsig <- 5
+parms3$bdt <- rate_int_l(bd=bd,bn=names(bd),parms=parms3)
+wow3 <- rCfv(Cseq,parms3) / Cseq 
 
-plot(wow2~log10(Cseq),type="l")
-lines(wow~log10(Cseq),col="blue")
+parms4 <- parms
+parms4$zmu <- -5
+wow4 <- rCfv(Cseq,parms4) / Cseq 
+
+plot(wow1~log10(Cseq),type="l",col="orange")
+lines(wow2~log10(Cseq),col="red")
 lines(wow3~log10(Cseq),col="green")
-abline(h=0,col="red")
+lines(wow4~log10(Cseq),col="blue")
+abline(h=0,col="black",lty=2)
 
 # popint <- function(y0,tseq,parms){
 #   # if(nrow(bhat[])!=length(M)) stop("wrong masses or params")
