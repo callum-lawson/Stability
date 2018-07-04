@@ -6,7 +6,7 @@
 source("Source/Consumer_resource_functions.R")
 
 sparms = list(
-  chainlength = 3,
+  chainlength = 2,
   # single number or vector of length Ya
   # eggs (storage structure) always start at 0
   nchain = 1,
@@ -19,8 +19,8 @@ sparms = list(
   generalist = FALSE,
   # does storage operate through births (TRUE) or diffusion (FALSE)?
   discrete = FALSE, # taus become season lengths
-  tT = 24*7*24,
-  nt = 100,
+  tT = 24*7*52,
+  nt = 1000,
   sS = 1, # number of seasons over time series
   bdt=NULL,   #  bdt can be supplied here
   nstart = 1 # c(1,1,2, 1,1,1),
@@ -54,42 +54,91 @@ bhat <- readRDS("Output/rate_parameters_simulated_21Jun2018.rds")
 
 iparms <- iparmf(bhat,sparms)
 parms <- c(sparms,iparms,zparms,bc)
-attach(parms)
-t <- 0
-y <- y0
-# hi <- popint(parms)
 
-# matplot(parms$tseq,log(hi[,-1]),type="l")
+# Population growth curves ------------------------------------------------
 
-Cmin <- 1.4
-Cmax <- 1.7
-nC <- 100
-Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
+# attach(parms)
 
-wow1 <- rCfv(Cseq,parms) / Cseq # *per-capita* growth 
+# Cmin <- -5 # 1.4
+# Cmax <- 5 # 1.7
+# nC <- 100
+# Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
+# 
+# wow1 <- rCfv(Cseq,parms) / Cseq # *per-capita* growth 
+# 
+# parms2 <- parms
+# parms2$zmu <- 5
+# wow2 <- rCfv(Cseq,parms2) / Cseq 
+# 
+# parms3 <- parms
+# parms3$zsig <- 5
+# parms3$bdt <- rate_int_l(bd=bd,bn=names(bd),parms=parms3)
+# wow3 <- rCfv(Cseq,parms3) / Cseq 
+# 
+# parms4 <- parms
+# parms4$zmu <- -5
+# wow4 <- rCfv(Cseq,parms4) / Cseq 
+# 
+# plot(wow1~log10(Cseq),type="l",col="orange")
+# lines(wow2~log10(Cseq),col="red")
+# lines(wow3~log10(Cseq),col="green")
+# lines(wow4~log10(Cseq),col="blue")
+# abline(h=0,col="black",lty=2)
+# 
+# Cstar <- sapply(list(parms,parms2,parms3,parms4),Cstarf)
+# points(log10(Cstar),rep(0,length(Cstar)))
+#   # next up: function for Cstar calculation over vector of different z
 
-parms2 <- parms
-parms2$zmu <- 5
-wow2 <- rCfv(Cseq,parms2) / Cseq 
+# Fluctuation speed -------------------------------------------------------
 
-parms3 <- parms
-parms3$zsig <- 5
-parms3$bdt <- rate_int_l(bd=bd,bn=names(bd),parms=parms3)
-wow3 <- rCfv(Cseq,parms3) / Cseq 
+zlmin <- -1
+zlmax <- 2
+nzl <- 10
+zlseq <- 24 * 10 ^ seq(zlmin,zlmax,length.out=nzl)
+Cpos <- parms$nchain + 2
 
-parms4 <- parms
-parms4$zmu <- -5
-wow4 <- rCfv(Cseq,parms4) / Cseq 
+Narr <- with(parms, array(dim=c(nt,Cpos,nzl)))
 
-plot(wow1~log10(Cseq),type="l",col="orange")
-lines(wow2~log10(Cseq),col="red")
-lines(wow3~log10(Cseq),col="green")
-lines(wow4~log10(Cseq),col="blue")
-abline(h=0,col="black",lty=2)
+for(i in 1:nzl){
+  zparms <- list(
+    zmu = 0, 
+    zsig = 5,
+    zl = zlseq[i]
+  )
+  parms <- c(sparms,iparms,zparms,bc)
+  Narr[,,i] <- popint(parms)
+}
 
-Cstar <- sapply(list(parms,parms2,parms3,parms4),Cstarf)
-points(log10(Cstar),rep(0,length(Cstar)))
-  # next up: function for Cstar calculation over vector of different z
+gmf <- function(x) mean(log(x))
+require(RColorBrewer)
+mypalette <- rev(brewer.pal(nzl,"RdBu"))
+nburn <- 500
+rem <- 1:nburn
+Cgm <- apply(Narr[-rem,Cpos,],2,gmf)
+Csd <- apply(Narr[-rem,Cpos,],2,sd)
+par(mfrow=c(1,1),mar=c(2,2,2,2))
+matplot(parms$tseq[-rem],log10(Narr[-rem,Cpos,]),type="l",lty=1,col=mypalette)
+par(mfrow=c(3,3))
+for(i in 1:9){
+  plot(parms$tseq[-rem],log10(Narr[-rem,Cpos,i]),col=mypalette[i],type="l")
+}
+par(mfrow=c(1,2),mar=c(2,2,2,2))
+plot(Cgm~log10(zlseq/24),type="b")
+plot(Csd~log10(zlseq/24),type="b")
+
+zparms <- list(
+  zmu = 0, 
+  zsig = 0,
+  zl = 1 # irrelevant
+)
+parms <- c(sparms,iparms,zparms,bc)
+Cstarcons <- Cstarf(parms)
+
+par(mfrow=c(1,1),mar=c(2,2,2,2))
+matplot(parms$tseq[-rem],log10(Narr[-rem,Cpos,]),type="l",lty=1,col=mypalette)
+abline(h=log10(Cstarcons),lty=2)
+
+# Other -------------------------------------------------------------------
 
 # popint <- function(y0,tseq,parms){
 #   # if(nrow(bhat[])!=length(M)) stop("wrong masses or params")

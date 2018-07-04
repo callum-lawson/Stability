@@ -566,8 +566,8 @@ D_web <- function(parms){
 popint <- function(parms){
   require(deSolve)
   with(parms, {
-    if(discrete==FALSE) ode(y=y0,times=tseq,func=d_web,parms=parms)
-    if(discrete==TRUE)  D_web(parms)
+    if(discrete==FALSE) return( ode(y=y0,times=tseq,func=d_web,parms=parms) )
+    if(discrete==TRUE)  return( D_web(parms) )
   })
 }
 
@@ -608,6 +608,9 @@ Cstarf <- function(parms){
            )$y[Yc]
   })
 }
+
+# Cstarfv <- Vectorize(rCf,vectorize.args=c("zmu","zsd"))
+  # needs to have zmu as argument
 
 # Additions:
 # - discrete: run for a single season using C~Rstar relationships
