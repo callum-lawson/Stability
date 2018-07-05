@@ -84,8 +84,9 @@ rate_int_d <- function(bdi,bni,parms){
   mapply(rate_int,
          bi=split(bdi,1:nrow(bdi)),
          Mi=parms$M,
-         MoreArgs=list(bni=bni,parms=parms)
-  )
+         MoreArgs=list(bni=bni,parms=parms),
+         USE.NAMES=FALSE
+         )
 }
   # works over several rows of dataframe for a given parameter
 
@@ -579,8 +580,8 @@ popint <- function(parms){
 
 rCf <- function(C,parms){
   require(rootSolve)
-  parms$y0[Yc] <- C
   with(parms, {
+    y0[Yc] <- C
     Rstar <- steady(y=y0,
                     parms=parms,
                     fun=d_web,
@@ -588,7 +589,7 @@ rCf <- function(C,parms){
                     method="runsteady",
                     hold=TRUE
     )$y
-    unlist(d_web(t=0, y=Rstar, parms))[Yc]
+    return( unlist(d_web(t=0, y=Rstar, parms))[Yc] )
   })
 }
 
@@ -611,6 +612,24 @@ Cstarf <- function(parms){
 
 # Cstarfv <- Vectorize(rCf,vectorize.args=c("zmu","zsd"))
   # needs to have zmu as argument
+
+
+# Population growth - Discrete --------------------------------------------
+
+RCf <- function(C,parms){
+  # *no* timescale separation
+  parmsD <- parms
+  parmsD$sS <- 1
+  parmsD$nt <- 2 # very inefficient - no need to do this every time
+  parmsD$tseq <- with(parms, c(t0,tT))
+  parmsD$y0[parms$Yc] <- C
+  RC <- popint(parmsD)[2,parmsD$Yc + 1]
+  return(RC)
+}
+  # *no* timescale separation 
+  # - would have to calculate changing R* with declining C during interval
+
+RCfv <- Vectorize(RCf,vectorize.args=c("C"))
 
 # Additions:
 # - discrete: run for a single season using C~Rstar relationships
