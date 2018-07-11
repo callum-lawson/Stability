@@ -18,9 +18,9 @@ sparms = list(
   # if FALSE, is mixed specialist
   generalist = FALSE,
   # does storage operate through births (TRUE) or diffusion (FALSE)?
-  discrete = TRUE, # taus become season lengths
+  discrete = FALSE, # TRUE,
   tT = 24*7*52,
-  nt = 1000,
+  nt = 24*7*52, # 7*52,
   sS = 7*52, # number of seasons over time series
   bdt = NULL,   #  bdt can be supplied here
   nstart = 1 # c(1,1,2, 1,1,1),
@@ -28,7 +28,7 @@ sparms = list(
 
 zparms <- list(
   zmu = 0, 
-  zsig = 0,
+  zsig = 5, # 0
   zl = 24
 )
 
@@ -43,7 +43,7 @@ bc <- c(
   m_E = 1,   # u = odds ratio of y1:y2 at equilibrium
   u_m = 1,
   m_m = 0.01,
-  tau_E = 0, # lags in migration functions
+  tau_E = 24 * 7, # lags in migration functions
   tau_m = 0
 )
   # phi and omega could instead by controlled by body masses
@@ -54,6 +54,13 @@ bhat <- readRDS("Output/rate_parameters_simulated_21Jun2018.rds")
 
 iparms <- iparmf(bhat,sparms)
 parms <- c(sparms,iparms,zparms,bc)
+
+attach(parms)
+y <- y0
+t <- t0
+trial <- popint(parms)
+matplot(log(trial[,-1]),type="l")
+# matplot(trial[,-1],type="l")
 
 # Growth curves - continuous ----------------------------------------------
 
@@ -98,15 +105,15 @@ points(log10(Cstar),rep(0,length(Cstar)))
 
 # Fluctuation speed -------------------------------------------------------
 
-sparms$discrete <- TRUE
+sparms$discrete <- FALSE # TRUE
 
-zlmin <- -1
+zlmin <- 0
 zlmax <- 2
 nzl <- 10
 zlseq <- 24 * 10 ^ seq(zlmin,zlmax,length.out=nzl)
 Cpos <- parms$nchain + 2
 
-Narr <- with(parms, array(dim=c(nt,Cpos+sparms$discrete,nzl)))
+Narr <- with(parms, array(dim=c(nt,Cpos+1,nzl)))
 
 for(i in 1:nzl){
   zparms <- list(
@@ -118,21 +125,25 @@ for(i in 1:nzl){
   Narr[,,i] <- popint(parms)
 }
 
+### Plot
+
 gmf <- function(x) mean(log(x))
 gsf <- function(x) sd(log(x))
 require(RColorBrewer)
-mypalette <- rev(brewer.pal(nzl,"RdBu"))
-nburn <- 500
+nshow <- nzl
+mypalette <- rev(brewer.pal(nshow,"RdBu"))
+nburn <- round(parms$nt/2,0)
 rem <- 1:nburn
 Cam <- apply(Narr[-rem,Cpos,],2,mean)
 Cas <- apply(Narr[-rem,Cpos,],2,sd)
 Cgm <- apply(Narr[-rem,Cpos,],2,gmf)
 Cgs <- apply(Narr[-rem,Cpos,],2,gsf)
 par(mfrow=c(1,1),mar=c(2,2,2,2))
-matplot(parms$tseq[-rem],log10(Narr[-rem,Cpos,]),type="l",lty=1,col=mypalette)
+matplot(parms$tseq[-rem],log10(Narr[-rem,Cpos,1:nshow]),type="l",lty=1,col=mypalette)
 par(mfrow=c(3,3))
 for(i in 1:9){
   plot(parms$tseq[-rem],log10(Narr[-rem,Cpos,i]),col=mypalette[i],type="l")
+  lines(parms$tseq[-rem],log10(Narr2[-rem,Cpos,i]),col=mypalette[i],type="l",lty=2)
 }
 par(mfrow=c(2,2),mar=c(2,2,2,2))
 plot(Cam~log10(zlseq/24),type="b")
@@ -159,6 +170,41 @@ matplot(parms$tseq[-rem],log10(Narr[-rem,Cpos,]),type="l",lty=1,col=mypalette)
 abline(h=log10(Cstarcons),lty=2)
   # NB: only works for continuous
 
+### No-lag comparison
+
+Narr2 <- with(parms, array(dim=dim(Narr)))
+bc$tau_E <- 0
+for(i in 1:nzl){
+  zparms <- list(
+    zmu = 0,
+    zsig = 5,
+    zl = zlseq[i]
+  )
+  parms <- c(sparms,iparms,zparms,bc)
+  Narr2[,,i] <- popint(parms)
+}
+matplot(parms$tseq[-rem],log10(Narr2[-rem,Cpos,1:nshow]),type="l",lty=2,col=mypalette,add=TRUE)
+
+### Cons-env comparison
+
+bc$tau_E <- 24 * 7
+zparms <- list(
+  zmu = 0,
+  zsig = 0,
+  zl = 0
+)
+parms <- c(sparms,iparms,zparms,bc)
+Narr3 <- popint(parms)
+par(mfrow=c(1,1))
+plot(log(Narr3[-rem,3]),type="l")
+
+### Check stability of other lags
+
+bc$tau_E <- 24 * 30
+parms <- c(sparms,iparms,zparms,bc)
+Narr4 <- popint(parms)
+par(mfrow=c(1,1))
+plot(log(Narr4[,3]),type="l")
 
 # Growth curves - discrete ------------------------------------------------
 

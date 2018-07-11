@@ -19,7 +19,7 @@ zt_cyclic <- function(t,zparms){
 zbarf <- function(t,tau,zmu,zsig,zl){
   tau * zmu + (zsig * ( cos(2*pi * t/zl) - cos(2*pi * (t + tau)/zl) ) ) / (2*pi)
 }
-  # average temperature between t and t + tau
+  # average *temperature* (not mortality) between t and t + tau
   # tau multiplier because want summed mortality [=exp(-mu*tau)]
   # https://www.youtube.com/watch?v=YF7Ii5dMYIo
 
@@ -42,20 +42,24 @@ rate_abs <- function(bd,bn,z,M){
   if(bn=="alpha") return( plogis(lp) )
 }
 
-rate_arr <- function(bd,z,M){
+rate_df <- function(bd,z,M){
   bn <- names(bd)
   as.data.frame(mapply(rate_abs,bd,bn,MoreArgs=list(z=z,M=M),SIMPLIFY=FALSE))
 }
   # bd = list of b param dataframes for each rate (a,h,etc.)
 
-rate_dfs <- function(bdd,re, ...){
-  rate_df(b=bdd[re,], ...)
-}
-
 btf <- function(t,bd,M,parms,ztype="whatever"){
   zt <- zt_cyclic(t,parms)
-  bdt <- rate_arr(bd,z=zt,M)
+  bdt <- rate_df(bd,z=zt,M)
   return(bdt)
+}
+
+subd <- function(bdi,re){
+  bdi[re,]
+}
+
+bdsubf <- function(bd,re){
+  lapply(bd,subd,re=re)
 }
 
 # Non-linear averaging ----------------------------------------------------
@@ -81,11 +85,14 @@ rate_int <- function(bi,bni,Mi,parms){
   # works on one "row" of parameter dataframe
 
 rate_int_d <- function(bdi,bni,parms){
+  nbdi <- nrow(bdi)
+  several <- nbdi > 1
   mapply(rate_int,
-         bi=split(bdi,1:nrow(bdi)),
+         bi=split(bdi,1:nbdi),
          Mi=parms$M,
          MoreArgs=list(bni=bni,parms=parms),
-         USE.NAMES=FALSE
+         USE.NAMES=FALSE,
+         SIMPLIFY=several # prevents problems in two-species chains
          )
 }
   # works over several rows of dataframe for a given parameter
@@ -190,7 +197,8 @@ migrate_lag <- function(A,B,t,tau,mtype,parms){
   with(parms,{
     
     A_lag <- lagvalue(t - tau, Ys)
-    B_lag <- lagvalue(t - tau, Ys1B)
+    B_lag <- lagvalue(t - tau, Ya)
+      # *** only works for egg structure ***
     
     if(mtype=="diffuse"){
       u <- u * (A_lag/B_lag) / (A/B)
@@ -201,24 +209,27 @@ migrate_lag <- function(A,B,t,tau,mtype,parms){
     
     if(mtype %in% c("feeding","selective")){
       
-      btA_lag <- c(lapply(bd,ratefs,M=M[Yr],z=zt_lag,re=Yr),bc)
-      # is Yr the right body mass here?
+      bdd <- bdsubf(bd,re=Yr)
+      btA_lag <- btf(t=t-tau, bdd, M[Yr], parms)
       rA_lag <- lagvalue(t - tau, Yr)
-      fA_lag <- with(btA_lag, f(rA_lag,A_lag,a,h,psi,alpha))
+      fA_lag <- with(btA_lag, f(rA_lag,A_lag,a,h,alpha,psi))
       
       if(nchain==2){
         btB_lag <- c(lapply(bd,ratefs,M=M[YbB],z=zt_lag,re=YbB),bc)
+          # calculating zt_lag twice because nested within btf
         rB_lag <- lagvalue(t - tau, YrB)
-        fB_lag <- with(btB_lag, f(rB_lag,B_lag,a,h,psi,alpha))
+        fB_lag <- with(btB_lag, f(rB_lag,B_lag,a,h,alpha,psi))
       }
 
-      ### *need to add in p etc. to account for generalism* ###
+        # ***need to add in p etc. to account for generalism***
       
       if(mtype=="feeding"){
         if(nchain==1) f_lag <- fA_lag
         if(nchain==2) f_lag <- fA_lag + fB_lag
-        zsum_lag <- zbarf(t,tau,zmu,zsig,zl)
-        m <- exp(x(f_lag,zsum_lag,phi))
+        m <- f_lag / B # assuming zero mortality
+        # zsum_lag <- zbarf(t,tau,zmu,zsig,zl)
+          # MODIFY ZBARF TO INCLUDE MRATE CALCULATION?
+        # m <- f_lag * exp(-mu*phi_E*zsum_lag))
       }
       
       if(mtype=="selective"){
@@ -239,15 +250,15 @@ migrate_all <- function(A,B,m,u,t,tau,mtype,parms){
     delta <- with(parms, migrate_base(A,B,m,u,mtype))
   }
   if(tau>0){
-    if(discrete==FALSE){
-      if(t<tau){
+    if(parms$discrete==FALSE){
+      if(t < tau){
         delta <- 0
       }
-      if(t>=tau){
+      if(t >= tau){
         delta <- migrate_lag(A,B,t,tau,mtype,parms)
       }
     }
-    if(discrete==TRUE){
+    if(parms$discrete==TRUE){
       delta <- with(parms, migrate_base(A,B=0,m,u,mtype))
       # eggs don't hatch, so no migration from B
     }
@@ -379,7 +390,7 @@ d_web <- function(t,y,parms,hold=FALSE){
       ### NET GROWTH - ONE-CHAIN
       
       if(nchain==1){
-        if(store==TRUE) d1$dy[Ys] <- d1$dy[Ys] - d1$fy[Yr]
+        if(store==TRUE) d1$dy[Ys] <- d1$dy[Ys] - d1$fy[Yr] + dEy
           # dEy = migration of E to ys
           # if no storage, no need for this operation
         dy <- d1$dy
@@ -420,7 +431,7 @@ d_web <- function(t,y,parms,hold=FALSE){
         dy <- c(d1$dy,d2$dy)
       }
       
-      if(store==FALSE)  dya <- dy
+      if(store==FALSE) dya <- dy
       if(store==TRUE)  dya <- c(dy,dE)
       
     } # end structured models
@@ -567,7 +578,11 @@ D_web <- function(parms){
 popint <- function(parms){
   require(deSolve)
   with(parms, {
-    if(discrete==FALSE) return( ode(y=y0,times=tseq,func=d_web,parms=parms) )
+    if(discrete==FALSE){
+      if(tau_E==0) return( ode(y=y0,times=tseq,func=d_web,parms=parms) )
+      if(tau_E>0)  return( dede(y=y0,times=tseq,func=d_web,parms=parms) )
+        # *** currently only works for eggs ***
+    } 
     if(discrete==TRUE)  return( D_web(parms) )
   })
 }
@@ -627,6 +642,8 @@ RCf <- function(C,parms){
   return(RC)
 }
   # *no* timescale separation 
+  # but could build in quasi-separation by first setting the resource to its
+  #   equilibrium, and then allowing dynamics to proceed normally
   # - would have to calculate changing R* with declining C during interval
 
 RCfv <- Vectorize(RCf,vectorize.args=c("C"))
