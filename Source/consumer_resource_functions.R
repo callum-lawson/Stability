@@ -169,8 +169,8 @@ d_chain <- function(y,b,Y,...){
 # Migration rates ---------------------------------------------------------
 
 migrate_base <- function(A,B,m,u,mtype){
-  # m always supplied externally (=maturation rate or W diff)
-  # mtype=="diffuse" -> u pre-defined
+    # m always supplied externally (=maturation rate or W diff)
+    # mtype=="diffuse" -> u pre-defined
   if(mtype=="feeding"){
     A <- 0; u <- 1 # or m <- 1
   }
@@ -180,8 +180,9 @@ migrate_base <- function(A,B,m,u,mtype){
     if(u<0)  return( - m * A )
     if(u==0) return( 0 )
   }
-  if(mtype!="selective")
-  return( m * (B - u * A) )
+  if(mtype!="selective"){
+    return( m * (B - u * A) )
+  }
 }
   # same equation as dilution rate
   # u = odds of y1 at equilibrium
@@ -260,7 +261,7 @@ migrate_all <- function(A,B,m,u,t,tau,mtype,parms){
     }
     if(parms$discrete==TRUE){
       delta <- with(parms, migrate_base(A,B=0,m,u,mtype))
-      # eggs don't hatch, so no migration from B
+        # eggs don't hatch, so no migration from B
     }
   }
   return(delta)
@@ -287,15 +288,13 @@ d_web <- function(t,y,parms,hold=FALSE){
     
       y1 <- y[Ycseq]
 
-      ### GATHER FOOD
-      
-      # ft = total food gathered for timestep
+      ### FEEDING
       
       if(nchain==1){
         
         d1 <- d_chain(y1,bt,Yc)
-        ft <- d1$fy[Yr]
-        
+        ft <- d1$fy[Yr] # total food gathered for timestep
+
       }
       
       if(nchain==2){
@@ -314,15 +313,6 @@ d_web <- function(t,y,parms,hold=FALSE){
         p <- y1[Ys] / (y1[Ys] + y2[Ys])
           # Yr = Ys - 1
         
-        if(generalist==FALSE){
-          
-          d1 <- d_chain(y1,bt1,Yc,p=pt1,Q=Q2)
-          d2 <- d_chain(y2,bt2,Yc,p=pt2,Q=Q1,omega=omega)
-            # rely on bt2 to supply different phi
-            # omega should be >0, otherwise use one-chain model
-          
-          }
-        
         if(generalist==TRUE){
           
           pt1[Yr] <- p
@@ -332,10 +322,16 @@ d_web <- function(t,y,parms,hold=FALSE){
           Q1[Yr] <- y1[Yr]
           Q2[Yr] <- y2[Yr]
             # Q = distraction by food from opposite chain
+        
+        }
           
-          d1 <- d_chain(y1,bt1,Yc,p=pt1,Q=Q2,omega=1)
-          d2 <- d_chain(y2,bt2,Yc,p=pt2,Q=Q1,omega=omega)
-            # accounts only for within-chain transfers
+        d1 <- d_chain(y1,bt1,Yc,p=pt1,Q=Q2,omega=1)
+        d2 <- d_chain(y2,bt2,Yc,p=pt2,Q=Q1,omega=omega)
+          # rely on bt2 to supply different phi
+          # omega should be >0, otherwise use one-chain model
+          # FOR generalist, accounts only for within-chain transfers
+        
+        if(generalist==TRUE){
           
           bt1s <- c(bdt[Yr,],v=v,k=k,psi=psi)
           bt2s <- c(bdt[Yb+Yr,],v=v,k=k,psi=psi)
@@ -356,9 +352,9 @@ d_web <- function(t,y,parms,hold=FALSE){
         
         ft <- d1$fy[Yr] + d2$fy[Yr]
 
-      } # finish food for two-chain
+      } # finish feeding for two-chain
 
-      ### DEPOSIT AND HATCH EGGS
+      ### STORE AND HATCH EGGS
       
       if(store==FALSE){
         dEy <- ft 
@@ -366,6 +362,7 @@ d_web <- function(t,y,parms,hold=FALSE){
       }
       
       if(store==TRUE){
+        
         yE <- y[Ya] # eggs = last position in chain
         if(storetype=="diffuse"){
           if(nchain==1) yss <- y1[Ys]
@@ -385,31 +382,23 @@ d_web <- function(t,y,parms,hold=FALSE){
         dE <- with(bdt[Yr,], ft - dEy - x(yE,mu,phi_E) )
           # using mu param from y1
           # no selective behaviour (e.g. hiding) for one-chain models
+        
       } # close egg store operations
       
-      ### NET GROWTH - ONE-CHAIN
-      
-      if(nchain==1){
-        if(store==TRUE) d1$dy[Ys] <- d1$dy[Ys] - ft + dEy
-          # dEy = migration of E to ys
-          # if no storage, no need for this operation
-        dy <- d1$dy
-      }
-      
-      ### MIGRATION AND NET GROWTH - TWO-CHAIN
+      ### MIGRATION (two-chain only)
       
       if(nchain==2){
-        
-        # q = food given to feeders instead of eggs
+        # q = fraction of food given to y1 instead of y2
         
         if(movetype!="feeding"){
           q <- p # food allocated according to abundance
+          y1m <- y1[Ys]
           if(movetype=="selective"){
             u_m <- d1$fy[Yr]/y1[Ys] - d2$fy[Yr]/y2[Ys]
           } 
-            # for diffuse, m supplied as input parameter
-          y1m <- y1[Ys]
+          # for diffuse, m supplied as input parameter
         }  
+        
         if(movetype=="feeding"){
           q <- 0
           y1m <- 0
@@ -419,14 +408,27 @@ d_web <- function(t,y,parms,hold=FALSE){
                            t=t,tau=tau_m,mtype=movetype,
                            parms=parms)
         
+      }
+      
+      ### NET GROWTH
+      
+      if(nchain==1){
+        if(store==TRUE) d1$dy[Ys] <- d1$dy[Ys] - ft + dEy
+          # dEy = migration of E to ys
+          # if no storage, no need for this operation
+        dy <- d1$dy
+      }
+      
+      if(nchain==2){
+
         d1$dy[Ys] <-  q    * dEy - x(y1[Ys],bt1$mu[Yr],phi=1)     + d21
         d2$dy[Ys] <- (1-q) * dEy - x(y2[Ys],bt2$mu[Yr],phi=phi_m) - d21
-        # y2 can be eggs
-        # need to distinguish feeding and mortality
-        # q = fraction of resource allocated to consumer type 2
-        # = 1 for feeding-controlled and stage-structured
-        # = A/(A+B) for generalists OR fraction 
-        # *only works if consumer - otherwise missing deaths due to predation*
+          # y2 can be eggs
+          # need to distinguish feeding and mortality
+          # q = fraction of resource allocated to consumer type 2
+          # = 1 for feeding-controlled and stage-structured
+          # = A/(A+B) for generalists OR fraction 
+          # *only works if consumer - otherwise missing deaths due to predation*
         
         dy <- c(d1$dy,d2$dy)
         
@@ -438,8 +440,7 @@ d_web <- function(t,y,parms,hold=FALSE){
     } # end structured models
   
     if(hold==TRUE)  dya[c(Yc,Yc2,Ya)] <- 0
-      # adapt for eggs
-    
+
     return( list(dya) )
 
   })
@@ -494,7 +495,7 @@ iparmf <- function(bhat,sparms){
       # same body masses used for same chain positions
     
     if(length(nstart)==1) y0 <- rep(nstart,Yc2)
-    if(length(nstart)>1)  y0 <- nstart
+    if(length(nstart)>1)  y0  <- nstart
     
     if(nchain==1){
       names(y0) <- c("R",paste0(rep("C",Yc-1),1:Yb))

@@ -6,29 +6,32 @@
 source("Source/Consumer_resource_functions.R")
 
 sparms = list(
-  chainlength = 3,
-  # single number or vector of length Ya
-  # eggs (storage structure) always start at 0
-  nchain = 1,
-  store = TRUE,
+  chainlength = 2,
+    # single number or vector of length Ya
+    # eggs (storage structure) always start at 0
+  nchain = 2,
+  store = FALSE,
+    # if FALSE, births are allocated directly to feeders
   slevel = c("consumer","resource")[1],
   storetype = c("diffuse","feeding")[2],
-  # if FALSE, births are allocated directly to feeders
-  movetype = c("diffuse","selective","feeding")[3],
-  # if FALSE, is mixed specialist
+    # no "selective" because too complex (ESS work)
+  movetype = c("diffuse","feeding","selective")[3],
+    # if FALSE, is mixed specialist
   generalist = FALSE,
-  # does storage operate through births (TRUE) or diffusion (FALSE)?
-  discrete = FALSE, # TRUE,
+    # does storage operate through births (TRUE) or diffusion (FALSE)?
+  discrete = FALSE,
   tT = 24*7*52,
-  nt = 24*7*52, # 7*52,
-  sS = 7*52, # number of seasons over time series
-  bdt = NULL,   #  bdt can be supplied here
-  nstart = 1 # c(1,1,2, 1,1,1),
+  nt = 24*7*52,
+  sS = 7*52, 
+    # number of seasons over time series
+  bdt = NULL,   
+  nstart = 1
+    # c(1,1,2, 1,1,1)
 )
 
 zparms <- list(
   zmu = 0, 
-  zsig = 5, # 0
+  zsig = 0,
   zl = 24
 )
 
@@ -39,8 +42,8 @@ bc <- c(
   omega = 1, # relative feeding rate of y2
   phi_E = 0, # relative death rate of eggs
   phi_m = 1, # relative death rate of y2
-  u_E = 1,   # rates in migration functions
-  m_E = 1,   # u = odds ratio of y1:y2 at equilibrium
+  u_E = 1,   # odds ratio of y1:y2 at equilibrium
+  m_E = 1,   # migration rate 
   u_m = 1,
   m_m = 0.01,
   tau_E = 24 * 7, # lags in migration functions
@@ -50,17 +53,16 @@ bc <- c(
   #   (in this case, phi can be fraction of adult body mass)
 
 bhat <- readRDS("Output/rate_parameters_simulated_21Jun2018.rds")
-# bhat <- bdselect(bhat,bpos=rep(1:2,2))
+bhat <- bdselect(bhat,bpos=c(1,1)) # same params for top consumer
 
 iparms <- iparmf(bhat,sparms)
 parms <- c(sparms,iparms,zparms,bc)
 
-# attach(parms)
-# y <- y0
-# t <- t0
-# trial <- popint(parms)
-# matplot(log(trial[,-1]),type="l")
-# matplot(trial[,-1],type="l")
+attach(parms)
+y <- y0
+t <- t0
+trial <- popint(parms)
+matplot(log(trial[,-1]),type="l")
 
 # Fluctuation speed -------------------------------------------------------
 
@@ -98,23 +100,23 @@ Cas <- apply(Narr[-rem,Cpos,],2,sd)
 Cgm <- apply(Narr[-rem,Cpos,],2,gmf)
 Cgs <- apply(Narr[-rem,Cpos,],2,gsf)
 par(mfrow=c(1,1),mar=c(2,2,2,2))
-matplot(parms$tseq[-rem],log10(Narr[-rem,Cpos,1:nshow]),type="l",lty=1,col=mypalette)
+matplot(parms$tseq[-rem],log(Narr[-rem,Cpos,1:nshow]),type="l",lty=1,col=mypalette)
 par(mfrow=c(3,3))
 for(i in 1:9){
-  plot(parms$tseq[-rem],log10(Narr[-rem,Cpos,i]),col=mypalette[i],type="l")
-  lines(parms$tseq[-rem],log10(Narr2[-rem,Cpos,i]),col=mypalette[i],type="l",lty=2)
+  plot(parms$tseq[-rem],log(Narr[-rem,Cpos,i]),col=mypalette[i],type="l")
+  lines(parms$tseq[-rem],log(Narr2[-rem,Cpos,i]),col=mypalette[i],type="l",lty=2)
 }
 par(mfrow=c(2,2),mar=c(2,2,2,2))
-plot(Cam~log10(zlseq/24),type="b")
-plot(Cas~log10(zlseq/24),type="b")
-plot(Cgm~log10(zlseq/24),type="b")
-plot(Cgs~log10(zlseq/24),type="b")
+plot(Cam~log(zlseq/24),type="b")
+plot(Cas~log(zlseq/24),type="b")
+plot(Cgm~log(zlseq/24),type="b")
+plot(Cgs~log(zlseq/24),type="b")
 
 parmsB <- parms
 parmsB$zl <- 24
 parmsB$t0 <- -12
 Nshift <- popint(parmsB)
-lines(log10(Nshift[-rem,Cpos])~parms$tseq[-rem],col="green")
+lines(log(Nshift[-rem,Cpos])~parms$tseq[-rem],col="green")
 
 zparms <- list(
   zmu = 0,
@@ -125,9 +127,9 @@ parms <- c(sparms,iparms,zparms,bc)
 Cstarcons <- Cstarf(parms)
 
 par(mfrow=c(1,1),mar=c(2,2,2,2))
-matplot(parms$tseq[-rem],log10(Narr[-rem,Cpos,]),type="l",lty=1,col=mypalette)
-abline(h=log10(Cstarcons),lty=2)
-# NB: only works for continuous
+matplot(parms$tseq[-rem],log(Narr[-rem,Cpos,]),type="l",lty=1,col=mypalette)
+abline(h=log(Cstarcons),lty=2)
+  # NB: only works for continuous
 
 ### No-lag comparison
 
@@ -142,7 +144,7 @@ for(i in 1:nzl){
   parms <- c(sparms,iparms,zparms,bc)
   Narr2[,,i] <- popint(parms)
 }
-matplot(parms$tseq[-rem],log10(Narr2[-rem,Cpos,1:nshow]),type="l",lty=2,col=mypalette,add=TRUE)
+matplot(parms$tseq[-rem],log(Narr2[-rem,Cpos,1:nshow]),type="l",lty=2,col=mypalette,add=TRUE)
 
 ### Cons-env comparison
 
@@ -213,6 +215,7 @@ points(log(Cstar),rep(0,length(Cstar)))
 
 # Growth curves - discrete ------------------------------------------------
 
+# requires at least 3 species
 parmsX <- parms
 parmsX$discrete <- TRUE
 parmsX$tT <- 24 * 7 * 52 / 12
@@ -222,6 +225,7 @@ parmsX$k <- 10
 parmsX$phi_E <- 0.1
 
 now1 <- log( RCfv(Cseq,parmsX) / Cseq ) # *per-capita* growth
+
 plot(now1~log(Cseq),type="l")
 abline(4,-1,lty=2,col="red")
 abline(h=0,lty=2,col="blue")
@@ -232,7 +236,7 @@ parmsX$sS <- 12
 NarrD <- popint(parmsX)
 par(mfrow=c(1,1))
 plot(log(NarrD[,3]),type="l")
-matplot(log(NarrD[,-1]),type="l")
+matplot(lo(NarrD[,-1]),type="l")
 
 # bdt <- with(parmsX, btf(t=0, bd, M, parmsX))
 # exp(-bdt$mu * parmsX$tT/parmsX$sS)
