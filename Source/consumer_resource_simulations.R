@@ -6,7 +6,7 @@
 source("Source/Consumer_resource_functions.R")
 
 sparms = list(
-  chainlength = 2,
+  chainlength = 3,
   # single number or vector of length Ya
   # eggs (storage structure) always start at 0
   nchain = 1,
@@ -55,53 +55,12 @@ bhat <- readRDS("Output/rate_parameters_simulated_21Jun2018.rds")
 iparms <- iparmf(bhat,sparms)
 parms <- c(sparms,iparms,zparms,bc)
 
-attach(parms)
-y <- y0
-t <- t0
-trial <- popint(parms)
-matplot(log(trial[,-1]),type="l")
+# attach(parms)
+# y <- y0
+# t <- t0
+# trial <- popint(parms)
+# matplot(log(trial[,-1]),type="l")
 # matplot(trial[,-1],type="l")
-
-# Growth curves - continuous ----------------------------------------------
-
-sparms1 <- sparms
-zparms1 <- zparms
-sparms1$discrete = FALSE
-sparms1$store = FALSE
-zparms1$zsig = 0
-iparms1 <- iparmf(bhat,sparms1)
-parms1 <- c(sparms1,iparms1,zparms1,bc)
-
-Cmin <- -5 # 1.4
-Cmax <- 5 # 1.7
-nC <- 100
-Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
-
-wow1 <- rCfv(Cseq,parms1) / Cseq # *per-capita* growth
-
-parms2 <- parms1
-parms2$zmu <- 5
-wow2 <- rCfv(Cseq,parms2) / Cseq
-
-parms3 <- parms3b <- parms1
-parms3b$zsig <- 5
-parms3$bdt <- with(parms3b, rate_int_l(bd=bd,bn=names(bd),parms=parms3b))
-wow3 <- rCfv(Cseq,parms3) / Cseq 
-  # parms1 because don't want fluctuating for C* calculation
-
-parms4 <- parms1
-parms4$zmu <- -5
-wow4 <- rCfv(Cseq,parms4) / Cseq
-
-plot(wow1~log10(Cseq),type="l",col="orange")
-lines(wow2~log10(Cseq),col="red")
-lines(wow3~log10(Cseq),col="green")
-lines(wow4~log10(Cseq),col="blue")
-abline(h=0,col="black",lty=2)
-
-Cstar <- sapply(list(parms1,parms2,parms3,parms4),Cstarf)
-points(log10(Cstar),rep(0,length(Cstar)))
-  # next up: function for Cstar calculation over vector of different z
 
 # Fluctuation speed -------------------------------------------------------
 
@@ -168,7 +127,7 @@ Cstarcons <- Cstarf(parms)
 par(mfrow=c(1,1),mar=c(2,2,2,2))
 matplot(parms$tseq[-rem],log10(Narr[-rem,Cpos,]),type="l",lty=1,col=mypalette)
 abline(h=log10(Cstarcons),lty=2)
-  # NB: only works for continuous
+# NB: only works for continuous
 
 ### No-lag comparison
 
@@ -200,29 +159,83 @@ plot(log(Narr3[-rem,3]),type="l")
 
 ### Check stability of other lags
 
+sparms$chainlength <- 3
+sparms$tT <- 24 * 7 * 52 * 100
+sparms$nt <- 7 * 52 * 100
+iparms <- iparmf(bhat,sparms)
 bc$tau_E <- 24 * 30
 parms <- c(sparms,iparms,zparms,bc)
 Narr4 <- popint(parms)
 par(mfrow=c(1,1))
-plot(log(Narr4[,3]),type="l")
+plot(log(Narr4[((sparms$nt-1000):sparms$nt),4]),type="l")
+  # very slow underdamping to equilibrium (not cycles)
+
+# Growth curves - continuous ----------------------------------------------
+
+sparms1 <- sparms
+zparms1 <- zparms
+sparms1$discrete = FALSE
+sparms1$store = FALSE
+zparms1$zsig = 0
+iparms1 <- iparmf(bhat,sparms1)
+parms1 <- c(sparms1,iparms1,zparms1,bc)
+
+Cmin <- -3 # 1.4
+Cmax <- 3 # 1.7
+nC <- 100
+Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
+
+dC1 <- rCfv(Cseq,parms1) / Cseq # *per-capita* growth
+
+parms2 <- parms1
+parms2$zmu <- 10
+dC2 <- rCfv(Cseq,parms2) / Cseq
+
+parms3 <- parms3b <- parms1
+parms3b$zsig <- 5
+parms3$bdt <- with(parms3b, rate_int_l(bd=bd,bn=names(bd),parms=parms3b))
+dC3 <- rCfv(Cseq,parms3) / Cseq 
+  # parms1 because don't want fluctuating for C* calculation
+
+parms4 <- parms1
+parms4$zmu <- -10
+dC4 <- rCfv(Cseq,parms4) / Cseq
+
+plot(dC1~log(Cseq),type="l",col="orange")
+lines(dC2~log(Cseq),col="red")
+lines(dC3~log(Cseq),col="green")
+lines(dC4~log(Cseq),col="blue")
+abline(h=0,col="black",lty=2)
+
+Cstar <- sapply(list(parms1,parms2,parms3,parms4),Cstarf)
+points(log(Cstar),rep(0,length(Cstar)))
+  # next up: function for Cstar calculation over vector of different z
 
 # Growth curves - discrete ------------------------------------------------
 
-parms$y0[1] <- parms$k
-parms$tT <- 24
-now1 <- log( RCfv(Cseq,parms) / Cseq ) # *per-capita* growth
+parmsX <- parms
+parmsX$discrete <- TRUE
+parmsX$tT <- 24 * 7 * 52 / 12
+parmsX$zsig <- 0
+parmsX$k <- 10
+# parmsX$bd$mu$b0 <- parmsX$bd$mu$b0 - 5
+parmsX$phi_E <- 0.1
+
+now1 <- log( RCfv(Cseq,parmsX) / Cseq ) # *per-capita* growth
 plot(now1~log(Cseq),type="l")
-abline(0,-1,lty=2,col="red")
+abline(4,-1,lty=2,col="red")
 abline(h=0,lty=2,col="blue")
 
-# Other -------------------------------------------------------------------
+parmsX$tT <- 24*7*52
+parmsX$nt <- 24*7*52
+parmsX$sS <- 12
+NarrD <- popint(parmsX)
+par(mfrow=c(1,1))
+plot(log(NarrD[,3]),type="l")
+matplot(log(NarrD[,-1]),type="l")
 
-# popint <- function(y0,tseq,parms){
-#   # if(nrow(bhat[])!=length(M)) stop("wrong masses or params")
-#   # ! generalist + "resource"
-# }
-# 
-# tseq <- seq(0,24*60,length.out=100)
-# require(deSolve)
-# if(parms$tau==0) lvar <- ode(y=y0,times=tseq,func=d_web,parms=parms)
-# if(parms$tau>0) lvar <- dede(y=y0,times=tseq,func=d_web,parms=parms)
+# bdt <- with(parmsX, btf(t=0, bd, M, parmsX))
+# exp(-bdt$mu * parmsX$tT/parmsX$sS)
+# function to plot functional responses? d_chain(y=c())
+
+

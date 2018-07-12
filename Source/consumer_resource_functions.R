@@ -150,7 +150,7 @@ x <- function(C,mu,phi=1){
 d_chain <- function(y,b,Y,...){
   with(b, {
     dy <- y # convenient way to assign same names as y
-    fy <- f(R=y[-Y],C=y[-1],a,h,alpha,...)
+    fy <- f(R=y[-Y],C=y[-1],a,h,alpha,psi,...)
     xy <- x(y[-1],mu) + c(fy[-1]/alpha[-1],0)
     dy[1] <-  g(y[1],v,k) - fy[1]/alpha[1]
     dy[-1] <- fy - xy
@@ -215,7 +215,7 @@ migrate_lag <- function(A,B,t,tau,mtype,parms){
       fA_lag <- with(btA_lag, f(rA_lag,A_lag,a,h,alpha,psi))
       
       if(nchain==2){
-        btB_lag <- c(lapply(bd,ratefs,M=M[YbB],z=zt_lag,re=YbB),bc)
+        btB_lag <- c(lapply(bd,ratefs,M=M[YbB],z=zt_lag,re=YbB),v=v,k=k,psi=psi)
           # calculating zt_lag twice because nested within btf
         rB_lag <- lagvalue(t - tau, YrB)
         fB_lag <- with(btB_lag, f(rB_lag,B_lag,a,h,alpha,psi))
@@ -275,7 +275,7 @@ d_web <- function(t,y,parms,hold=FALSE){
     if(is.null(bdt)){
       bdt <- btf(t,bd,M,parms) 
     }
-    bt <- c(bdt,bc)
+    bt <- c(bdt,v=v,k=k,psi=psi)
     
     if(structure==FALSE){
       
@@ -302,8 +302,8 @@ d_web <- function(t,y,parms,hold=FALSE){
         
         y2 <- y[Yc2seq]
         
-        bt1 <- c(bdt[Ybseq,],bc)
-        bt2 <- c(bdt[Yb2seq,],bc)
+        bt1 <- c(bdt[Ybseq,], v=v,k=k,psi=psi)
+        bt2 <- c(bdt[Yb2seq,],v=v,k=k,psi=psi)
         
         pt1 <- pt2 <- rep(1,Yb)
           # pt = fraction of feeding on resource 1 (e.g. time spent in patch 1)
@@ -337,8 +337,8 @@ d_web <- function(t,y,parms,hold=FALSE){
           d2 <- d_chain(y2,bt2,Yc,p=pt2,Q=Q1,omega=omega)
             # accounts only for within-chain transfers
           
-          bt1s <- c(bdt[Yr,], bc)
-          bt2s <- c(bdt[Yb+Yr,],bc)
+          bt1s <- c(bdt[Yr,],v=v,k=k,psi=psi)
+          bt2s <- c(bdt[Yb+Yr,],v=v,k=k,psi=psi)
           
           fR2C1 <- with(bt1s,f(y2[Yr],y1[Ys],a,h,alpha,psi,omega=1,1-p,Q1[Yr]))
           fR1C2 <- with(bt2s,f(y1[Yr],y2[Ys],a,h,alpha,psi,omega,  p,  Q2[Yr]))
@@ -372,13 +372,13 @@ d_web <- function(t,y,parms,hold=FALSE){
           if(nchain==2) yss <- y1[Ys] + y2[Ys]
         }
         if(storetype=="feeding"){
-          yss <- 0  
+          yss <- 0  # for discrete, B set to 0 inside function
         } 
         dEy <- migrate_all(A=yss,B=yE,
-                            m=m_E,u=u_E,
-                            t=t,tau=tau_E,
-                            mtype=storetype,
-                            parms=parms)
+                           m=m_E,u=u_E,
+                           t=t,tau=tau_E,
+                           mtype=storetype,
+                           parms=parms)
           # only need to use this option if one-chain model with storage
           # do we actually need u to be set to 0 here?
           # food conduit subtracted because handled separately to maturation
@@ -390,7 +390,7 @@ d_web <- function(t,y,parms,hold=FALSE){
       ### NET GROWTH - ONE-CHAIN
       
       if(nchain==1){
-        if(store==TRUE) d1$dy[Ys] <- d1$dy[Ys] - d1$fy[Yr] + dEy
+        if(store==TRUE) d1$dy[Ys] <- d1$dy[Ys] - ft + dEy
           # dEy = migration of E to ys
           # if no storage, no need for this operation
         dy <- d1$dy
@@ -429,14 +429,15 @@ d_web <- function(t,y,parms,hold=FALSE){
         # *only works if consumer - otherwise missing deaths due to predation*
         
         dy <- c(d1$dy,d2$dy)
-      }
+        
+      } # end 2-chain
       
       if(store==FALSE) dya <- dy
       if(store==TRUE)  dya <- c(dy,dE)
       
     } # end structured models
   
-    if(hold==TRUE)  dya[c(Yc,Yc2)] <- 0
+    if(hold==TRUE)  dya[c(Yc,Yc2,Ya)] <- 0
       # adapt for eggs
     
     return( list(dya) )
@@ -632,19 +633,24 @@ Cstarf <- function(parms){
 # Population growth - Discrete --------------------------------------------
 
 RCf <- function(C,parms){
-  # *no* timescale separation
+  require(rootSolve)
   parmsD <- parms
   parmsD$sS <- 1
   parmsD$nt <- 2 # very inefficient - no need to do this every time
   parmsD$tseq <- with(parms, c(t0,tT))
   parmsD$y0[parms$Yc] <- C
-  RC <- popint(parmsD)[2,parmsD$Yc + 1]
+  parmsD$y0 <- steady(y=parmsD$y0,
+                      parms=parmsD,
+                      fun=d_web,
+                      times=c(0,Inf),
+                      method="runsteady",
+                      hold=TRUE
+                      )$y 
+  RC <- popint(parmsD)[2,parmsD$Yc+1] # +1 to delete t; E already transferred
   return(RC)
 }
-  # *no* timescale separation 
-  # but could build in quasi-separation by first setting the resource to its
+  # quasi-timescale-separation by first setting the resource to its
   #   equilibrium, and then allowing dynamics to proceed normally
-  # - would have to calculate changing R* with declining C during interval
 
 RCfv <- Vectorize(RCf,vectorize.args=c("C"))
 
