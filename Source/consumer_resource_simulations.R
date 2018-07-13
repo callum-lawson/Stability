@@ -58,11 +58,11 @@ bhat <- bdselect(bhat,bpos=c(1,2)) # same params for top consumer
 iparms <- iparmf(bhat,sparms)
 parms <- c(sparms,iparms,zparms,bc)
 
-attach(parms)
-y <- y0
-t <- t0
-trial <- popint(parms)
-matplot(log(trial[,-1]),type="l")
+# attach(parms)
+# y <- y0
+# t <- t0
+# trial <- popint(parms)
+# matplot(log(trial[,-1]),type="l")
 
 # Fluctuation speed -------------------------------------------------------
 
@@ -182,8 +182,8 @@ zparms1$zsig = 0
 iparms1 <- iparmf(bhat,sparms1)
 parms1 <- c(sparms1,iparms1,zparms1,bc)
 
-Cmin <- -3 # 1.4
-Cmax <- 3 # 1.7
+Cmin <- -3 
+Cmax <- 3
 nC <- 100
 Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
 

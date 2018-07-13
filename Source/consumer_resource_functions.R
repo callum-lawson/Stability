@@ -115,10 +115,10 @@ g <- function(R,v,k){
   # additional parameter = starting total biomass (R0 + C0 ...)
   # model closed resource growth later: 1/alpha * x(C,mu)
 
-f <- function(R,C,a,h,alpha,psi=0,omega=1,p=1,Q=0,P=0){
-  C * alpha * omega * p * a * R / (1 + a*h*(p*R + (1-p)*Q + psi*P))
+f <- function(R,C,a,h,alpha,psi=0,omega=1,p=1,Q=0){
+  C * alpha * omega * p * a * R / (1 + a*h*(p*R + (1-p)*Q + psi*C))
   # Q = density of resource 2
-  # P = density of consumer 2
+  # P = density of consumer 2 (currently unused)
 }
   # - effective handling time can be increased by:
   #   1. already-parasitised prey (discrete-time models):
@@ -127,7 +127,6 @@ f <- function(R,C,a,h,alpha,psi=0,omega=1,p=1,Q=0,P=0){
   # assumes different resource species have
   #   same handling times, nutritional values, assimilation rates
   #   Koen-Alonso 1.12, 1.21 (Royama)
-  # C = C1 OR C2 (not both)
 
   # gamma for feeding juveniles (de Roos)
 
@@ -488,6 +487,9 @@ iparmf <- function(bhat,sparms){
       # body masses 2 orders of magnitude apart, starting at 1g
       # same body masses used for same chain positions
     
+    if(nchain==1) Ycc <- Yc
+    if(nchain==2) Ycc <- c(Yc,Yc2)
+    
     if(length(nstart)==1) y0 <- rep(nstart,Yc2)
     if(length(nstart)>1)  y0  <- nstart
     
@@ -516,6 +518,7 @@ iparmf <- function(bhat,sparms){
          Yr=Yr,Yr2=Yr2,Yl=Yl,Yb=Yb,Yb2=Yb2,
          Ycseq=Ycseq,Yc2seq=Yc2seq,
          Ybseq=Ybseq,Yb2seq=Yb2seq,
+         Ycc=Ycc,
          bd=bd,M=M,y0=y0,
          t0=t0,tseq=tseq
          )
@@ -592,7 +595,7 @@ popint <- function(parms){
 rCf <- function(C,parms){
   require(rootSolve)
   with(parms, {
-    y0[Yc] <- C
+    y0[Ycc] <- C / nchain # split C over chains
     Rstar <- steady(y=y0,
                     parms=parms,
                     fun=d_web,
@@ -600,7 +603,7 @@ rCf <- function(C,parms){
                     method="runsteady",
                     hold=TRUE
     )$y
-    return( unlist(d_web(t=0, y=Rstar, parms))[Yc] )
+    sum( unlist(d_web(t=0, y=Rstar, parms))[Ycc] )
   })
 }
 
@@ -617,13 +620,12 @@ Cstarf <- function(parms){
            times=c(0,Inf),
            method="runsteady",
            hold=FALSE
-           )$y[Yc]
+           )$y[Ycc]
   })
 }
 
 # Cstarfv <- Vectorize(rCf,vectorize.args=c("zmu","zsd"))
   # needs to have zmu as argument
-
 
 # Population growth - Discrete --------------------------------------------
 
