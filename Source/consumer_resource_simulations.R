@@ -17,11 +17,11 @@ sparms = list(
     # no "selective" because too complex (ESS work)
   movetype = c("diffuse","feeding","selective")[3],
     # if FALSE, is mixed specialist
-  generalist = FALSE,
+  generalist = TRUE,
     # does storage operate through births (TRUE) or diffusion (FALSE)?
   discrete = FALSE,
-  tT = 24*7*52,
-  nt = 24*7*52,
+  tT = 24*7, #*52,
+  nt = 24*7, #*52,
   sS = 7*52, 
     # number of seasons over time series
   bdt = NULL,   

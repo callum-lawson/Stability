@@ -116,7 +116,8 @@ g <- function(R,v,k){
   # model closed resource growth later: 1/alpha * x(C,mu)
 
 f <- function(R,C,a,h,alpha,psi=0,omega=1,p=1,Q=0){
-  C * alpha * omega * p * a * R / (1 + a*h*(p*R + (1-p)*Q + psi*C/p))
+  C * alpha * omega * p * a * R / (1 + a*h*(p*R + (1-p)*Q + psi*C))
+  # denominator used to include psi*C/p - but removed because all compete with all?
 }
   # - effective handling time can be increased by:
   #   1. already-parasitised prey (discrete-time models):
@@ -306,9 +307,8 @@ d_web <- function(t,y,parms,hold=FALSE){
         
         pt1 <- pt2 <- rep(1,Yb)
           # pt = fraction of feeding on resource 1 (e.g. time spent in patch 1)
-          # "eat your own" works for juvenile feeding too
+          # "eat from your own chain" works for juvenile feeding too
         Q1  <- Q2  <- rep(0,Yb)
-          # Qx = resource density in chain x
 
         p <- y1[Ys] / (y1[Ys] + y2[Ys])
           # Yr = Ys - 1
@@ -321,7 +321,7 @@ d_web <- function(t,y,parms,hold=FALSE){
             
           Q1[Yr] <- y1[Yr]
           Q2[Yr] <- y2[Yr]
-            # Q = distraction by food from opposite chain
+            # Q = distraction by resource density from opposite chain
         
         }
           
@@ -333,24 +333,21 @@ d_web <- function(t,y,parms,hold=FALSE){
         
         if(generalist==TRUE){
           
-          bt1s <- c(bdt[Yr,],v=v,k=k,psi=psi)
+          bt1s <- c(bdt[Yr,],   v=v,k=k,psi=psi)
           bt2s <- c(bdt[Yb+Yr,],v=v,k=k,psi=psi)
           
-          fR2C1 <- with(bt1s,f(y2[Yr],y1[Ys],a,h,alpha,psi,omega=1,1-p,Q1[Yr]))
-          fR1C2 <- with(bt2s,f(y1[Yr],y2[Ys],a,h,alpha,psi,omega,  p,  Q2[Yr]))
+          fR2C1 <- with(bt2s,f(y2[Yr],y1[Ys],a,h,alpha,psi,omega=1,1-p,Q1[Yr]))
+          fR1C2 <- with(bt1s,f(y1[Yr],y2[Ys],a,h,alpha,psi,omega,  p,  Q2[Yr]))
           
-          d1$fy[Yr] <- d1$fy[Yr] + fR1C2
-          d2$fy[Yr] <- d2$fy[Yr] + fR2C1
-          d1$dy[Ys] <- d1$dy[Ys] + fR1C2
-          d2$dy[Ys] <- d2$dy[Ys] + fR2C1
-          d1$dy[Yr] <- d1$dy[Yr] - fR1C2/bt1s$alpha
-          d2$dy[Yr] <- d2$dy[Yr] - fR2C1/bt2s$alpha
-            # params treated as prey (not pred) characteristics
+          d1$dy[Yr] <- d1$dy[Yr] - fR2C1 / bt2s$alpha
+          d2$dy[Yr] <- d2$dy[Yr] - fR1C2 / bt1s$alpha
+            # a, h, alpha treated as prey (not pred) characteristics
             # add effects of between-chain transfers
+            # need to add effects XXX
           
         }
         
-        ft <- d1$fy[Yr] + d2$fy[Yr]
+        ft <- d1$fy[Yr] + d2$fy[Yr] + fR2C1 + fR1C2
 
       } # finish feeding for two-chain
 
@@ -394,7 +391,12 @@ d_web <- function(t,y,parms,hold=FALSE){
           q <- p # food allocated according to abundance
           y1m <- y1[Ys]
           if(movetype=="selective"){
-            u_m <- d1$fy[Yr]/y1[Ys] - d2$fy[Yr]/y2[Ys]
+            if(generalist==FALSE){
+              u_m <- d1$fy[Yr]/y1[Ys] - d2$fy[Yr]/y2[Ys]
+            } 
+            if(generalist==TRUE){
+              u_m <- d1$fy[Yr]/y1[Ys] - d2$fy[Yr]/y2[Ys] + fR1C2/y2[Ys] - fR2C1/y1[Ys]
+            }
           } 
           # for diffuse, m supplied as input parameter
         }  
