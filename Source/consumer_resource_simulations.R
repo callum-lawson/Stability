@@ -20,8 +20,8 @@ sparms = list(
   generalist = TRUE,
     # does storage operate through births (TRUE) or diffusion (FALSE)?
   discrete = FALSE,
-  tT = 24*7, #*52,
-  nt = 24*7, #*52,
+  tT = 24*7*4, # *52,
+  nt = 24*7*4, # *52,
   sS = 7*52, 
     # number of seasons over time series
   bdt = NULL,   
@@ -45,7 +45,7 @@ bc <- c(
   u_E = 1,   # odds ratio of y1:y2 at equilibrium
   m_E = 1,   # migration rate 
   u_m = 1,
-  m_m = 0.01,
+  m_m = 0.1,
   tau_E = 24 * 7, # lags in migration functions
   tau_m = 0
 )
@@ -53,7 +53,7 @@ bc <- c(
   #   (in this case, phi can be fraction of adult body mass)
 
 bhat <- readRDS("Output/rate_parameters_simulated_21Jun2018.rds")
-bhat <- bdselect(bhat,bpos=c(1,1)) # same params for top consumer
+bhat <- bdselect(bhat,bpos=c(1,2)) # same params for top consumer
 
 iparms <- iparmf(bhat,sparms)
 parms <- c(sparms,iparms,zparms,bc)

@@ -115,9 +115,10 @@ g <- function(R,v,k){
   # additional parameter = starting total biomass (R0 + C0 ...)
   # model closed resource growth later: 1/alpha * x(C,mu)
 
-f <- function(R,C,a,h,alpha,psi=0,omega=1,p=1,Q=0){
-  C * alpha * omega * p * a * R / (1 + a*h*(p*R + (1-p)*Q + psi*C))
-  # denominator used to include psi*C/p - but removed because all compete with all?
+f <- function(R,C,a,h,alpha,psi=0,omega=1,p=1,Q=0,P=0){
+  C * alpha * omega * p * a * R / (1 + a*h*(p*R + (1-p)*Q + psi*P))
+  # Q = density of resource 2
+  # P = density of consumer 2
 }
   # - effective handling time can be increased by:
   #   1. already-parasitised prey (discrete-time models):
@@ -177,12 +178,12 @@ migrate_base <- function(A,B,m,u,mtype){
   }
   if(mtype=="selective"){
     # u indicates fitness; migration proceeds at constant speed m
-    if(u>0)  return( + m * B )
-    if(u<0)  return( - m * A )
+    if(u>0)  return( m * u * B )
+    if(u<0)  return( m * u * A ) # u negative -> away from A
     if(u==0) return( 0 )
   }
   if(mtype!="selective"){
-    return( m * (B - u * A) )
+    return( m * (u * B - A) )
   }
 }
   # same equation as dilution rate
@@ -304,52 +305,48 @@ d_web <- function(t,y,parms,hold=FALSE){
         
         bt1 <- c(bdt[Ybseq,], v=v,k=k,psi=psi)
         bt2 <- c(bdt[Yb2seq,],v=v,k=k,psi=psi)
-        
-        pt1 <- pt2 <- rep(1,Yb)
-          # pt = fraction of feeding on resource 1 (e.g. time spent in patch 1)
-          # "eat from your own chain" works for juvenile feeding too
-        Q1  <- Q2  <- rep(0,Yb)
 
         p <- y1[Ys] / (y1[Ys] + y2[Ys])
-          # Yr = Ys - 1
-        
-        if(generalist==TRUE){
+
+        if(generalist==FALSE){
           
-          pt1[Yr] <- p
-          pt2[Yr] <- 1 - p
-            # p = fraction of feeding on chain 1
-            
-          Q1[Yr] <- y1[Yr]
-          Q2[Yr] <- y2[Yr]
-            # Q = distraction by resource density from opposite chain
-        
-        }
-          
-        d1 <- d_chain(y1,bt1,Yc,p=pt1,Q=Q2,omega=1)
-        d2 <- d_chain(y2,bt2,Yc,p=pt2,Q=Q1,omega=omega)
+          d1 <- d_chain(y1,bt1,Yc,omega=1)
+          d2 <- d_chain(y2,bt2,Yc,omega=omega)
           # rely on bt2 to supply different phi
           # omega should be >0, otherwise use one-chain model
-          # FOR generalist, accounts only for within-chain transfers
-        
-        if(generalist==TRUE){
-          
-          bt1s <- c(bdt[Yr,],   v=v,k=k,psi=psi)
-          bt2s <- c(bdt[Yb+Yr,],v=v,k=k,psi=psi)
-          
-          fR2C1 <- with(bt2s,f(y2[Yr],y1[Ys],a,h,alpha,psi,omega=1,1-p,Q1[Yr]))
-          fR1C2 <- with(bt1s,f(y1[Yr],y2[Ys],a,h,alpha,psi,omega,  p,  Q2[Yr]))
-          
-          d1$dy[Yr] <- d1$dy[Yr] - fR2C1 / bt2s$alpha
-          d2$dy[Yr] <- d2$dy[Yr] - fR1C2 / bt1s$alpha
-            # a, h, alpha treated as prey (not pred) characteristics
-            # add effects of between-chain transfers
-            # need to add effects XXX
+          # for generalist, accounts only for within-chain transfers
+          # a, h, alpha considered properties of resource (not consumer)
+          # generalist interefere with each other, but specialists don't
+          #   - alternative option: cross-intereference with same z parameters / constant w
           
         }
         
-        ft <- d1$fy[Yr] + d2$fy[Yr] + fR2C1 + fR1C2
+        if(generalist==TRUE){
+          
+          pt1 <- pt2 <- rep(1,Yb)
+          pt1[Yr] <- p
+          pt2[Yr] <- 1 - p
+            # pt = fraction of feeding on resource 1 (e.g. time spent in patch 1)
 
-      } # finish feeding for two-chain
+          Q1 <- Q2 <- rep(0,Yb)
+          Q1[Yr] <- y1[Yr]
+          Q2[Yr] <- y2[Yr]
+           # Q = distraction by resource density from opposite chain
+          
+          y1f <- y1
+          y2f <- y2
+          y1f[Ys] <- y1[Ys] + y2[Ys]
+          y2f[Ys] <- y1[Ys] + y2[Ys]
+            # ! won't work if generalist isn't top consumer !
+          
+          d1 <- d_chain(y1f,bt1,Yc,p=pt1,Q=Q2,omega=1)
+          d2 <- d_chain(y2f,bt2,Yc,p=pt2,Q=Q1,omega=omega)
+          
+        }
+        
+        ft <- d1$fy[Yr] + d2$fy[Yr]
+
+      } # end feeding for two-chain
 
       ### STORE AND HATCH EGGS
       
@@ -380,7 +377,7 @@ d_web <- function(t,y,parms,hold=FALSE){
           # using mu param from y1
           # no selective behaviour (e.g. hiding) for one-chain models
         
-      } # close egg store operations
+      } # end egg store operations
       
       ### MIGRATION (two-chain only)
       
@@ -391,12 +388,7 @@ d_web <- function(t,y,parms,hold=FALSE){
           q <- p # food allocated according to abundance
           y1m <- y1[Ys]
           if(movetype=="selective"){
-            if(generalist==FALSE){
-              u_m <- d1$fy[Yr]/y1[Ys] - d2$fy[Yr]/y2[Ys]
-            } 
-            if(generalist==TRUE){
-              u_m <- d1$fy[Yr]/y1[Ys] - d2$fy[Yr]/y2[Ys] + fR1C2/y2[Ys] - fR2C1/y1[Ys]
-            }
+            u_m <- d1$fy[Yr] / p - d2$fy[Yr] / (1-p)
           } 
           # for diffuse, m supplied as input parameter
         }  
