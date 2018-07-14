@@ -126,7 +126,7 @@ f <- function(R,C,a,h,alpha,psi=0,omega=1,p=1,Q=0){
   #   2. omega = predator interference time in units of prey handling time
   # assumes different resource species have
   #   same handling times, nutritional values, assimilation rates
-  #   Koen-Alonso 1.12, 1.21 (Royama)
+  #   Koen-Alonso 1.12, 1.21 (Royama), 1.47 (generalism) 
 
   # gamma for feeding juveniles (de Roos)
 
@@ -328,9 +328,11 @@ d_web <- function(t,y,parms,hold=FALSE){
             # pt = fraction of feeding on resource 1 (e.g. time spent in patch 1)
 
           Q1 <- Q2 <- rep(0,Yb)
-          Q1[Yr] <- y1[Yr]
-          Q2[Yr] <- y2[Yr]
+          ah12r <- (bt1$a * bt1$h) / (bt2$a * bt2$h)
+          Q1[Yr] <- y1[Yr] * ah12r
+          Q2[Yr] <- y2[Yr] / ah12r
            # Q = distraction by resource density from opposite chain
+           # need to account for temp-driven differences in a and h
           
           y1f <- y1
           y2f <- y2
@@ -595,7 +597,7 @@ popint <- function(parms){
 rCf <- function(C,parms){
   require(rootSolve)
   with(parms, {
-    y0[Ycc] <- C / nchain # split C over chains
+    y0[Ycc] <- C / nchain # split C over chains (p=0.5)
     Rstar <- steady(y=y0,
                     parms=parms,
                     fun=d_web,

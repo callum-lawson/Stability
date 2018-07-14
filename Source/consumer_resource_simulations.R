@@ -58,6 +58,11 @@ bhat <- bdselect(bhat,bpos=c(1,2)) # same params for top consumer
 iparms <- iparmf(bhat,sparms)
 parms <- c(sparms,iparms,zparms,bc)
 
+Cmin <- -3 
+Cmax <- 3
+nC <- 100
+Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
+
 # attach(parms)
 # y <- y0
 # t <- t0
@@ -182,11 +187,6 @@ zparms1$zsig = 0
 iparms1 <- iparmf(bhat,sparms1)
 parms1 <- c(sparms1,iparms1,zparms1,bc)
 
-Cmin <- -3 
-Cmax <- 3
-nC <- 100
-Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
-
 dC1 <- rCfv(Cseq,parms1) / Cseq # *per-capita* growth
 
 parms2 <- parms1
@@ -242,4 +242,28 @@ matplot(lo(NarrD[,-1]),type="l")
 # exp(-bdt$mu * parmsX$tT/parmsX$sS)
 # function to plot functional responses? d_chain(y=c())
 
+# Generalism --------------------------------------------------------------
 
+parmsG1 <- parmsG2 <- parmsS1 <- parmsS2 <- parms
+parmsG2$generalist <- FALSE
+  # no need to prevent migration as dC = instantaneous rate
+
+bhatS1 <- bdselect(bhat,bpos=1)
+bhatS2 <- bdselect(bhat,bpos=2)
+sparmsS <- sparms
+sparmsS$nchain <- 1
+iparmsS1 <- iparmf(bhatS1,sparmsS)
+iparmsS2 <- iparmf(bhatS2,sparmsS)
+parmsS1 <- c(sparmsS,iparmsS1,zparms,bc)
+parmsS2 <- c(sparmsS,iparmsS2,zparms,bc)
+
+dCG1 <- rCfv(Cseq,parmsG1) / Cseq
+dCG2 <- rCfv(Cseq,parmsG2) / Cseq
+dCS1 <- rCfv(Cseq,parmsS1) / Cseq
+dCS2 <- rCfv(Cseq,parmsS2) / Cseq
+
+matplot(log(Cseq),cbind(dCG1,dCG2,dCS1,dCS2),type="l",
+        col=c("orange","green","red","blue"))
+abline(h=0,col="black",lty=2)
+matplot(log(Cseq),cbind(dCG1,dCG2),type="l",
+        col=c("orange","green"))
