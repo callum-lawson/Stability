@@ -328,7 +328,7 @@ d_web <- function(t,y,parms,hold=FALSE){
             # pt = fraction of feeding on resource 1 (e.g. time spent in patch 1)
 
           Q1 <- Q2 <- rep(0,Yb)
-          ah12r <- (bt1$a * bt1$h) / (bt2$a * bt2$h)
+          ah12r <- (bt1$a[Yr] * bt1$h[Yr]) / (bt2$a[Yr] * bt2$h[Yr])
           Q1[Yr] <- y1[Yr] * ah12r
           Q2[Yr] <- y2[Yr] / ah12r
            # Q = distraction by resource density from opposite chain
@@ -434,7 +434,10 @@ d_web <- function(t,y,parms,hold=FALSE){
       
     } # end structured models
   
-    if(hold==TRUE)  dya[c(Yc,Yc2,Ya)] <- 0
+    if(hold==TRUE){
+      if(store==FALSE) dya[c(Yc,Yc2)] <- 0 
+      if(store==TRUE)  dya[c(Yc,Yc2,Ya)] <- 0 
+    }  
 
     return( list(dya) )
 
@@ -460,11 +463,7 @@ iparmf <- function(bhat,sparms){
     Yc <- chainlength
     
     Yc2 <- Yc * nchain
-    
-    # store==TRUE | tau_E>0?
-    
-    if(store==FALSE)  Ya <- Yc2
-    if(store==TRUE)   Ya <- Yc2 + 1
+    Ya <- Yc2 + 1
     
     if(slevel=="consumer") Ys <- Yc
     if(slevel=="resource") Ys <- Yc - 1
@@ -485,9 +484,10 @@ iparmf <- function(bhat,sparms){
       # egg parms will be selected from focal species in *first* chain
     Yb2seq <- (Yb+1):Yb2
     
-    M <- 10 ^ (2*rep(Ybseq-1,nchain))
+    M <- 10 ^ (morder*rep(Ybseq-1,nchain))
       # body masses 2 orders of magnitude apart, starting at 1g
       # same body masses used for same chain positions
+      # basal resource has no body mass - lifespeed set by v
     
     if(nchain==1) Ycc <- Yc
     if(nchain==2) Ycc <- c(Yc,Yc2)

@@ -211,6 +211,9 @@ clines[[2]] <- nullclines(romac_phaser, x.lim=cxlim, y.lim=cylim,
                           parameters=pd0[2,], points=100,
                           colour=rep("red",2)
 )
+equil1 <- c(0.275,0.15) # rough case using locator()
+tradj[[1]] <- trajectory(romac_phaser, y0=equil1, t.step=60, t.end=60*10^5, parameters = pd0[1,])
+tradj[[2]] <- trajectory(romac_phaser, y0=equil1, t.step=60, t.end=60*10^5, parameters = pd0[2,])
 
 # DeAngelis ---------------------------------------------------------------
 
