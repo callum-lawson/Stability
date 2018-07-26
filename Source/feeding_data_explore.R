@@ -74,9 +74,8 @@ fr$al <- with(fr, log(a * 60^2) )
 fr$hl <- with(fr, log(h / 60^2) )
   # handling times per hour instead of per second as in Yuanheng's database
 fr$cml <- with(fr, log(cmass) ) 
-  # mass in mg
-sigma <- 0.01
-fr$rml <- with(fr, log(sigma*cmass/rmass) )
+  # mass in *grams*
+fr$rml <- with(fr, cml - log(rmass) )
   # sets intercept with consumer 100 times larger than resource
 
 ma <- lmer(al ~ offset(cml) 
@@ -89,7 +88,7 @@ ma <- lmer(al ~ offset(cml)
   # bigger body masses increase attack rates per consumer individual (Rall et al.),
   #   decrease attack rates per consumer gram (splitting up more effective)
 
-mh <- lmer(hl ~ offset(-rml) 
+mh <- lmer(hl ~ offset(rml) 
            + Tr + cml + rml 
            + (1 + Tr + cml + rml | group) + (1 | pub), 
            data=fr)
@@ -98,14 +97,14 @@ mh <- lmer(hl ~ offset(-rml)
   # each resource individual yields *M[R] grams*, so handling time needs to be 
   #   scaled down by amount of grams of in each resource individual
   # fmax = R/C * M[R]/M[C]
-  #   so handling time scaled by inverse (negative log)
+  #   so handling time *divded* by M[R]/M[C], so use this as offset
   
 # Analyse metabolic rates -------------------------------------------------
 
 mr[mr==-999.9] <- NA
 mr$Tr <- arrtemp(mr$Tc) 
 mr$cml <- log(mr$cmass)
-  # original mass in grams
+  # mass in *grams*
 mr$el <- qlogis(mr$alpha)
 mr$ml <- log(mr$mu)
 
@@ -141,7 +140,7 @@ fixadj <- function(m){
     "cml" = "bm",
     "rml" = "br"
   ))
-  return(as.list(fixcoef))
+  return(as.data.frame(t(fixcoef)))
 }
   # changes intercept to absolute (un-logged) scale
   # shifts intercept to consumer mass of 1g instead of 1mg

@@ -35,6 +35,7 @@ arrtemp <- function(z,z0=20,T0=273.15,kB=8.6173303*10^-5){
 rate_lp <- function(b,z,M){
   with(b, b0 + bz * arrtemp(z) + bm * log(M))
 }
+  # body mass ratio effects incorporated in iparms
 
 rate_abs <- function(bd,bn,z,M){
   lp <- rate_lp(bd,z,M)
@@ -454,6 +455,20 @@ d_web <- function(t,y,parms,hold=FALSE){
 
 # Setup -------------------------------------------------------------------
 
+incratio <- function(bd,M,nchain,Ybseq,morder){
+  if(length(Ybseq)==1){
+    dlM <- rep(log(10^morder), nchain)
+  }
+  if(length(Ybseq)>1){
+    dlM <- rep( c( log(M[2]/M[1]), diff(log(M[Ybseq])) ), nchain)
+  }
+  # diff(log) = log(ratio of consecutive masses)
+  # assuming that mass difference between consumer and basal resource equals
+  # mass difference between first two consumers
+  bd$b0 <- bd$b0 + bd$br * dlM
+  return(bd)
+}
+
 iparmf <- function(bhat,sparms){
   
   with(sparms, {
@@ -484,8 +499,8 @@ iparmf <- function(bhat,sparms){
       # egg parms will be selected from focal species in *first* chain
     Yb2seq <- (Yb+1):Yb2
     
-    M <- 10 ^ (morder*rep(Ybseq-1,nchain))
-      # body masses 2 orders of magnitude apart, starting at 1g
+    M <- mbase * 10 ^ ( morder * rep(Ybseq-1,nchain) )
+      # body masses 2 orders of magnitude apart
       # same body masses used for same chain positions
       # basal resource has no body mass - lifespeed set by v
     
@@ -507,6 +522,8 @@ iparmf <- function(bhat,sparms){
       bd <- bdselect(bhat,c(Ybseq,Yb2seq))
     }
 
+    bd <- lapply(bd,FUN=incratio,M=M,nchain=nchain,Ybseq=Ybseq,morder=morder)
+    
     if(store==TRUE){
       y0 <- c(y0,E=0) # set eggs to zero
       names(y0)[Ya] <- paste0("E",names(y0)[Ys])
