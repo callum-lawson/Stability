@@ -69,36 +69,25 @@ mr <- rename(mr,replace=c(
 # fr$group <- with(fr, droplevels(system:metgroup))
 
 fr$Tr <- with(fr, arrtemp(Tc))
-fr$al <- with(fr, log(a * 60^2) )
-  # attack rate in m^2 per hour instead of per second as in Yuanheng's database
-fr$hl <- with(fr, log(h / 60^2) )
-  # handling times per hour instead of per second as in Yuanheng's database
 fr$cml <- with(fr, log(cmass) ) 
   # mass in *grams*
 fr$rml <- with(fr, cml - log(rmass) )
-  # sets intercept with consumer 100 times larger than resource
+fr$al <- with(fr, log(a * 60^2) - cml )
+  # attack rate in m^2 per hour instead of per second as in Yuanheng's database
+  # -cml -> attack rate in m^2 per hour per consumer gram
+fr$hl <- with(fr, log(h / 60^2) +  cml )
+  # handling times per hour instead of per second as in Yuanheng's database
+  # fmax = R/C * M[R]/M[C], so handling time (inverse) needs to be multiplied by *M[C]/M[R]*
+  # each R individual yields *M[R] grams*, so if e.g. one R yields 2g, h per g = h/2
+  # if each C individual weighs 2g, 1g of C would take twice as long to handle it (h'=2*h)
 
-ma <- lmer(al ~ offset(cml) 
-           + Tr + cml + rml  
-           + (1 + Tr + cml + rml | group) + (1 | pub), 
-           data=fr)
-  # mass as offset -> attack and max feeding rates per gram of consumer
-  # so attack rate in m^2 per hour per consumer gram
+ma <- lmer(al ~ Tr + cml + rml + (1 + Tr + cml + rml | group) + (1 | pub), data=fr)
   # not enough observations per group to estimate intercept-slope correlations
   # bigger body masses increase attack rates per consumer individual (Rall et al.),
   #   decrease attack rates per consumer gram (splitting up more effective)
 
-mh <- lmer(hl ~ offset(rml) 
-           + Tr + cml + rml 
-           + (1 + Tr + cml + rml | group) + (1 | pub), 
-           data=fr)
-  # handling time per resource gram per consumer gram, i.e. 
-  #   time for 1 feeding consumer gram to process 1 resource gram
-  # each resource individual yields *M[R] grams*, so handling time needs to be 
-  #   scaled down by amount of grams of in each resource individual
-  # fmax = R/C * M[R]/M[C]
-  #   so handling time *divded* by M[R]/M[C], so use this as offset
-  
+mh <- lmer(hl ~ Tr + cml + rml + (1 + Tr + cml + rml | group) + (1 | pub), data=fr)
+
 # Analyse metabolic rates -------------------------------------------------
 
 mr[mr==-999.9] <- NA

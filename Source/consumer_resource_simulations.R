@@ -22,8 +22,8 @@ sparms = list(
   discrete = FALSE,
   mbase = 0.001, # 1mg
   morder = 2,
-  tT = 24*7,
-  nt = 24*7, # 52,
+  tT = 24 * 7,
+  nt =24 * 7 * 10,
   sS = 7*52, 
     # number of seasons over time series
   bdt = NULL,   
@@ -39,7 +39,7 @@ zparms <- list(
 
 bc <- c(
   v = 1,   # max flow rate = k *grams* per m^2 per hour
-  k = 100,    # grams per m^2
+  k = 100,   # grams per m^2
   psi = 0,   # interference:handling time ratio
   omega = 1, # relative feeding rate of y2
   phi_E = 0, # relative death rate of eggs
@@ -54,9 +54,9 @@ bc <- c(
   # phi and omega could instead by controlled by body masses
   #   (in this case, phi can be fraction of adult body mass)
 
-# bhat <- readRDS("Output/rate_parameters_simulated_26Jul2018.rds")
+# bhat <- readRDS("Output/rate_parameters_simulated_27Jul2018.rds")
 # bhat <- bdselect(bhat,bpos=rep(5,2))
-bhat <- readRDS("Output/rate_parameters_marginal_26Jul2018.rds")
+bhat <- readRDS("Output/rate_parameters_marginal_27Jul2018.rds")
 bhat <- bdselect(bhat,bpos=rep(1,10))
 
 iparms <- iparmf(bhat,sparms)
@@ -96,10 +96,7 @@ parms4 <- parms1
 parms4$zmu <- parms1$zmu - 10
 dC4 <- rCfv(Cseq,parms4) / Cseq
 
-plot(dC1~log(Cseq),type="l",col="orange")
-lines(dC2~log(Cseq),col="red")
-lines(dC3~log(Cseq),col="green")
-lines(dC4~log(Cseq),col="blue")
+matplot(log(Cseq), cbind(dC1,dC2,dC3,dC4), type="l", col=c("orange","red","green","blue"))
 abline(h=0,col="black",lty=2)
 
 Cstar <- sapply(list(parms1,parms2,parms3,parms4),Cstarf)
