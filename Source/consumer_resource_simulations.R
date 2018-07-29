@@ -23,7 +23,7 @@ sparms = list(
   mbase = 0.001, # 1mg
   morder = 2,
   tT = 24 * 7,
-  nt =24 * 7 * 10,
+  nt = 24 * 7 * 10,
   sS = 7*52, 
     # number of seasons over time series
   bdt = NULL,   
@@ -38,8 +38,8 @@ zparms <- list(
 )
 
 bc <- c(
-  v = 1,   # max flow rate = k *grams* per m^2 per hour
-  k = 100,   # grams per m^2
+  v = 10,   # max input rate = vk *grams* per m^2 per hour
+  k = 10,    # grams per m^2
   psi = 0,   # interference:handling time ratio
   omega = 1, # relative feeding rate of y2
   phi_E = 0, # relative death rate of eggs
@@ -55,9 +55,16 @@ bc <- c(
   #   (in this case, phi can be fraction of adult body mass)
 
 # bhat <- readRDS("Output/rate_parameters_simulated_27Jul2018.rds")
-# bhat <- bdselect(bhat,bpos=rep(5,2))
+# bhat <- bdselect(bhat,bpos=c(1,2,1,3))
+
 bhat <- readRDS("Output/rate_parameters_marginal_27Jul2018.rds")
 bhat <- bdselect(bhat,bpos=rep(1,10))
+
+bhat$a$bz <- 0
+bhat$h$bz[1] <- 0
+bhat$h$bz[2] <- bhat$h$bz[2] - 0.1524
+bhat$alpha$bz <- 0
+bhat$mu$bz <- 0
 
 iparms <- iparmf(bhat,sparms)
 parms <- c(sparms,iparms,zparms,bc)
@@ -69,6 +76,16 @@ Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
 
 trial <- popint(parms)
 matplot(log(trial[,-1]),type="l")
+
+# parms2 <- parms
+# newstart <- runsteady(y = parms$y0, time = c(0,Inf), func = d_web, parms = parms)
+# parms2$y0 <- newstart$y
+# parms2$zmu <- 25
+# trial2 <- popint(parms2)
+# matplot(log(trial2[,-1]),type="l")
+  # still fluctuates when transitioning from one equilibrium to another
+
+bddd <- with(parms, btf(t=0,bd,M,parms))
 
 # Growth curves - continuous ----------------------------------------------
 
@@ -83,7 +100,7 @@ parms1 <- c(sparms1,iparms1,zparms1,bc)
 dC1 <- rCfv(Cseq,parms1) / Cseq # *per-capita* growth
 
 parms2 <- parms1
-parms2$zmu <- parms1$zmu + 10
+parms2$zmu <- parms1$zmu + 5
 dC2 <- rCfv(Cseq,parms2) / Cseq
 
 parms3 <- parms3b <- parms1
@@ -93,11 +110,12 @@ dC3 <- rCfv(Cseq,parms3) / Cseq
   # parms1 because don't want fluctuating for C* calculation
 
 parms4 <- parms1
-parms4$zmu <- parms1$zmu - 10
+parms4$zmu <- parms1$zmu - 5
 dC4 <- rCfv(Cseq,parms4) / Cseq
 
 matplot(log(Cseq), cbind(dC1,dC2,dC3,dC4), type="l", col=c("orange","red","green","blue"))
 abline(h=0,col="black",lty=2)
+lines(log(Cseq),apply(cbind(dC2,dC4),1,mean),col="purple",lty=1)
 
 Cstar <- sapply(list(parms1,parms2,parms3,parms4),Cstarf)
 points(log(Cstar),rep(0,length(Cstar)))
@@ -166,8 +184,8 @@ parmsG1 <- parmsG2 <- parmsS1 <- parmsS2 <- parms
 parmsG2$generalist <- FALSE
   # no need to prevent migration as dC = instantaneous rate
 
-bhatS1 <- bdselect(bhat,bpos=c(1,2))
-bhatS2 <- bdselect(bhat,bpos=c(1,3))
+bhatS1 <- bdselect(bhat,bpos=1:2)
+bhatS2 <- bdselect(bhat,bpos=3:4)
 sparmsS <- sparms
 sparmsS$nchain <- 1
 iparmsS1 <- iparmf(bhatS1,sparmsS)
@@ -182,7 +200,7 @@ dCG2 <- sapply(zmuseq,rCquick,parms=parmsG2)
 dCS1 <- sapply(zmuseq,rCquick,parms=parmsS1)
 dCS2 <- sapply(zmuseq,rCquick,parms=parmsS2)
 
-pdf(paste0("Plots/generalist_growthcurves_",format(Sys.Date(),"%d%b%Y"),".pdf"),width=14,height=14)
+pdf(paste0("Plots/generalist_growthcurvesB_",format(Sys.Date(),"%d%b%Y"),".pdf"),width=14,height=14)
 matplot(log(CseqG),cbind(dCG1,dCG2,dCS1,dCS2),type="l",
         col=rep(c("orange","green","red","blue"),each=3),
         lty=rep(c(2,1,2),times=4)
@@ -298,11 +316,43 @@ par(mfrow=c(1,1))
 plot(log(Narr4[((sparms$nt-1000):sparms$nt),4]),type="l")
 # very slow underdamping to equilibrium (not cycles)
 
+# Growth rates of basal consumer ------------------------------------------
+
+sat <- function(N,k,a,alpha,mu){
+  alpha * a * ( k - a*N ) - mu 
+}
+conk <- function(k,a,alpha,mu){
+  1/a * (k-mu/(alpha*a))
+}
+conmax <- function(k,a,alpha,mu){
+  alpha*a*k - mu
+}
+relcurve <- function(N,k,a,alpha,mu){
+  newN <- N * conk(k,a,alpha,mu)
+  sat(newN,k,a,alpha,mu)/conmax(k,a,alpha,mu)
+}
+
+v <- 50
+k <- 50
+a <- bddd[1,]$a
+alpha <- bddd[1,]$alpha
+mu <- bddd[1,]$mu
+
+curve(sat(N=x,k,a,alpha,mu)*x,xlim=c(0,200))
+curve(sat(N=x,0.5*k,a,alpha,mu)*x,add=T,col="red")
+curve(sat(N=x,k,a,alpha,mu)*x,add=T,col="blue")
+
+r <- 1
+K <- 1000
+curve(x*r*(1-x/K),add=TRUE,col="grey")
+
+curve(relcurve(N=x,k,a,alpha,mu),xlim=c(0,1),ylim=c(0,1))
+curve(relcurve(N=x,0.5*k,a,alpha,mu),add=T,col="red")    
+curve(relcurve(N=x,k,0.5*a,alpha,mu),add=T,col="blue")
+
 # Cycles ------------------------------------------------------------------
 
 # Rough exploration
-
-bddd <- with(parms, btf(t=0,bd,M,parms))
 
 # bhat <- bdselect(bhat,bpos=rep(5,2))
 # bhat$alpha$bm <- 0.1 

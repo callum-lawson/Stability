@@ -333,7 +333,7 @@ d_web <- function(t,y,parms,hold=FALSE){
           Q1[Yr] <- y1[Yr] * ah12r
           Q2[Yr] <- y2[Yr] / ah12r
            # Q = distraction by resource density from opposite chain
-           # need to account for temp-driven differences in a and h
+           # need to account for temp-driven differences in a and h in denominator
           
           y1f <- y1
           y2f <- y2

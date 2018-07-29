@@ -75,7 +75,7 @@ fr$rml <- with(fr, cml - log(rmass) )
 fr$al <- with(fr, log(a * 60^2) - cml )
   # attack rate in m^2 per hour instead of per second as in Yuanheng's database
   # -cml -> attack rate in m^2 per hour per consumer gram
-fr$hl <- with(fr, log(h / 60^2) +  cml )
+fr$hl <- with(fr, log(h / 60^2) + cml )
   # handling times per hour instead of per second as in Yuanheng's database
   # fmax = R/C * M[R]/M[C], so handling time (inverse) needs to be multiplied by *M[C]/M[R]*
   # each R individual yields *M[R] grams*, so if e.g. one R yields 2g, h per g = h/2
@@ -87,6 +87,7 @@ ma <- lmer(al ~ Tr + cml + rml + (1 + Tr + cml + rml | group) + (1 | pub), data=
   #   decrease attack rates per consumer gram (splitting up more effective)
 
 mh <- lmer(hl ~ Tr + cml + rml + (1 + Tr + cml + rml | group) + (1 | pub), data=fr)
+  # large among-group variance; unchanged by fitting log(rmass) instead of log(cmass/rmass)
 
 # Analyse metabolic rates -------------------------------------------------
 
