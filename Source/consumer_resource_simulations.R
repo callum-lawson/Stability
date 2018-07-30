@@ -58,20 +58,21 @@ bc <- c(
 # bhat <- bdselect(bhat,bpos=c(1,2,1,3))
 
 bhat <- readRDS("Output/rate_parameters_marginal_27Jul2018.rds")
-bhat <- bdselect(bhat,bpos=rep(1,10))
+bhat <- bdselect(bhat,bpos=rep(1,2))
 
 bhat$a$bz <- 0
-bhat$h$bz[1] <- 0
-bhat$h$bz[2] <- bhat$h$bz[2] - 0.1524
+bhat$h$bz <- 0
 bhat$alpha$bz <- 0
-bhat$mu$bz <- 0
+bhat$mu$bz[1] <- 0
+
+bhat$h$b0 <- bhat$h$b0 - 1.25 * 3.2089
 
 iparms <- iparmf(bhat,sparms)
 parms <- c(sparms,iparms,zparms,bc)
 
 Cmin <- -3 
 Cmax <- 3
-nC <- 50
+nC <- 100
 Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
 
 trial <- popint(parms)
@@ -86,127 +87,6 @@ matplot(log(trial[,-1]),type="l")
   # still fluctuates when transitioning from one equilibrium to another
 
 bddd <- with(parms, btf(t=0,bd,M,parms))
-
-# Growth curves - continuous ----------------------------------------------
-
-sparms1 <- sparms
-zparms1 <- zparms
-sparms1$discrete = FALSE
-sparms1$store = FALSE
-zparms1$zsig = 0
-iparms1 <- iparmf(bhat,sparms1)
-parms1 <- c(sparms1,iparms1,zparms1,bc)
-
-dC1 <- rCfv(Cseq,parms1) / Cseq # *per-capita* growth
-
-parms2 <- parms1
-parms2$zmu <- parms1$zmu + 5
-dC2 <- rCfv(Cseq,parms2) / Cseq
-
-parms3 <- parms3b <- parms1
-parms3b$zsig <- parms1$zsig + 5
-parms3$bdt <- with(parms3b, rate_int_l(bd=bd,bn=names(bd),parms=parms3b))
-dC3 <- rCfv(Cseq,parms3) / Cseq 
-  # parms1 because don't want fluctuating for C* calculation
-
-parms4 <- parms1
-parms4$zmu <- parms1$zmu - 5
-dC4 <- rCfv(Cseq,parms4) / Cseq
-
-matplot(log(Cseq), cbind(dC1,dC2,dC3,dC4), type="l", col=c("orange","red","green","blue"))
-abline(h=0,col="black",lty=2)
-lines(log(Cseq),apply(cbind(dC2,dC4),1,mean),col="purple",lty=1)
-
-Cstar <- sapply(list(parms1,parms2,parms3,parms4),Cstarf)
-points(log(Cstar),rep(0,length(Cstar)))
-  # next up: function for Cstar calculation over vector of different z
-
-spectrum <- function(Rstar,alpha,a,h,mu){
-  lrmax <- log( f(R=Rstar,C=1,a,h,alpha) ) # 1 -> per-capita (doesn't include w effects)
-  lrmin <- log ( mu )
-  lrmax - lrmin
-}
-
-with(with(parms, btf(t=0,bd,M,parms1)),spectrum(Rstar=bc["k"],alpha,a,h,mu))
-with(with(parms, btf(t=0,bd,M,parms2)),spectrum(Rstar=bc["k"],alpha,a,h,mu))
-with(with(parms, btf(t=0,bd,M,parms4)),spectrum(Rstar=bc["k"],alpha,a,h,mu))
-
-# Growth curves - discrete ------------------------------------------------
-
-# requires at least 3 species
-parmsX <- parms
-parmsX$discrete <- TRUE
-parmsX$tT <- 24 * 7 * 52 / 12
-parmsX$zsig <- 0
-parmsX$k <- 10
-# parmsX$bd$mu$b0 <- parmsX$bd$mu$b0 - 5
-parmsX$phi_E <- 0.1
-
-now1 <- log( RCfv(Cseq,parmsX) / Cseq ) # *per-capita* growth
-
-plot(now1~log(Cseq),type="l")
-abline(4,-1,lty=2,col="red")
-abline(h=0,lty=2,col="blue")
-
-parmsX$tT <- 24*7*52
-parmsX$nt <- 24*7*52
-parmsX$sS <- 12
-NarrD <- popint(parmsX)
-par(mfrow=c(1,1))
-plot(log(NarrD[,3]),type="l")
-matplot(lo(NarrD[,-1]),type="l")
-
-# bdt <- with(parmsX, btf(t=0, bd, M, parmsX))
-# exp(-bdt$mu * parmsX$tT/parmsX$sS)
-# function to plot functional responses? d_chain(y=c())
-
-# Generalism --------------------------------------------------------------
-
-CseqG <- 10^seq(-3,3,length.out=100)
-
-rCseqf <- function(parms){
-  Cmin <- -3 
-  Cmax <- 3
-  nC <- 100
-  Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
-  rCfv(Cseq,parms) / Cseq
-}
-
-rCquick <- function(zmu,parms){
-  newparms <- parms
-  # newparms$bd$h$b0 <- newparms$bd$h$b0 + 5
-  newparms$k <- newparms$k * 5
-  newparms$zmu <- zmu
-  rCseqf(newparms)
-}
-
-parmsG1 <- parmsG2 <- parmsS1 <- parmsS2 <- parms
-parmsG2$generalist <- FALSE
-  # no need to prevent migration as dC = instantaneous rate
-
-bhatS1 <- bdselect(bhat,bpos=1:2)
-bhatS2 <- bdselect(bhat,bpos=3:4)
-sparmsS <- sparms
-sparmsS$nchain <- 1
-iparmsS1 <- iparmf(bhatS1,sparmsS)
-iparmsS2 <- iparmf(bhatS2,sparmsS)
-parmsS1 <- c(sparmsS,iparmsS1,zparms,bc)
-parmsS2 <- c(sparmsS,iparmsS2,zparms,bc)
-
-zmuseq <- c(-5,0,5)
-
-dCG1 <- sapply(zmuseq,rCquick,parms=parmsG1)
-dCG2 <- sapply(zmuseq,rCquick,parms=parmsG2)
-dCS1 <- sapply(zmuseq,rCquick,parms=parmsS1)
-dCS2 <- sapply(zmuseq,rCquick,parms=parmsS2)
-
-pdf(paste0("Plots/generalist_growthcurvesB_",format(Sys.Date(),"%d%b%Y"),".pdf"),width=14,height=14)
-matplot(log(CseqG),cbind(dCG1,dCG2,dCS1,dCS2),type="l",
-        col=rep(c("orange","green","red","blue"),each=3),
-        lty=rep(c(2,1,2),times=4)
-)
-abline(h=0,col="black",lty=2)
-dev.off()
 
 # Fluctuation speed -------------------------------------------------------
 

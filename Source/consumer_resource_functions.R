@@ -105,6 +105,10 @@ rate_int_l <- function(bd,bn,parms){
 }
   # works over list of parameter dataframes
 
+  # !but doesn't account for correlations among parameters (e.g. a and h go up and down together)
+
+rate_int(bi=bhat$mu[1,],bni="mu",Mi=1,parms=parms)
+
 # Feeding rates -----------------------------------------------------------
 
 g <- function(R,v,k){
@@ -605,7 +609,7 @@ popint <- function(parms){
   })
 }
 
-# Timescale separation ----------------------------------------------------
+# Population growth curves - continuous -----------------------------------
 
 # vector of top C densities
 # resulting vector of equilibrium R densities
@@ -628,25 +632,8 @@ rCf <- function(C,parms){
 
 rCfv <- Vectorize(rCf,vectorize.args=c("C"))
 
-# Carrying capacities -----------------------------------------------------
 
-Cstarf <- function(parms){
-  require(rootSolve)
-  with(parms, {
-    steady(y=y0,
-           parms=parms,
-           fun=d_web,
-           times=c(0,Inf),
-           method="runsteady",
-           hold=FALSE
-           )$y[Ycc]
-  })
-}
-
-# Cstarfv <- Vectorize(rCf,vectorize.args=c("zmu","zsd"))
-  # needs to have zmu as argument
-
-# Population growth - Discrete --------------------------------------------
+# Population growth curves - discrete -------------------------------------
 
 RCf <- function(C,parms){
   require(rootSolve)
@@ -669,6 +656,25 @@ RCf <- function(C,parms){
   #   equilibrium, and then allowing dynamics to proceed normally
 
 RCfv <- Vectorize(RCf,vectorize.args=c("C"))
+
+
+# Carrying capacities -----------------------------------------------------
+
+Cstarf <- function(parms){
+  require(rootSolve)
+  with(parms, {
+    steady(y=y0,
+           parms=parms,
+           fun=d_web,
+           times=c(0,Inf),
+           method="runsteady",
+           hold=FALSE
+    )$y[Ycc]
+  })
+}
+
+# Cstarfv <- Vectorize(rCf,vectorize.args=c("zmu","zsd"))
+# needs to have zmu as argument
 
 # Additions:
 # - discrete: run for a single season using C~Rstar relationships
