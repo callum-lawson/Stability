@@ -89,6 +89,10 @@ ma <- lmer(al ~ Tr + cml + rml + (1 + Tr + cml + rml | group) + (1 | pub), data=
 mh <- lmer(hl ~ Tr + cml + rml + (1 + Tr + cml + rml | group) + (1 | pub), data=fr)
   # large among-group variance; unchanged by fitting log(rmass) instead of log(cmass/rmass)
 
+# mh2 <- lmer(hl ~ Tr + I(Tr^2) + cml + rml + (1 + Tr + I(Tr^2) + cml + rml | group) + (1 | pub), data=fr)
+# AIC(mh,mh2)
+#  # no evidence for U-shaped temperature response (Englund et al. 2011)
+
 # Analyse metabolic rates -------------------------------------------------
 
 mr[mr==-999.9] <- NA

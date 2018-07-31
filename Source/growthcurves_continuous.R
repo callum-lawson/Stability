@@ -3,7 +3,7 @@
 # Trial runs --------------------------------------------------------------
 
 ### Inputs (parms)
-source("Source/Consumer_resource_functions.R")
+source("Source/consumer_resource_functions.R")
 
 sparms = list(
   chainlength = 3,
@@ -34,7 +34,7 @@ sparms = list(
 zparms <- list(
   zmu = 20, 
   zsig = 0,
-  zl = 24*7*52
+  zl = 24
 )
 
 bc <- c(
@@ -60,12 +60,14 @@ bc <- c(
 bhat <- readRDS("Output/rate_parameters_marginal_27Jul2018.rds")
 bhat <- bdselect(bhat,bpos=rep(1,2))
 
-bhat$a$bz <- 0
+# bhat$a$bz <- 0
 bhat$h$bz <- 0
 bhat$alpha$bz <- 0
-bhat$mu$bz[1] <- 0
+# bhat$mu$bz[2] <- 0
+bhat$a$bz <- bhat$mu$bz
+bhat$mu$bz[2] <- 0
 
-bhat$h$b0 <- bhat$h$b0 - 1.25 * 3.2089
+# bhat$h$b0 <- bhat$h$b0 - 1.25 * 3.2089
 
 iparms <- iparmf(bhat,sparms)
 parms <- c(sparms,iparms,zparms,bc)
@@ -76,7 +78,11 @@ nC <- 100
 Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
 
 trial <- popint(parms)
-matplot(log(trial[,-1]),type="l")
+newparms <- parms
+newparms$zsig <- 5
+newtrial <- popint(newparms)
+matplot(log(newtrial[,-1]),type="l")
+matplot(log(trial[,-1]),type="l",add=T)
 
 # parms2 <- parms
 # newstart <- runsteady(y = parms$y0, time = c(0,Inf), func = d_web, parms = parms)
@@ -119,7 +125,8 @@ abline(h=0,col="black",lty=2)
 lines(log(Cseq),apply(cbind(dC2,dC4),1,mean),col="purple",lty=1)
 
 Cstar <- sapply(list(parms1,parms2,parms3,parms4),Cstarf)
-points(log(Cstar),rep(0,length(Cstar)))
+# points(log(Cstar),rep(0,length(Cstar)))
+points(mean(log(Cstar[c(2,4)])),0)
   # next up: function for Cstar calculation over vector of different z
 
 spectrum <- function(Rstar,alpha,a,h,mu){
