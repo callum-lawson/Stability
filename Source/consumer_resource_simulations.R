@@ -22,8 +22,8 @@ sparms = list(
   discrete = FALSE,
   mbase = 0.001, # 1mg
   morder = 2,
-  tT = 24 * 7,
-  nt = 24 * 7 * 10,
+  tT = 1000,
+  nt = 1000 * 10,
   sS = 7*52, 
     # number of seasons over time series
   bdt = NULL,   
@@ -34,7 +34,7 @@ sparms = list(
 zparms <- list(
   zmu = 20, 
   zsig = 0,
-  zl = 24*7*52
+  zl = 1
 )
 
 bc <- c(
@@ -63,7 +63,7 @@ bhat <- bdselect(bhat,bpos=rep(1,2))
 bhat$a$bz <- 0
 bhat$h$bz <- 0
 bhat$alpha$bz <- 0
-bhat$mu$bz[1] <- 0
+bhat$mu$bz[2] <- 0
 
 bhat$h$b0 <- bhat$h$b0 - 1.25 * 3.2089
 
@@ -90,37 +90,43 @@ bddd <- with(parms, btf(t=0,bd,M,parms))
 
 # Fluctuation speed -------------------------------------------------------
 
-sparms$discrete <- FALSE # TRUE
+# sparms$discrete <- FALSE # TRUE
 
+# zlmin <- -1
+# zlmax <- 7
+# nzl <- length(zlmin:zlmax)
 zlmin <- 0
-zlmax <- 2
-nzl <- 10
-zlseq <- 24 * 10 ^ seq(zlmin,zlmax,length.out=nzl)
-Cpos <- parms$Ya + 1 # +1 for time variable
+zlmax <- 6
+nzl <- 20
+zlseq <- 2 ^ seq(zlmin,zlmax,length.out=nzl)
+Cpos <- parms$Yc 
 
-Narr <- with(parms, array(dim=c(nt,Cpos+1,nzl)))
+Narr <- with(parms, array(dim=c(nt, Cpos+1, nzl))) # +1 for time variable
 
 for(i in 1:nzl){
-  zparms <- list(
-    zmu = 0,
+  newzparms <- list(
+    zmu = 20,
     zsig = 5,
     zl = zlseq[i]
   )
-  parms <- c(sparms,iparms,zparms,bc)
-  Narr[,,i] <- popint(parms)
+  newparms <- c(sparms,iparms,newzparms,bc)
+  Narr[,,i] <- popint(newparms)
 }
+Narr <- Narr[,-1,] # remove time variable
 
 ### Plot
 
+amf <- function(x) log(mean(x))
+asf <- function(x) log(sd(x))
 gmf <- function(x) mean(log(x))
-gsf <- function(x) sd(log(x))
+gsf <- function(x) log(sd(log(x)))
 require(RColorBrewer)
 nshow <- nzl
 mypalette <- rev(brewer.pal(nshow,"RdBu"))
-nburn <- round(parms$nt/2,0)
+nburn <- (zlmax / parms$tT) * parms$nt # round(parms$nt/2,0) # remove first max-length wave
 rem <- 1:nburn
-Cam <- apply(Narr[-rem,Cpos,],2,mean)
-Cas <- apply(Narr[-rem,Cpos,],2,sd)
+Cam <- apply(Narr[-rem,Cpos,],2,amf)
+Cas <- apply(Narr[-rem,Cpos,],2,asf)
 Cgm <- apply(Narr[-rem,Cpos,],2,gmf)
 Cgs <- apply(Narr[-rem,Cpos,],2,gsf)
 par(mfrow=c(1,1),mar=c(2,2,2,2))
@@ -128,13 +134,23 @@ matplot(parms$tseq[-rem],log(Narr[-rem,Cpos,1:nshow]),type="l",lty=1,col=mypalet
 par(mfrow=c(3,3))
 for(i in 1:9){
   plot(parms$tseq[-rem],log(Narr[-rem,Cpos,i]),col=mypalette[i],type="l")
-  lines(parms$tseq[-rem],log(Narr2[-rem,Cpos,i]),col=mypalette[i],type="l",lty=2)
+  # lines(parms$tseq[-rem],log(Narr2[-rem,Cpos,i]),col=mypalette[i],type="l",lty=2)
 }
 par(mfrow=c(2,2),mar=c(2,2,2,2))
-plot(Cam~log(zlseq/24),type="b")
-plot(Cas~log(zlseq/24),type="b")
-plot(Cgm~log(zlseq/24),type="b")
-plot(Cgs~log(zlseq/24),type="b")
+plot(Cam~log2(zlseq),type="b")
+abline(h=mean(trial[-rem,Cpos+1]),lty=2,col="red")
+plot(Cas~log2(zlseq),type="b")
+plot(Cgm~log2(zlseq),type="b")
+abline(h=gmf(trial[-rem,Cpos+1]),lty=2,col="red")
+plot(Cgs~log2(zlseq),type="b")
+
+par(mfrow=c(3,3))
+for(i in 1:9){
+  matplot(parms$tseq[900:1000],log(Narr[900:1000,,i]),type="l")
+  with(newparms, lines(tseq[900:1000], zt_cyclic(t=tseq[900:1000], zparms=list(zmu=2,zsig=0.1,zl=zlseq[i])), col="grey"))
+}
+
+matplot(log(trial[1:100,-1]),type="l")
 
 parmsB <- parms
 parmsB$zl <- 24
