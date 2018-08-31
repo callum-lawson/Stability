@@ -22,8 +22,8 @@ sparms = list(
   discrete = FALSE,
   mbase = 0.001, # 1mg
   morder = 2,
-  tT = 1000,
-  nt = 1000 * 10,
+  tT = 100,
+  nt = 100 * 10,
   sS = 7*52, 
     # number of seasons over time series
   bdt = NULL,   
@@ -57,7 +57,7 @@ bc <- c(
 # bhat <- readRDS("Output/rate_parameters_simulated_27Jul2018.rds")
 # bhat <- bdselect(bhat,bpos=c(1,2,1,3))
 
-bhat <- readRDS("Output/rate_parameters_marginal_27Jul2018.rds")
+bhat <- readRDS("Output/rate_parameters_marginal_31Aug2018.rds")
 bhat <- bdselect(bhat,bpos=rep(1,2))
 
 bhat$a$bz <- 0
@@ -76,7 +76,12 @@ nC <- 100
 Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
 
 trial <- popint(parms)
+trialbig <- popint(bigp,hold=TRUE)
+trialsmall <- popint(smallp,hold=TRUE)
+par(mfrow=c(2,2))
 matplot(log(trial[,-1]),type="l")
+matplot(log(trialbig[,-1]),type="l")
+matplot(log(trialsmall[,-1]),type="l")
 
 # parms2 <- parms
 # newstart <- runsteady(y = parms$y0, time = c(0,Inf), func = d_web, parms = parms)
@@ -87,6 +92,21 @@ matplot(log(trial[,-1]),type="l")
   # still fluctuates when transitioning from one equilibrium to another
 
 bddd <- with(parms, btf(t=0,bd,M,parms))
+
+parmsh1 <- parmsh2 <- parms
+parmsh1$y0[3] <- parmsh2$y0[3] <- 7.898508
+parmsh1$zmu <- parms$zmu + 5
+parmsh2$zmu <- parms$zmu - 5
+
+trialh1 <- popint(parmsh1, hold=TRUE)
+trialh2 <- popint(parmsh2, hold=TRUE)
+
+par(mfrow=c(1,2))
+matplot(log(trialh1[,-1]),type="l")
+matplot(log(trialh2[,-1]),type="l")
+
+bdddh1 <- with(parmsh1, btf(t=0,bd,M,parmsh1))
+bdddh2 <- with(parmsh2, btf(t=0,bd,M,parmsh2))
 
 # Fluctuation speed -------------------------------------------------------
 
@@ -131,6 +151,7 @@ Cgm <- apply(Narr[-rem,Cpos,],2,gmf)
 Cgs <- apply(Narr[-rem,Cpos,],2,gsf)
 par(mfrow=c(1,1),mar=c(2,2,2,2))
 matplot(parms$tseq[-rem],log(Narr[-rem,Cpos,1:nshow]),type="l",lty=1,col=mypalette)
+
 par(mfrow=c(3,3))
 for(i in 1:9){
   plot(parms$tseq[-rem],log(Narr[-rem,Cpos,i]),col=mypalette[i],type="l")
@@ -144,12 +165,39 @@ plot(Cgm~log2(zlseq),type="b")
 abline(h=gmf(trial[-rem,Cpos+1]),lty=2,col="red")
 plot(Cgs~log2(zlseq),type="b")
 
+### Fast
+
 par(mfrow=c(3,3))
 for(i in 1:9){
   matplot(parms$tseq[900:1000],log(Narr[900:1000,,i]),type="l")
   with(newparms, lines(tseq[900:1000], zt_cyclic(t=tseq[900:1000], zparms=list(zmu=2,zsig=0.1,zl=zlseq[i])), col="grey"))
 }
 
+par(mfrow=c(3,3))
+for(i in 1:9){
+  matplot(parms$tseq[900:1000],Narr[900:1000,,i],type="l")
+  with(newparms, lines(tseq[900:1000], zt_cyclic(t=tseq[900:1000], zparms=list(zmu=6.5,zsig=0.5,zl=zlseq[i])), col="grey"))
+}
+
+### Slow
+
+par(mfrow=c(3,3))
+for(i in 11:19){
+  matplot(parms$tseq[9500:10000],log(Narr[9500:10000,,i]),type="l")
+  with(newparms, lines(tseq[9500:10000], zt_cyclic(t=tseq[9500:10000], zparms=list(zmu=2,zsig=0.2,zl=zlseq[i])), col="grey"))
+}
+
+par(mfrow=c(3,3))
+for(i in 11:19){
+  matplot(parms$tseq[9500:10000],Narr[9500:10000,,i],type="l")
+  with(newparms, lines(tseq[9500:10000], zt_cyclic(t=tseq[9500:10000], zparms=list(zmu=6.5,zsig=1,zl=zlseq[i])), col="grey"))
+}
+
+
+i <- 5
+par(mfrow=c(1,1))
+matplot(parms$tseq[900:1000],Narr[900:1000,,i],type="l")
+with(newparms, lines(tseq[900:1000], zt_cyclic(t=tseq[900:1000], zparms=list(zmu=6.5,zsig=0.5,zl=zlseq[i])), col="grey"))
 matplot(log(trial[1:100,-1]),type="l")
 
 parmsB <- parms
@@ -157,6 +205,29 @@ parmsB$zl <- 24
 parmsB$t0 <- -12
 Nshift <- popint(parmsB)
 lines(log(Nshift[-rem,Cpos])~parms$tseq[-rem],col="green")
+
+bigp <- smallp <- parms
+bigp$zmu <- parms$zmu + 5
+smallp$zmu <- smallp$zmu - 5
+y0fix <- parms$y0
+y0fix[parms$Yc] <- 9
+bigp$y0 <- smallp$y0 <- y0fix
+require(rootSolve)
+Rstarbig <- steady(y=y0fix,parms=bigp,fun=d_web,times=c(0,Inf),method="runsteady",hold=TRUE)$y
+Rstarsmall <- steady(y=y0fix,parms=smallp,fun=d_web,times=c(0,Inf),method="runsteady",hold=TRUE)$y
+log(rbind(Rstarbig, Rstarsmall))
+
+Rstarbig2 <- steady(y=y0fix,parms=bigp,fun=d_web,times=c(0,Inf),method="runsteady",hold=FALSE)$y
+Rstarsmall2 <- steady(y=y0fix,parms=smallp,fun=d_web,times=c(0,Inf),method="runsteady",hold=FALSE)$y
+log(rbind(Rstarbig2, Rstarsmall2))
+
+parmschange <- parms
+parmschange$y0 <- Rstarsmall2
+parmschange$zmu <- bigp$zmu
+change <- popint(parmschange)
+matplot(log(change[,-1]),type="l")
+
+# Old ---------------------------------------------------------------------
 
 zparms <- list(
   zmu = 0,

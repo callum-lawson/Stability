@@ -22,12 +22,12 @@ sparms = list(
   discrete = FALSE,
   mbase = 0.001, # 1mg
   morder = 2,
-  tT = 24 * 7,
-  nt = 24 * 7 * 10,
+  tT = 24 * 365,
+  nt = 24 * 365,
   sS = 7*52, 
     # number of seasons over time series
   bdt = NULL,   
-  nstart = 1
+  nstart = 0.001
     # c(1,1,2, 1,1,1)
 )
 
@@ -38,8 +38,8 @@ zparms <- list(
 )
 
 bc <- c(
-  v = 10,   # max input rate = vk *grams* per m^2 per hour
-  k = 10,    # grams per m^2
+  v = 1,   # max input rate = vk *grams* per m^2 per hour
+  k = 1,    # grams per m^2
   psi = 0,   # interference:handling time ratio
   omega = 1, # relative feeding rate of y2
   phi_E = 0, # relative death rate of eggs
@@ -54,30 +54,27 @@ bc <- c(
   # phi and omega could instead by controlled by body masses
   #   (in this case, phi can be fraction of adult body mass)
 
-# bhat <- readRDS("Output/rate_parameters_simulated_27Jul2018.rds")
-# bhat <- bdselect(bhat,bpos=c(1,2,1,3))
-
-bhat <- readRDS("Output/rate_parameters_marginal_27Jul2018.rds")
+bhat <- readRDS("Output/rate_parameters_marginal_31Aug2018.rds")
 bhat <- bdselect(bhat,bpos=rep(1,2))
 
 # bhat$a$bz <- 0
-bhat$h$bz <- 0
-bhat$alpha$bz <- 0
-# bhat$mu$bz[2] <- 0
-bhat$a$bz <- bhat$mu$bz
-bhat$mu$bz[2] <- 0
+# bhat$h$bz <- 0
+# bhat$alpha$bz <- 0
+# bhat$mu$bz <- 0
 
 # bhat$h$b0 <- bhat$h$b0 - 1.25 * 3.2089
 
 iparms <- iparmf(bhat,sparms)
 parms <- c(sparms,iparms,zparms,bc)
 
-Cmin <- -3 
-Cmax <- 3
+Cmin <- 1.05 
+Cmax <- 1.10
 nC <- 100
 Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
 
 trial <- popint(parms)
+matplot(log(trial[,-1]),type="l")
+
 newparms <- parms
 newparms$zsig <- 5
 newtrial <- popint(newparms)

@@ -74,12 +74,16 @@ fr$cml <- with(fr, log(cmass) )
 fr$rml <- with(fr, cml - log(rmass) )
 fr$al <- with(fr, log(a * 60^2) - cml )
   # attack rate in m^2 per hour instead of per second as in Yuanheng's database
-  # -cml -> attack rate in m^2 per hour per consumer gram
-fr$hl <- with(fr, log(h / 60^2) + cml )
+  # -cml -> attack rate in m^2 per hour per consumer gram (instead of per consumer individual)
+  #   (=less than rate per consumer individual as in database)
+  # no need to adjust for resource weight because this accounted for in density units
+  #   (i.e. R in g/m^2 instead of N/m^2)
+fr$hl <- with(fr, log(h / 60^2) + rml )
   # handling times per hour instead of per second as in Yuanheng's database
-  # fmax = R/C * M[R]/M[C], so handling time (inverse) needs to be multiplied by *M[C]/M[R]*
+  # fmax = R/C * M[R]/M[C] / h, so handling time (inverse) needs to be multiplied by *M[C]/M[R]*
   # each R individual yields *M[R] grams*, so if e.g. one R yields 2g, h per g = h/2
   # if each C individual weighs 2g, 1g of C would take twice as long to handle it (h'=2*h)
+  # or: a*h*R needs to be dimensionless, a*R is in g[R]/(h*g[C]), so h needs to be in h*g[C]/g[R]
 
 ma <- lmer(al ~ Tr + cml + rml + (1 + Tr + cml + rml | group) + (1 | pub), data=fr)
   # not enough observations per group to estimate intercept-slope correlations
@@ -100,22 +104,26 @@ mr$Tr <- arrtemp(mr$Tc)
 mr$cml <- log(mr$cmass)
   # mass in *grams*
 mr$el <- qlogis(mr$alpha)
-mr$ml <- log(mr$mu)
-
-me <- lmer(el ~ Tr + cml
-           + (1 + Tr + cml | guild) + (1 + Tr + cml | group) + (1|pub), 
-           data=mr)
   # no offset because percentage, not rate
+mr$ml <- log(mr$mu) - log(16000) - mr$cml 
+  # original data on mortality rates (mu) in J/h
+  # using 16 kJ of energy burns 1g of mass
+  # so mortality in g/h = (rates in J/h) / 16000
+  # protein = 16 kJ/g https://en.wikipedia.org/wiki/Specific_energy#Energy_density_of_food
+  # glucose = 16 kJ/g https://en.wikipedia.org/wiki/Glucose#Energy_source 
+  # (fat provides more as has higher energy density)
+  # metabolic rates in database are given per *individual* - checked by comparison with:
+  #   Anderson & Prestwich (1982) "Respiratory gas exchange in spiders", Table 3
+  #   Nephila clavipes: 157 / 1000 [per ml instead of micro l] * 20.1 [ml 02 to J] = 3.15 J/h per individual
 
-mm <- lmer(ml ~ offset(cml + log(16)) 
-           + Tr + cml  
-           + (1 + Tr + cml | guild) + (1 + Tr + cml | group) + (1|pub), 
-           data=mr)
-  # ml = J used by each consumer gram in each hour
-  # protein = 16 kJ/g = 16 J/mg
-  # so lose 1 mg of mass for every 16 J of energy
-  # (original mortality rates in J)
-  # https://en.wikipedia.org/wiki/Specific_energy#Energy_density_of_food
+me <- lmer(el ~ Tr + cml + (1 + Tr + cml | guild) + (1 + Tr + cml | group) + (1|pub), data=mr)
+mm <- lmer(ml ~ Tr + cml + (1 + Tr + cml | guild) + (1 + Tr + cml | group) + (1|pub), data=mr)
+
+# Units:
+# a: m^2 / (h g[C]) (area searched per g[C] per hour)
+# h: h g[C] / g[R] (time taken by each g[C] to process each g[R])
+# alpha: % (fraction of killed g[R] that is converted to new g[C])
+# mu: /h (g[C] used per g[C] per hour)
 
 # Extract and save parameters ---------------------------------------------
 

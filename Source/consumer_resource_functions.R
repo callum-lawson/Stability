@@ -107,8 +107,6 @@ rate_int_l <- function(bd,bn,parms){
 
   # !but doesn't account for correlations among parameters (e.g. a and h go up and down together)
 
-rate_int(bi=bhat$mu[1,],bni="mu",Mi=1,parms=parms)
-
 # Feeding rates -----------------------------------------------------------
 
 g <- function(R,v,k){
@@ -597,12 +595,12 @@ D_web <- function(parms){
 
 # Integration wrapper -----------------------------------------------------
 
-popint <- function(parms){
+popint <- function(parms,...){
   require(deSolve)
   with(parms, {
     if(discrete==FALSE){
-      if(tau_E==0) return( ode(y=y0,times=tseq,func=d_web,parms=parms) )
-      if(tau_E>0)  return( dede(y=y0,times=tseq,func=d_web,parms=parms) )
+      if(tau_E==0) return( ode(y=y0,times=tseq,func=d_web,parms=parms,...) )
+      if(tau_E>0)  return( dede(y=y0,times=tseq,func=d_web,parms=parms,...) )
         # *** currently only works for eggs ***
     } 
     if(discrete==TRUE)  return( D_web(parms) )
