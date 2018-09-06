@@ -23,11 +23,11 @@ sparms = list(
   mbase = 0.001, # 1mg
   morder = 2,
   tT = 24 * 365,
-  nt = 24 * 365,
+  nt = 100,
   sS = 7*52, 
     # number of seasons over time series
   bdt = NULL,   
-  nstart = 0.001
+  nstart = 0.1
     # c(1,1,2, 1,1,1)
 )
 
@@ -38,7 +38,7 @@ zparms <- list(
 )
 
 bc <- c(
-  v = 1,   # max input rate = vk *grams* per m^2 per hour
+  v = 0.01,   # max input rate = vk *grams* per m^2 per hour
   k = 1,    # grams per m^2
   psi = 0,   # interference:handling time ratio
   omega = 1, # relative feeding rate of y2
@@ -54,26 +54,35 @@ bc <- c(
   # phi and omega could instead by controlled by body masses
   #   (in this case, phi can be fraction of adult body mass)
 
-bhat <- readRDS("Output/rate_parameters_marginal_31Aug2018.rds")
-bhat <- bdselect(bhat,bpos=rep(1,2))
+# bhat <- readRDS("Output/rate_parameters_simulated_03Sep2018.rds")
+# bhat <- bdselect(bhat,bpos=rep(1,2))
+
+bhat <- readRDS("Output/rate_parameters_marginal_brms_06Sep2018.rds")
+# bhat <- readRDS("Output/rate_parameters_marginal_03Sep2018.rds")
+bhat <- bdselect(bhat,bpos=rep(1,3))
 
 # bhat$a$bz <- 0
 # bhat$h$bz <- 0
 # bhat$alpha$bz <- 0
 # bhat$mu$bz <- 0
 
-# bhat$h$b0 <- bhat$h$b0 - 1.25 * 3.2089
+# bhat$a$b0 <- bhat$mu$b0 + 2
+# bhat$h$b0 <- bhat$h$b0 - 10 # 1.25 * 3.2089
 
 iparms <- iparmf(bhat,sparms)
 parms <- c(sparms,iparms,zparms,bc)
 
-Cmin <- 1.05 
-Cmax <- 1.10
+Cmin <- -2 
+Cmax <- 2
 nC <- 100
 Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
 
 trial <- popint(parms)
-matplot(log(trial[,-1]),type="l")
+matplot(log10(trial[,-1]),type="l")
+
+bddd <- with(parms, btf(t=0,bd,M,parms))
+
+###
 
 newparms <- parms
 newparms$zsig <- 5
@@ -117,9 +126,10 @@ parms4 <- parms1
 parms4$zmu <- parms1$zmu - 5
 dC4 <- rCfv(Cseq,parms4) / Cseq
 
-matplot(log(Cseq), cbind(dC1,dC2,dC3,dC4), type="l", col=c("orange","red","green","blue"))
+matplot(log10(Cseq), cbind(dC1,dC2,dC3,dC4), 
+        type="l", col=c("orange","red","green","blue"))
 abline(h=0,col="black",lty=2)
-lines(log(Cseq),apply(cbind(dC2,dC4),1,mean),col="purple",lty=1)
+lines(log10(Cseq),apply(cbind(dC2,dC4),1,mean),col="purple",lty=1)
 
 Cstar <- sapply(list(parms1,parms2,parms3,parms4),Cstarf)
 # points(log(Cstar),rep(0,length(Cstar)))
@@ -132,8 +142,6 @@ spectrum <- function(Rstar,alpha,a,h,mu){
   lrmax - lrmin
 }
 
-with(with(parms, btf(t=0,bd,M,parms1)),spectrum(Rstar=bc["k"],alpha,a,h,mu))
-with(with(parms, btf(t=0,bd,M,parms2)),spectrum(Rstar=bc["k"],alpha,a,h,mu))
-with(with(parms, btf(t=0,bd,M,parms4)),spectrum(Rstar=bc["k"],alpha,a,h,mu))
+lapply(list(parms4,parms1,parms2), function(x) btf(t=0, x$bd, x$M, parms=x))
 
 

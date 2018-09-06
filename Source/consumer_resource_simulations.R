@@ -54,10 +54,10 @@ bc <- c(
   # phi and omega could instead by controlled by body masses
   #   (in this case, phi can be fraction of adult body mass)
 
-# bhat <- readRDS("Output/rate_parameters_simulated_27Jul2018.rds")
+# bhat <- readRDS("Output/rate_parameters_simulated_03Sep2018.rds")
 # bhat <- bdselect(bhat,bpos=c(1,2,1,3))
 
-bhat <- readRDS("Output/rate_parameters_marginal_31Aug2018.rds")
+bhat <- readRDS("Output/rate_parameters_marginal_03Sep2018.rds")
 bhat <- bdselect(bhat,bpos=rep(1,2))
 
 bhat$a$bz <- 0
