@@ -167,8 +167,11 @@ mah <- brm(
 
 # Assimilation models -----------------------------------------------------
 
-me <- lmer(el ~ Tr + cml + (1 | gg) + (1|pub), data=ef, REML=F)
-  # 20 AIC worse than (1 + Tr + cml | guild) + (1 + Tr + cml | group) + (1|pub) about 
+me <- lmer(el ~ Tr + cml + (1 | gg) + (1|pub), data=ef)
+  # 20 AIC worse than (1 + Tr + cml | guild) + (1 + Tr + cml | group) + (1|pub) 
+
+
+meb <- brm(el ~ Tr + cml + (1 | gg) + (1|pub), warmup = 1000, iter = 2000, data = ef, chains = 3, cores = 3)
 
 # Metabolic rate models ---------------------------------------------------
 

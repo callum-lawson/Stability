@@ -556,6 +556,8 @@ bdselect <- function(bhat,bpos){
 
 D_web <- function(parms){
   
+  parms$tau_E <- 0 # no continuous lags in eggs
+
   with(parms, {
     
     sstart <- seq(t0,tT,length.out=sS+1)
@@ -607,46 +609,66 @@ popint <- function(parms,...){
   })
 }
 
+# Carrying capacities -----------------------------------------------------
+
+Rstarf <- function(C0,parms){
+  require(rootSolve)
+  with(parms, {
+    y0[Ycc] <- C0 / nchain # split C over chains (p=0.5)
+    Rstar <- steady(y=y0,
+      parms=parms,
+      fun=d_web,
+      times=c(0,Inf),
+      method="runsteady",
+      hold=TRUE
+    )$y
+    return(Rstar)
+  })
+}
+
+Cstarf <- function(parms){
+  require(rootSolve)
+  with(parms, {
+    steady(y=y0,
+      parms=parms,
+      fun=d_web,
+      times=c(0,Inf),
+      method="runsteady",
+      hold=FALSE
+    )$y[Ycc]
+  })
+}
+
+Rstarfv <- Vectorize(Rstarf,vectorize.args=c("C0"))
+
+# Cstarfv <- Vectorize(rCf,vectorize.args=c("zmu","zsd"))
+# needs to have zmu as argument
+
 # Population growth curves - continuous -----------------------------------
 
 # vector of top C densities
 # resulting vector of equilibrium R densities
 # C growth for each of those
 
-rCf <- function(C,parms){
+rCf <- function(Ct,parms){
   require(rootSolve)
-  with(parms, {
-    y0[Ycc] <- C / nchain # split C over chains (p=0.5)
-    Rstar <- steady(y=y0,
-                    parms=parms,
-                    fun=d_web,
-                    times=c(0,Inf),
-                    method="runsteady",
-                    hold=TRUE
-    )$y
-    sum( unlist(d_web(t=0, y=Rstar, parms))[Ycc] )
-  })
+  C0 <- Ct / parms$nchain # split C over chains (p=0.5)
+  Rstar <- Rstarf(C0,parms)
+  sum( unlist(d_web(t=0, y=Rstar, parms))[parms$Ycc] )
 }
 
-rCfv <- Vectorize(rCf,vectorize.args=c("C"))
-
+rCfv <- Vectorize(rCf,vectorize.args=c("Ct"))
 
 # Population growth curves - discrete -------------------------------------
 
 RCf <- function(C,parms){
   require(rootSolve)
   parmsD <- parms
+  parmsD$tT <- with(parms, tT/sS)
   parmsD$sS <- 1
   parmsD$nt <- 2 # very inefficient - no need to do this every time
-  parmsD$tseq <- with(parms, c(t0,tT))
-  parmsD$y0[parms$Yc] <- C
-  parmsD$y0 <- steady(y=parmsD$y0,
-                      parms=parmsD,
-                      fun=d_web,
-                      times=c(0,Inf),
-                      method="runsteady",
-                      hold=TRUE
-                      )$y 
+  parmsD$tseq <- with(parmsD, c(t0,tT))
+  parmsD$y0 <- Rstarf(C0=C,parmsD)
   RC <- popint(parmsD)[2,parmsD$Yc+1] # +1 to delete t; E already transferred
   return(RC)
 }
@@ -654,25 +676,6 @@ RCf <- function(C,parms){
   #   equilibrium, and then allowing dynamics to proceed normally
 
 RCfv <- Vectorize(RCf,vectorize.args=c("C"))
-
-
-# Carrying capacities -----------------------------------------------------
-
-Cstarf <- function(parms){
-  require(rootSolve)
-  with(parms, {
-    steady(y=y0,
-           parms=parms,
-           fun=d_web,
-           times=c(0,Inf),
-           method="runsteady",
-           hold=FALSE
-    )$y[Ycc]
-  })
-}
-
-# Cstarfv <- Vectorize(rCf,vectorize.args=c("zmu","zsd"))
-# needs to have zmu as argument
 
 # Additions:
 # - discrete: run for a single season using C~Rstar relationships
@@ -685,3 +688,4 @@ Cstarf <- function(parms){
 #   i.e. function to calculate each set of equilibria (P, R, C)
 # - analytically-simplified f functions? (timescale separation for states)
 # - include checks and warnings
+

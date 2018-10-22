@@ -3,7 +3,7 @@
 # Trial runs --------------------------------------------------------------
 
 ### Inputs (parms)
-source("Source/Consumer_resource_functions.R")
+source("Source/consumer_resource_functions.R")
 
 sparms = list(
   chainlength = 3,
@@ -22,24 +22,24 @@ sparms = list(
   discrete = FALSE,
   mbase = 0.001, # 1mg
   morder = 2,
-  tT = 100,
-  nt = 100 * 10,
+  tT = 24 * 365 * 10,
+  nt = 100,
   sS = 7*52, 
     # number of seasons over time series
   bdt = NULL,   
-  nstart = 1
+  nstart = 0.1
     # c(1,1,2, 1,1,1)
 )
 
 zparms <- list(
   zmu = 20, 
   zsig = 0,
-  zl = 1
+  zl = 24 * 7
 )
 
 bc <- c(
-  v = 10,   # max input rate = vk *grams* per m^2 per hour
-  k = 10,    # grams per m^2
+  v = 0.01,   # max input rate = vk *grams* per m^2 per hour
+  k = 0.1,    # grams per m^2
   psi = 0,   # interference:handling time ratio
   omega = 1, # relative feeding rate of y2
   phi_E = 0, # relative death rate of eggs
@@ -117,7 +117,7 @@ bdddh2 <- with(parmsh2, btf(t=0,bd,M,parmsh2))
 # nzl <- length(zlmin:zlmax)
 zlmin <- 0
 zlmax <- 6
-nzl <- 20
+nzl <- 10
 zlseq <- 2 ^ seq(zlmin,zlmax,length.out=nzl)
 Cpos <- parms$Yc 
 
