@@ -625,6 +625,7 @@ Rstarf <- function(C0,parms){
     return(Rstar)
   })
 }
+  # NB: also calculated by *clines* function from phaseR
 
 Cstarf <- function(parms){
   require(rootSolve)

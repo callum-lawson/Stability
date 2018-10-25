@@ -3,6 +3,7 @@
 # Trial runs --------------------------------------------------------------
 
 require("rootSolve")
+require("phaseR")
 
 ### Inputs (parms)
 source("Source/consumer_resource_functions.R")
@@ -113,35 +114,10 @@ equdiff <- trial[,-1] - rep(equ,each=parms$nt)
 ihat <- vec %*% c(1,0)
 jhat <- vec %*% c(0,1) 
 
-plot(1,1,type="n",xlim=c(-1,1),ylim=c(-1,2),xlab="R",ylab="C")
-points(n0[1],n0[2])
-abline(h=0)
-abline(v=0)
-arrows(x0=0,y0=0,x1=ihat[1],y1=ihat[2],col="red",lty=2) # i-hat
-arrows(x0=0,y0=0,x1=jhat[1],y1=jhat[2],col="red",lty=3) # j-hat
-arrows(x0=0,y0=0,x1=-ihat[1],y1=-ihat[2],col="red",lty=2,angle=-180) # i-hat 2
-arrows(x0=0,y0=0,x1=-jhat[1],y1=-jhat[2],col="red",lty=3,angle=-180) # j-hat 2
-
-lines(x=equdiff[,"R"],y=equdiff[,"C1"],col="black")
-# lines(mmat,col="red")
-lines(nmat,col="red")
-  # x-squish much faster than y-squish
-  # overshoot of joint equilibrium occurs because R first goes to its own R*,
-  # then R* changes as C changes
-
-# Resource isocline
-Ctseq <- seq(0,1,length.out=10)
-RCtmat <- t(Rstarfv(Ctseq,parms)) - rep(equ,each=10)
-lines(x=RCtmat[,1],y=RCtmat[,2],col="blue")
-# plot(x=RCtmat[,1],y=RCtmat[,2],col="blue")
-
-bddd <- with(parms, btf(t=0,bd,M,parms))
-outer(val,val,"/")
-
-with(bddd, parms$k * a / mu) # should be not to small compared to 1
-with(bddd, mu / parms$v)     # should be as close to 0 as possible
-
-abline(h=equdiff[1,"C1"],lty=3)
+ihatA <- ihat + equ
+jhatA <- jhat + equ
+ihatB <- -ihat + equ
+jhatB <- -jhat + equ
 
 parms2 <- parms3 <- parms
 parms2$y0[1] <- parms2$y0[1] * 2
@@ -150,11 +126,8 @@ parms3$y0[1] <- parms3$y0[1] * 0.5
 trial2 <- popint(parms2)
 trial3 <- popint(parms3)
 
-equdiff2 <- trial2[,-1] - rep(equ,each=parms$nt)
-equdiff3 <- trial3[,-1] - rep(equ,each=parms$nt)
-
-lines(x=equdiff2[,"R"],y=equdiff2[,"C1"],lty=2)
-lines(x=equdiff3[,"R"],y=equdiff3[,"C1"],lty=3)
+# equdiff2 <- trial2[,-1] - rep(equ,each=parms$nt)
+# equdiff3 <- trial3[,-1] - rep(equ,each=parms$nt)
 
 matplot(cbind(trial[,-1],trial2[,-1],trial3[,-1],nmat+rep(equ,each=parms$nt)),
   type="l",
@@ -175,38 +148,101 @@ d_chain_express <- function(t,y,parameters){
   })
 }
 
+bddd <- with(parms, btf(t=0,bd,M,parms))
 bddda <- c(bc,bddd,Y=parms$Yc)
-require(phaseR)
 
-cxlim <- c(0,1)
+cxlim <- c(0,0.2)
 cylim <- c(0,2)
 
 par(mfrow=c(1,1))
 flowField(d_chain_express,xlim=cxlim,ylim=cylim,parameters=bddda,points=30,add=FALSE)
 clines <- list()
 clines[[1]] <- nullclines(d_chain_express, xlim=cxlim, ylim=cylim,
-  parameters=bddda, points=100,colour=rep("blue",2)
+  parameters=bddda, points=100,col=rep("blue",2),add.legend=FALSE
 )
 # clines[[2]] <- nullclines(romac_phaser,x.lim = cxlim,y.lim = cylim,
 #   parameters = pdm[2,], points = 100,
 #   colour=rep("red",2)
 # )
 
-tradj <- list()
-tradj[[1]] <- with(parms, 
-  trajectory(d_chain_express, y0=y0, tlim=c(0,tT), tstep=diff(tseq[1:2]), 
-    parameters=bddda)
-)
-tradj[[2]] <- with(parms, 
-  trajectory(d_chain_express, y0=c(0.01,0.01), tlim=c(0,tT), tstep=diff(tseq[1:2]), 
-    parameters=bddda)
-)
-tradj[[3]] <- with(parms, 
-  trajectory(d_chain_express, y0=c(0.01,0.5), tlim=c(0,tT), tstep=diff(tseq[1:2]), 
-    parameters=bddda)
-)
+# tradj <- list()
+# tradj[[1]] <- with(parms, 
+#   trajectory(d_chain_express, y0=y0, tlim=c(0,tT), tstep=diff(tseq[1:2]), 
+#     parameters=bddda)
+# )
+
+points(n0[1],n0[2])
+abline(v=equ[1])
+abline(h=equ[2])
+arrows(x0=equ[1],y0=equ[2],x1=ihatA[1],y1=ihatA[2],col="red",lty=2) # i-hat
+arrows(x0=equ[1],y0=equ[2],x1=jhatA[1],y1=jhatA[2],col="red",lty=3) # j-hat
+arrows(x0=equ[1],y0=equ[2],x1=ihatB[1],y1=ihatB[2],col="red",lty=2,angle=-180) # i-hat 2
+arrows(x0=equ[1],y0=equ[2],x1=jhatB[1],y1=jhatB[2],col="red",lty=3,angle=-180) # j-hat 2
+
+lines(x=trial[,"R"],y=trial[,"C1"],col="purple")
+# lines(mmat,col="red")
+lines(nmat+rep(equ,each=parms$nt),col="red")
+# x-squish much faster than y-squish
+# overshoot of joint equilibrium occurs because R first goes to its own R*,
+# then R* changes as C changes
+
+lines(x=trial2[,"R"],y=trial2[,"C1"],lty=2,col="purple")
+lines(x=trial3[,"R"],y=trial3[,"C1"],lty=3,col="purple")
+
+abline(h=n0[2],lty=3) # abline(h=equdiff[1,"C1"],lty=3)
+points(equ[1],equ[2],col="red",pch="+")
 
 # next step: trajectories for different climates
+
+outer(val,val,"/")
+
+with(bddd, parms$k * a / mu) # should be not to small compared to 1
+with(bddd, mu / parms$v)     # should be as close to 0 as possible
+
+### New climate
+parmsB <- parmsC <- parms
+parmsB$zmu <- parms$zmu + 10
+bdddB <- with(parmsB, btf(t=0,bd,M,parmsB))
+bddBa <- c(bc,bdddB,Y=parms$Yc)
+equB <- with(parms, {
+  steady(y=y0,
+         parms=parmsB,
+         fun=d_web,
+         times=c(0,Inf),
+         method="runsteady",
+         hold=FALSE
+  )$y
+})
+
+parmsC$zmu <- parms$zmu - 10
+bdddC <- with(parmsC, btf(t=0,bd,M,parmsC))
+bdddCa <- c(bc,bdddC,Y=parms$Yc)
+equC <- with(parms, {
+  steady(y=y0,
+         parms=parmsC,
+         fun=d_web,
+         times=c(0,Inf),
+         method="runsteady",
+         hold=FALSE
+  )$y
+})
+
+clines[[2]] <- nullclines(d_chain_express, xlim=cxlim, ylim=cylim,
+                          parameters=bdddBa, points=100,col=rep("blue",2),
+                          add.legend=FALSE,lty=rep(2,2)
+                          )
+clines[[3]] <- nullclines(d_chain_express, xlim=cxlim, ylim=cylim,
+                          parameters=bdddCa, points=100,col=rep("blue",2),
+                          add.legend=FALSE,lty=rep(3,2)
+)
+points(equB[1],equB[2],col="red",pch="+")
+points(equC[1],equC[2],col="red",pch="+")
+
+plotCircle <- function(x, y, r) {
+  angles <- seq(0,2*pi,length.out=360)
+  lines(r*cos(angles)+x,r*sin(angles)+y,col="darkgrey")
+}
+plotCircle(equ[1],equ[2],r=0.25)
 
 # Other eigenstuff --------------------------------------------------------
 
