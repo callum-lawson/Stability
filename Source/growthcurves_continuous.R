@@ -68,17 +68,11 @@ bhat <- bdselect(bhat,bpos=rep(1,2))
 # bhat$mu$bz[2] <- 0
 
 # bhat$a$b0 <- bhat$a$b0 - 2
-bhat$h$b0 <- bhat$h$b0 - 100 # 1.25 * 3.2089
-# bhat$alpha$b0 <- bhat$alpha$b0 - 1.5
-# bhat$alpha$b0 <- bhat$alpha$b0 + 10
+bhat$h$b0 <- -100 # 1.25 * 3.2089
+# bhat$alpha$b0 <- bhat$alpha$b0 + 10 # bhat$alpha$b0 - 1.5
 
 iparms <- iparmf(bhat,sparms)
 parms <- c(sparms,iparms,zparms,bc)
-
-Cmin <- -1 
-Cmax <- -0.5
-nC <- 50
-Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
 
 trial <- popint(parms)
 matplot(trial[,-1],type="l")
@@ -129,11 +123,11 @@ trial3 <- popint(parms3)
 # equdiff2 <- trial2[,-1] - rep(equ,each=parms$nt)
 # equdiff3 <- trial3[,-1] - rep(equ,each=parms$nt)
 
-matplot(cbind(trial[,-1],trial2[,-1],trial3[,-1],nmat+rep(equ,each=parms$nt)),
-  type="l",
-  col=rep(c("black","red","blue","grey"),each=2),
-  lty=rep(1:2,times=4)
-  )
+# matplot(cbind(trial[,-1],trial2[,-1],trial3[,-1],nmat+rep(equ,each=parms$nt)),
+#   type="l",
+#   col=rep(c("black","red","blue","grey"),each=2),
+#   lty=rep(1:2,times=4)
+#   )
 
 # Phase space plots -------------------------------------------------------
 
@@ -171,7 +165,7 @@ clines[[1]] <- nullclines(d_chain_express, xlim=cxlim, ylim=cylim,
 #     parameters=bddda)
 # )
 
-points(n0[1],n0[2])
+points(parms$y0[1],parms$y0[2])
 abline(v=equ[1])
 abline(h=equ[2])
 arrows(x0=equ[1],y0=equ[2],x1=ihatA[1],y1=ihatA[2],col="red",lty=2) # i-hat
@@ -189,7 +183,7 @@ lines(nmat+rep(equ,each=parms$nt),col="red")
 lines(x=trial2[,"R"],y=trial2[,"C1"],lty=2,col="purple")
 lines(x=trial3[,"R"],y=trial3[,"C1"],lty=3,col="purple")
 
-abline(h=n0[2],lty=3) # abline(h=equdiff[1,"C1"],lty=3)
+abline(h=parms$y0[2],lty=3) # abline(h=equdiff[1,"C1"],lty=3)
 points(equ[1],equ[2],col="red",pch="+")
 
 # next step: trajectories for different climates
@@ -203,7 +197,7 @@ with(bddd, mu / parms$v)     # should be as close to 0 as possible
 parmsB <- parmsC <- parms
 parmsB$zmu <- parms$zmu + 10
 bdddB <- with(parmsB, btf(t=0,bd,M,parmsB))
-bddBa <- c(bc,bdddB,Y=parms$Yc)
+bdddBa <- c(bc,bdddB,Y=parms$Yc)
 equB <- with(parms, {
   steady(y=y0,
          parms=parmsB,
@@ -238,11 +232,23 @@ clines[[3]] <- nullclines(d_chain_express, xlim=cxlim, ylim=cylim,
 points(equB[1],equB[2],col="red",pch="+")
 points(equC[1],equC[2],col="red",pch="+")
 
-plotCircle <- function(x, y, r) {
-  angles <- seq(0,2*pi,length.out=360)
-  lines(r*cos(angles)+x,r*sin(angles)+y,col="darkgrey")
-}
-plotCircle(equ[1],equ[2],r=0.25)
+# plotCircle <- function(x, y, r) {
+#   angles <- seq(0,2*pi,length.out=360)
+#   lines(r*cos(angles)+x,r*sin(angles)+y,col="darkgrey")
+# }
+# plotCircle(equ[1],equ[2],r=0.25)
+# plotCircle(equ[1],equ[2],r=1)
+
+### Comparing flowfields
+
+par(mfrow=c(2,2))
+flowField(d_chain_express,xlim=cxlim,ylim=cylim,parameters=bddda,points=30,add=FALSE)
+flowField(d_chain_express,xlim=cxlim,ylim=cylim,parameters=bdddBa,points=30,add=FALSE)
+flowField(d_chain_express,xlim=cxlim,ylim=cylim,parameters=bdddCa,points=30,add=FALSE)
+
+# Log scale ---------------------------------------------------------------
+
+with(clines[[1]], plot(log(x),log(dx),col="blue"))
 
 # Other eigenstuff --------------------------------------------------------
 
@@ -262,6 +268,11 @@ e3 <- ginv(e1)
   # [separate comment]
 
 # Growth curves - continuous ----------------------------------------------
+
+Cmin <- -1 
+Cmax <- log10(cylim[2])
+nC <- 50
+Cseq <- 10^seq(Cmin,Cmax,length.out=nC)
 
 sparms1 <- sparms
 zparms1 <- zparms
