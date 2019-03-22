@@ -25,7 +25,7 @@ sparms = list(
   discrete = FALSE,
   mbase = 0.001, # 1mg
   morder = 2,
-  tT = 24 * 365,
+  tT = 24 * 365 * 10 ,
   nt = 100,
   sS = 7*52, 
     # number of seasons over time series
@@ -40,7 +40,7 @@ zparms <- list(
 )
 
 bc <- c(
-  v = 0.01,   # max input rate = vk *grams* per m^2 per hour
+  v = 0.0001,   # max input rate = vk *grams* per m^2 per hour
   k = 0.1,    # grams per m^2
   psi = 0,   # interference:handling time ratio
   omega = 1, # relative feeding rate of y2
@@ -67,7 +67,7 @@ bhat <- bdselect(bhat,bpos=rep(1,2))
 # bhat$alpha$bz <- 0
 # bhat$mu$bz[2] <- 0
 
-# bhat$a$b0 <- bhat$a$b0 - 2
+bhat$a$b0 <- bhat$a$b0 - 1
 bhat$h$b0 <- -100 # 1.25 * 3.2089
 # bhat$alpha$b0 <- bhat$alpha$b0 + 10 # bhat$alpha$b0 - 1.5
 
@@ -76,6 +76,7 @@ parms <- c(sparms,iparms,zparms,bc)
 
 trial <- popint(parms)
 matplot(trial[,-1],type="l")
+matplot(log(trial[,-1]),type="l")
 
 # Eigenvalues - continuous ------------------------------------------------
 
@@ -146,7 +147,7 @@ bddd <- with(parms, btf(t=0,bd,M,parms))
 bddda <- c(bc,bddd,Y=parms$Yc)
 
 cxlim <- c(0,0.2)
-cylim <- c(0,2)
+cylim <- c(0,0.01)
 
 par(mfrow=c(1,1))
 flowField(d_chain_express,xlim=cxlim,ylim=cylim,parameters=bddda,points=30,add=FALSE)
@@ -185,11 +186,6 @@ lines(x=trial3[,"R"],y=trial3[,"C1"],lty=3,col="purple")
 
 abline(h=parms$y0[2],lty=3) # abline(h=equdiff[1,"C1"],lty=3)
 points(equ[1],equ[2],col="red",pch="+")
-
-### Trying-out log scales
-
-# plot(x=log(trial[,"R"]),y=log(trial[,"C1"]),type="l",col="purple")
-# lines(log(nmat+rep(equ,each=parms$nt)),col="red")
 
 # next step: trajectories for different climates
 
@@ -320,24 +316,3 @@ spectrum <- function(Rstar,alpha,a,h,mu){
 }
 
 lapply(list(parms4,parms1,parms2), function(x) btf(t=0, x$bd, x$M, parms=x))
-
-# R Trajectories ----------------------------------------------------------
-
-parmsR1 <- parmsR2 <- parmsR3 <- parms
-parmsR1$y0 <- c(R=0.015,C=1)
-parmsR2$y0 <- c(R=0.02,C=1)
-parmsR3$y0 <- c(R=0.025,C=1)
-
-R1t <- popint(parmsR1)
-R2t <- popint(parmsR2)
-R3t <- popint(parmsR3)
-
-R1dt <- diff(R1t)[,"R"]
-R2dt <- diff(R2t)[,"R"]
-R3dt <- diff(R3t)[,"R"]
-
-plot(R1dt ~ R1t[-1,"R"],type="l")
-lines(R2dt ~ R2t[-1,"R"],col="red")
-lines(R3dt ~ R3t[-1,"R"],col="blue")
-
-

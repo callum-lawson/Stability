@@ -1,4 +1,4 @@
-### Simulation of structured consumer-resource chains ###
+### Calculate eigenvectors and eigenvalues for independently-growing species ###
 
 # Trial runs --------------------------------------------------------------
 
@@ -72,28 +72,47 @@ bhat$h$b0 <- -100 # 1.25 * 3.2089
 # bhat$alpha$b0 <- bhat$alpha$b0 + 10 # bhat$alpha$b0 - 1.5
 
 iparms <- iparmf(bhat,sparms)
-parms <- c(sparms,iparms,zparms,bc)
-
-trial <- popint(parms)
-matplot(trial[,-1],type="l")
+parms1 <- c(sparms,iparms,zparms,bc)
+parms2 <- parms1
+parms1$bd$a$b0 <- parms1$bd$a$b0 - 1
+parms2$bd$a$b0 <- parms1$bd$a$b0 + 1
+  
+nt1 <- popint(parms1)
+nt2 <- popint(parms2)
+nt <- cbind(nt1[,-1],nt2[,-1])
+matplot(nt,type="l")
+plot(nt1[,"C1"],nt2[,"C1"],type="b")
+plot(nt1[,"C1"]/nt1[,"R"],nt2[,"C1"]/nt2[,"R"],type="b")
 
 # Eigenvalues - continuous ------------------------------------------------
 
 # equ <- steady(y=c(R=1,C1=1),fun=d_web,parms=parms,time=0)$y
-equ <- with(parms, {
+equ1 <- with(parms1, {
   steady(y=y0,
-    parms=parms,
+    parms=parms1,
     fun=d_web,
     times=c(0,Inf),
     method="runsteady",
     hold=FALSE
   )$y
 })
+equ2 <- with(parms2, {
+  steady(y=y0,
+         parms=parms2,
+         fun=d_web,
+         times=c(0,Inf),
+         method="runsteady",
+         hold=FALSE
+  )$y
+})
 
-jac <- jacobian.full(y=equ,fun=d_web,parms=parms,time=0)
+jac1 <- jacobian.full(y=equ1,fun=d_web,parms=parms1,time=0)
+jac2 <- jacobian.full(y=equ2,fun=d_web,parms=parms2,time=0)
+jac <- cbind(rbind(jac1,matrix(0,nr=2,nc=2)),rbind(matrix(0,nr=2,nc=2),jac2))
 eig <- eigen(jac)
 vec <- eig$vectors
 val <- eig$values
+
 inv <- solve(vec)
 n0 <- parms$nstart - equ
 n0mat <- matrix(rep(inv %*% n0, each=parms$nt),nr=parms$nt,nc=parms$chainlength)
