@@ -1,4 +1,4 @@
-### Calculate eigenvectors and eigenvalues for independently-growing species ###
+### Calculate eigenvectors and eigenvalues for Lotka-Volterra interaction models ###
 
 require("rootSolve")
 require("deSolve")
@@ -28,21 +28,21 @@ tT <- 1000
 tseq <- seq(0,100,length.out=tT)
 
 ### Competition
-# v <- 10
-# r1 <- v*1
-# r2 <- 1
-# a11 <- v*-1 
-# a22 <- -1
-# a12 <- v*-0.1
-# a21 <- -0.1
+v <- 100
+r1 <- v*1
+r2 <- 1
+a11 <- v*-1
+a22 <- -1
+a12 <- v*-0.1
+a21 <- -0.1
 
 ### Predation
-r1 <- 1
-r2 <- -0.01
-a11 <- -1
-a22 <- -0.1
-a12 <- -1
-a21 <- 1
+# r1 <- 1
+# r2 <- -0.01
+# a11 <- -1
+# a22 <- -0.1
+# a12 <- -1
+# a21 <- 1
 
 A <- matrix(c(a11,a12,a21,a22),nr=2,nc=2)
 
@@ -76,8 +76,8 @@ jhatB <- -jhat + equ
 
 # Phase space plots -------------------------------------------------------
 
-cxlim <- c(-4,0)
-cylim <- c(-2,2)
+cxlim <- c(-1,1)
+cylim <- c(-1,1)
 
 par(mfrow=c(1,1))
 flowField(dlnLV,xlim=cxlim,ylim=cylim,parameters=parms,points=30,add=FALSE)
