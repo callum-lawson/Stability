@@ -24,25 +24,31 @@ dlnLV <- function(t,y,parms){
 }
 
 lnN0 <- c(lnN1=0,lnN2=0)
-tT <- 1000
-tseq <- seq(0,100,length.out=tT)
+tT <- 10^4
+tseq <- seq(0,10^4,length.out=tT)
+
+# ### Symmetric competition
+# r1 <- 1
+# r2 <- 1
+# a11 <- a22 <- -1 
+# a12 <- a21 <- -0.5 
 
 ### Competition
-v <- 100
-r1 <- v*1
-r2 <- 1
-a11 <- v*-1
-a22 <- -1
-a12 <- v*-0.1
-a21 <- -0.1
+# v <- 100
+# r1 <- v*1
+# r2 <- 1
+# a11 <- v*-1
+# a22 <- -1
+# a12 <- v*-0.1
+# a21 <- -0.1
 
-### Predation
-# r1 <- 1
-# r2 <- -0.01
-# a11 <- -1
-# a22 <- -0.1
-# a12 <- -1
-# a21 <- 1
+## Predation
+r1 <- 1
+r2 <- 1
+a11 <- -1
+a22 <- -1
+a12 <- -0.75
+a21 <- 0.75
 
 A <- matrix(c(a11,a12,a21,a22),nr=2,nc=2)
 
@@ -52,7 +58,8 @@ matplot(lnNt[,1],lnNt[,-1],type="l")
 
 # Eigenvalues -------------------------------------------------------------
 
-equ <- log(solve(-t(A),c(r1,r2)))
+equ <- lnN0 # for name assignment
+equ[] <- log(solve(-t(A),c(r1,r2)))
 
 jac <- jacobian.full(y=equ,fun=dlnLV,parms=parms,time=0)
 eig <- eigen(jac)
@@ -76,7 +83,7 @@ jhatB <- -jhat + equ
 
 # Phase space plots -------------------------------------------------------
 
-cxlim <- c(-1,1)
+cxlim <- c(-4,1)
 cylim <- c(-1,1)
 
 par(mfrow=c(1,1))
@@ -96,3 +103,50 @@ arrows(x0=equ[1],y0=equ[2],x1=jhatB[1],y1=jhatB[2],length=0,col="red",lty=3,angl
 
 lines(x=lnNt[,"lnN1"],y=lnNt[,"lnN2"],col="purple",lwd=2)
 lines(lnnmat+rep(equ,each=tT),col="red",lwd=2)
+
+# Simulations with sin waves ----------------------------------------------
+
+dlnLV2 <- function(t,y,parms){
+  with(parms, {
+    N <- exp(y)
+    N1 <- N[1]
+    N2 <- N[2]
+    eps1 <- sigma * sin(t*omega)
+    eps2 <- sigma * sin(t*omega - (1 - rho)/2*pi)
+    dlnN1 <- dN_Ndt(N1,N2,r1,-1,-alpha) + eps1
+    dlnN2 <- dN_Ndt(N2,N1,r2,-1,+alpha) + eps2
+    list(c(dlnN1=dlnN1,dlnN2=dlnN2))
+  })
+}
+
+sinparms <- parms
+freq <- 1/100
+sinparms$sigma <- 0.01
+sinparms$omega <- 2*pi*freq # waves per unit time
+
+singen <- function(rho,alpha){
+  ode(y=equ,times=tseq,func=dlnLV2,parms=c(sinparms,rho=rho,alpha=alpha))[,-1]
+}
+
+rhoseq <- seq(-1,1,length.out=5)
+alphaseq <- c(0.75,0.5,0.25,0.1,0)
+seqd <- expand.grid(alpha=alphaseq,rho=rhoseq)
+nsim <- nrow(seqd)
+sindat <- list(length=nsim)
+
+for(i in 1:nsim){
+  sindat[[i]] <- with(seqd[i,],singen(rho,alpha))
+}
+
+# xlim <- ylim <- c(-1,1)
+xlim <- c(-1,-0.8)
+ylim <- c(0.1,0.25)
+mycols <- rep(1:length(rhoseq),each=length(alphaseq))
+plot(1,1,xlim=xlim,ylim=ylim,type="n",xlab=expression(ln~N[1]),ylab=expression(ln~N[2]))
+for(i in 1:nsim){
+  points(sindat[[i]],col=mycols[i])
+}
+
+sinval <- cbind(-(alphaseq + 1),alphaseq - 1)
+
+

@@ -206,3 +206,22 @@ implot(im1,xtype="abs")
 implot(im2,xtype="log")
 implot(im2,xtype="abs")
 
+# Simulations with sin waves ----------------------------------------------
+
+lndCdt_f2 <- function(t,y,parms){
+  with(parms, {
+    C <- exp(y)
+    eps1 <- sin(t)
+    eps2 <- sin(t - (1 - rho)/2*pi)
+    dC1 = dC_f(C,j=1,K,A,M,U) + eps1
+    dC2 = dC_f(C,j=2,K,A,M,U) + eps2
+    list( c( dC1=dC1, dC2=dC2 ) )
+  })
+}
+
+parms_sin <- parms
+parms_sin$rho <- 1
+lnCt_sin <- ode(y=equ,times=tseq,func=lndCdt_f2,parms=parms_sin) 
+plot(lnCt_sin[,"lnC1"],lnCt_sin[,"lnC2"])
+
+
