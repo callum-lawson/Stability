@@ -24,8 +24,8 @@ dlnLV <- function(t,y,parms){
 }
 
 lnN0 <- c(lnN1=0,lnN2=0)
-tT <- 10^4
-tseq <- seq(0,10^4,length.out=tT)
+tT <- 10^3
+tseq <- seq(0,10^2,length.out=tT)
 
 # ### Symmetric competition
 # r1 <- 1
@@ -43,12 +43,20 @@ tseq <- seq(0,10^4,length.out=tT)
 # a21 <- -0.1
 
 ## Predation
+# r1 <- 1
+# r2 <- 1
+# a11 <- -1
+# a22 <- -1
+# a12 <- -0.75
+# a21 <- 0.75
+
+# Bridge
 r1 <- 1
-r2 <- 1
+r2 <- 0
 a11 <- -1
 a22 <- -1
-a12 <- -0.75
-a21 <- 0.75
+a12 <- 0.1
+a21 <- 0.1
 
 A <- matrix(c(a11,a12,a21,a22),nr=2,nc=2)
 
@@ -83,8 +91,8 @@ jhatB <- -jhat + equ
 
 # Phase space plots -------------------------------------------------------
 
-cxlim <- c(-4,1)
-cylim <- c(-1,1)
+cxlim <- c(-1,1)
+cylim <- c(-3,-2)
 
 par(mfrow=c(1,1))
 flowField(dlnLV,xlim=cxlim,ylim=cylim,parameters=parms,points=30,add=FALSE)
@@ -148,5 +156,4 @@ for(i in 1:nsim){
 }
 
 sinval <- cbind(-(alphaseq + 1),alphaseq - 1)
-
 

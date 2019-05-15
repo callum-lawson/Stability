@@ -39,6 +39,8 @@ big3b <- bgrow(Nseq,a=aseq[2],eps=epseq[3],u=1)
 matplot(log(Nseq),cbind(small1b,small2b,small3b,big1b,big2b,big3b),type="l",
         lty=rep(c(2,1,2),times=2),col=rep(1:2,each=3))
 abline(h=0,col="grey",lty=3)
+abline(h=0.1,col="grey",lty=3)
+abline(h=-0.1,col="grey",lty=3)
 
 # Integrate to get distributions ------------------------------------------
 
@@ -85,3 +87,23 @@ sd(Ct1b[-(1:100)])/sd(Ct2b[-(1:100)])
 sd(log(Ct1b[-(1:100)]))/sd(log(Ct2b[-(1:100)]))
 
 # for environmental and immigration, smaller fluctuates less in absolute terms but more in log terms
+
+# Small fluctuations ------------------------------------------------------
+
+### Proportional
+
+par(mfrow=c(1,2))
+curve(bgrow(exp(x),a=aseq[1],eps=epseq[2]*0.1,u=0),
+  xlim=c(-0.05,0.05),ylim=c(-0.02,0.02))
+curve(bgrow(exp(x),a=aseq[1],eps=epseq[1]*0.1,u=0),add=T,lty=2)
+curve(bgrow(exp(x),a=aseq[1],eps=epseq[3]*0.1,u=0),add=T,lty=2)
+abline(h=0,col="grey",lty=3)
+
+curve(bgrow(exp(x),a=aseq[2],eps=epseq[2]*0.1,u=0),
+  xlim=c(0.7,0.8),ylim=c(-0.02,0.02),col="red")
+curve(bgrow(exp(x),a=aseq[2],eps=epseq[1]*0.1,u=0),add=T,lty=2,col="red")
+curve(bgrow(exp(x),a=aseq[2],eps=epseq[3]*0.1,u=0),add=T,lty=2,col="red")
+abline(h=0,col="grey",lty=3)
+
+  # immigration effects probably complex - depend on where k is
+
