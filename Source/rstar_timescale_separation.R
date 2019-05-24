@@ -9,14 +9,14 @@ require("phaseR")
 # a = v * a
 # mu = V * mu
 
-# Rstar_f <- function(C,i,K,A){
-#   K[i] / (1 + A[i,1]*C[1] + A[i,2]*C[2])
-# }
-#   # abiotic
- 
 Rstar_f <- function(C,i,K,A){
-  K[i] * (1 - A[i,1]*C[1] - A[i,2]*C[2])
+  K[i] / (1 + A[i,1]*C[1] + A[i,2]*C[2])
 }
+  # abiotic
+ 
+# Rstar_f <- function(C,i,K,A){
+#   K[i] * (1 - A[i,1]*C[1] - A[i,2]*C[2])
+# }
   # logistic
 
 Cin_f <- function(C,j,K,A){
@@ -36,14 +36,19 @@ lndCdt_f <- function(t,y,parms){
 
 # Parameters --------------------------------------------------------------
 
+alpha <- 0.5
+beta <- 1 # mean attack rate
+aself <- 2*beta / (1+alpha)
+aother <- alpha * aself
+
 k1 <- 1
 k2 <- 1
-a11 <- 2
-a12 <- 0.5
-a21 <- 0.5
-a22 <- 2
-mu1 <- 1
-mu2 <- 0.1
+a11 <- aself
+a12 <- aother
+a21 <- aother
+a22 <- aself
+mu1 <- 1 # 0.99
+mu2 <- 1
 u1 <- 0
 u2 <- 0
 
@@ -89,8 +94,10 @@ jhatB <- -jhat + equ
 
 # Phase space plots -------------------------------------------------------
 
-cxlim <- c(-2.5,-1.5) # c(equ[1]-1,equ[1]+1)
-cylim <- c(-0.75,-0.5) # c(equ[2]-1,equ[2]+1)
+cxlim <- c(-0.8,-0.5) # c(equ[1]-1,equ[1]+1)
+cylim <- c(-0.8,-0.5) # c(equ[2]-1,equ[2]+1)
+  # for logistic: c(-1.5,-1.1)
+  # for rare competitor (higher mortality): c(-0.9,-0.4)
 
 par(mfrow=c(1,1))
 flowField(lndCdt_f,xlim=cxlim,ylim=cylim,parameters=parms,points=30,add=FALSE)
@@ -114,21 +121,21 @@ points(lnnmat+rep(equ,each=tT),col="red",type="b")
 
 ### Vertical
 parms2 <- parms
-parms2$M <- parms$M - 0.25
+parms2$M <- parms$M - 0.01
 clines[[2]] <- nullclines(lndCdt_f, xlim=cxlim, ylim=cylim,
   parameters=parms2, points=100,col=rep("orange",2),add.legend=FALSE
 )
 
 ### Horizontal
 parms3 <- parms
-parms3$M <- parms$M * 0.75
+parms3$M <- parms$M * 0.98
 clines[[3]] <- nullclines(lndCdt_f, xlim=cxlim, ylim=cylim,
   parameters=parms3, points=100,col=rep("green",2),add.legend=FALSE
 )
 
 ### Immigration
 parms4 <- parms
-parms4$U <- parms$U + 0.05
+parms4$U <- parms$U + 0.005
 clines[[4]] <- nullclines(lndCdt_f, xlim=cxlim, ylim=cylim,
   parameters=parms4, points=100,col=rep("brown",2),add.legend=FALSE
 )
@@ -181,7 +188,6 @@ plot(dtran,col=rep(c("orange","green","brown"),each=tT),pch=16)
 jac2 <- jacobian.full(y=equ2,fun=lndCdt_f,parms=parms,time=0)
 eig2 <- eigen(jac2)
 
-
 # Immigration growth curve ------------------------------------------------
 
 im1 <- function(u,N,alpha=1,beta=1){
@@ -224,4 +230,76 @@ parms_sin$rho <- 1
 lnCt_sin <- ode(y=equ,times=tseq,func=lndCdt_f2,parms=parms_sin) 
 plot(lnCt_sin[,"lnC1"],lnCt_sin[,"lnC2"])
 
+# Perturbation distance ---------------------------------------------------
+
+# looking at how mortality perturbation effects differ among systems with different k's
+
+### Vertical
+n_v <- 20
+vseq <- 10^seq(0,1,length.out=n_v)
+parms_v1 <- parms_v2 <- parms
+parms_v2$M <- parms$M - 0.01
+
+equmat_v1 <- equmat_v2 <- matrix(nr=n_v,nc=2)
+# val_v <- matrix(nr=n_v,nc=2)
+# vec_v <- array(dim=c(n_v,2,2))
+bvec_v <- pvec_v <- matrix(nr=n_v,nc=2)
+bval_v <- pval_v <- numeric(length = n_v)
+
+for (i in 1:n_v){
+  # parms_v$A <- parms$A * rep( c( vseq[i], 1/vseq[i] ), each = 2)
+  # parms_v$M <- parms$M * c( vseq[i], 1/vseq[i] )
+  parms_v1$K <-  parms_v2$K <- parms$K * vseq[i]
+  equmat_v1[i,] <- steady(y = c(lnC1=0,lnC2=0), times = c(0,Inf), func = lndCdt_f, 
+                          parms = parms_v1,
+                          method = "runsteady")$y
+  equmat_v2[i,] <- steady(y = c(lnC1=0,lnC2=0), times = c(0,Inf), func = lndCdt_f, 
+                          parms = parms_v2, 
+                          method = "runsteady")$y
+  jac_v <- jacobian.full(y=equ,fun=lndCdt_f,parms=parms_v1,time=0) 
+  bvec_v[i,] <- jac_v[,1] + jac_v[,2] / 2
+  pvec_v[i,] <- jac_v[,1] - jac_v[,2] / 2
+  bval_v[i] <- sqrt(sum(bvec_v[i,]^2))
+  pval_v[i] <- sqrt(sum(pvec_v[i,]^2))
+    # using original equilibrium
+  # eig_v <- eigen(jac_v)
+  # vec_v[i,,] <- eig_v$vectors
+  # val_v[i,] <- eig_v$values
+}
+equdiffmat_v <- equmat_v2 - equmat_v1
+  # automatically-calculated vectors change with attack rates & mortality, or with k
+
+veccol_v <- heat.colors(n_v * 2)
+par(mfrow=c(1,2))
+plot(1,1,type="n",xlim=c(-1,1),ylim=c(-1,1))
+for(i in 1:n_v){
+  arrows(x0=0,y0=0,x1=bvec_v[i,],y1=bvec_v[i,],col=veccol_v[i])
+}
+plot(1,1,type="n",xlim=c(-1,1),ylim=c(-1,1))
+for(i in 1:n_v){
+  arrows(x0=0,y0=0,x1=pvec_v[i,],y1=pvec_v[i,],col=veccol_v[i])
+}
+
+decaydist <- function(t,a,b){
+  a * (1 - exp(-b*t)) # distance travelled after t
+}
+
+kseq <- parms$K[1] * vseq
+n_t <- 100 + 1
+tseq <- seq(0,10,length.out=n_t)
+decay_vt <- array(dim=c(n_t,n_v))
+for(i in 1:n_v){
+  decay_vt[,i] <- decaydist(t=tseq,a=equdiffmat_v[i,1],b=bval_v[i])
+}
+
+par(mfrow=c(1,3))
+plot(kseq,equdiffmat_v[,1],pch="+",col=veccol_v,ylab="Distance")
+  # same equ for each species, so column doesn't matter
+plot(kseq,bval_v,pch="+",col=veccol_v,ylab="Decay rate")
+plot(kseq,decay_vt[2,],pch="+",col=veccol_v,ylab=expression(delta*C["t=1"]))
+
+par(mfrow=c(1,1))
+matplot(tseq,decay_vt,col=veccol_v,type="l",lty=1)
+  # higher k (yellow) -> moves faster and has less far to go
+  # (same patterns as typical for 1-species DD)
 

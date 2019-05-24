@@ -28,10 +28,10 @@ tT <- 10^3
 tseq <- seq(0,10^2,length.out=tT)
 
 # ### Symmetric competition
-# r1 <- 1
-# r2 <- 1
-# a11 <- a22 <- -1 
-# a12 <- a21 <- -0.5 
+r1 <- 1
+r2 <- 1
+a11 <- a22 <- -1
+a12 <- a21 <- -0.5
 
 ### Competition
 # v <- 100
@@ -51,12 +51,12 @@ tseq <- seq(0,10^2,length.out=tT)
 # a21 <- 0.75
 
 # Bridge
-r1 <- 1
-r2 <- 0
-a11 <- -1
-a22 <- -1
-a12 <- 0.1
-a21 <- 0.1
+# r1 <- 1
+# r2 <- 0
+# a11 <- -1
+# a22 <- -1
+# a12 <- 0.1
+# a21 <- 0.1
 
 A <- matrix(c(a11,a12,a21,a22),nr=2,nc=2)
 
@@ -91,8 +91,8 @@ jhatB <- -jhat + equ
 
 # Phase space plots -------------------------------------------------------
 
-cxlim <- c(-1,1)
-cylim <- c(-3,-2)
+cxlim <- c(-1,0)
+cylim <- c(-1,0)
 
 par(mfrow=c(1,1))
 flowField(dlnLV,xlim=cxlim,ylim=cylim,parameters=parms,points=30,add=FALSE)
@@ -122,7 +122,7 @@ dlnLV2 <- function(t,y,parms){
     eps1 <- sigma * sin(t*omega)
     eps2 <- sigma * sin(t*omega - (1 - rho)/2*pi)
     dlnN1 <- dN_Ndt(N1,N2,r1,-1,-alpha) + eps1
-    dlnN2 <- dN_Ndt(N2,N1,r2,-1,+alpha) + eps2
+    dlnN2 <- dN_Ndt(N2,N1,r2,-1,-alpha) + eps2
     list(c(dlnN1=dlnN1,dlnN2=dlnN2))
   })
 }
@@ -147,12 +147,12 @@ for(i in 1:nsim){
 }
 
 # xlim <- ylim <- c(-1,1)
-xlim <- c(-1,-0.8)
-ylim <- c(0.1,0.25)
+xlim <- c(-0.7,0.1)
+ylim <- c(-0.7,0.1)
 mycols <- rep(1:length(rhoseq),each=length(alphaseq))
 plot(1,1,xlim=xlim,ylim=ylim,type="n",xlab=expression(ln~N[1]),ylab=expression(ln~N[2]))
 for(i in 1:nsim){
-  points(sindat[[i]],col=mycols[i])
+  points(sindat[[i]][-(1:50),],col=mycols[i])
 }
 
 sinval <- cbind(-(alphaseq + 1),alphaseq - 1)
