@@ -302,4 +302,3 @@ par(mfrow=c(1,1))
 matplot(tseq,decay_vt,col=veccol_v,type="l",lty=1)
   # higher k (yellow) -> moves faster and has less far to go
   # (same patterns as typical for 1-species DD)
-
