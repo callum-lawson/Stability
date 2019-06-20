@@ -94,8 +94,8 @@ jhatB <- -jhat + equ
 
 # Phase space plots -------------------------------------------------------
 
-cxlim <- c(-0.8,-0.5) # c(equ[1]-1,equ[1]+1)
-cylim <- c(-0.8,-0.5) # c(equ[2]-1,equ[2]+1)
+cxlim <- c(equ[1]-1,equ[1]+1)
+cylim <- c(equ[2]-1,equ[2]+1)
   # for logistic: c(-1.5,-1.1)
   # for rare competitor (higher mortality): c(-0.9,-0.4)
 

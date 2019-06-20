@@ -25,7 +25,7 @@ sparms = list(
   discrete = FALSE,
   mbase = 1, # 1 *GRAM*
   morder = 2,
-  tT = 24 * 365,
+  tT = 24 * 365 * 50,
   nt = 100,
   sS = 7*52, 
     # number of seasons over time series
@@ -40,7 +40,7 @@ zparms <- list(
 )
 
 bc <- c(
-  v = 0.001,   # max input rate = vk *grams* per m^2 per hour
+  v = 0.00001,   # max input rate = vk *grams* per m^2 per hour
   k = 0.1,    # grams per m^2
   psi = 0,   # interference:handling time ratio
   omega = 1, # relative feeding rate of y2
@@ -75,7 +75,7 @@ iparms <- iparmf(bhat,sparms)
 parms <- c(sparms,iparms,zparms,bc)
 
 trial <- popint(parms)
-matplot(trial[,-1],type="l")
+# matplot(trial[,-1],type="l")
 
 # Eigenvalues - continuous ------------------------------------------------
 
@@ -146,8 +146,8 @@ d_chain_express <- function(t,y,parameters){
 bddd <- with(parms, btf(t=0,bd,M,parms))
 bddda <- c(bc,bddd,Y=parms$Yc)
 
-cxlim <- c(-4,-2)
-cylim <- c(-4,0)
+cxlim <- c(equ[1]-1,equ[1]+1)
+cylim <- c(equ[2]-1,equ[2]+1)
 
 par(mfrow=c(1,1))
 flowField(d_chain_express,xlim=cxlim,ylim=cylim,parameters=bddda,points=30,add=FALSE)
@@ -186,6 +186,104 @@ lines(x=trial3[,"R"],y=trial3[,"C1"],lty=3,col="purple")
 
 abline(h=parms$y0[2],lty=3) # abline(h=equdiff[1,"C1"],lty=3)
 points(equ[1],equ[2],col="red",pch="+")
+
+parms4 <- parms5 <- parms6 <- parms
+parms4$y0 <- equ + 0.1 
+parms5$y0 <- equ + 0.05 
+parms6$y0 <- equ + 0.15 
+
+trial4 <- popint(parms4)
+trial5 <- popint(parms5)
+trial6 <- popint(parms6)
+
+points(trial4[,-1])
+points(trial5[,-1])
+points(trial6[,-1])
+
+# Oscillations ------------------------------------------------------------
+
+### Rotation-scale
+
+Bre <- Re(val)[1] # taking first eigenvalue (arbitrary)
+Bim <- Im(val)[1]
+Bmat <- matrix(c(Bre,-Bim,Bim,Bre),nr=2,nc=2)
+atan(Bmat[2,1]/Bmat[1,1]) + 2*pi
+# but this is the angle of the reaction vector, not the rotation?
+
+Cmat <- cbind(Re(vec[,1]),Im(vec[,1]))
+
+ihat <- Cmat %*% c(1,0)
+jhat <- Cmat %*% c(0,1) 
+
+ihatA <- ihat + equ
+jhatA <- jhat + equ
+ihatB <- -ihat + equ
+jhatB <- -jhat + equ
+
+arrows(x0=equ[1],y0=equ[2],x1=ihatA[1],y1=ihatA[2],col="red",lty=2) # i-hat
+arrows(x0=equ[1],y0=equ[2],x1=jhatA[1],y1=jhatA[2],col="red",lty=3) # j-hat
+arrows(x0=equ[1],y0=equ[2],x1=ihatB[1],y1=ihatB[2],col="red",lty=2,angle=-180) # i-hat 2
+arrows(x0=equ[1],y0=equ[2],x1=jhatB[1],y1=jhatB[2],col="red",lty=3,angle=-180) # j-hat 2
+
+### Cycle speeds
+# How does timescale similarity of R and C affect oscillation speed?
+
+# R speed
+
+v_len <- 10
+v_seq <- 10^seq(-7,-5,length.out=v_len)
+v_parms <- v_jac <- vector("list",length=v_len)
+v_equ <- matrix(nr=v_len,nc=2)
+v_val <- vector("numeric",length=v_len)
+
+for(i in 1:v_len){
+  v_parms[[i]] <- parms
+  v_parms[[i]]$v <- v_seq[i]
+  v_equ[i,] <- steady(y=parms$y0,
+           parms=v_parms[[i]],
+           fun=d_web,
+           times=c(0,Inf),
+           method="runsteady",
+           hold=FALSE
+           )$y
+  v_jac[[i]] <- jacobian.full(y=v_equ[i,],fun=d_web,parms=v_parms[[i]],time=0)
+  v_val[i] <- eigen(v_jac[[i]])$values[1] # taking first eigenvalue
+}
+
+par(mfrow=c(2,2))
+plot(v_seq,Re(v_val),type="b",ylab="shrink speed")
+plot(v_seq,Im(v_val),type="b",ylab="spin speed")
+plot(log10(v_seq),Re(v_val),type="b",ylab="shrink speed")
+plot(log10(v_seq),Im(v_val),type="b",ylab="spin speed")
+  # closer timescales -> shrink speed decreases, spin speed increases
+
+# C speed
+
+M_len <- 10
+M_seq <- 10^seq(-3,0,length.out=M_len)
+M_parms <- M_jac <- vector("list",length=M_len)
+M_equ <- matrix(nr=M_len,nc=2)
+M_val <- vector("numeric",length=M_len)
+
+for(i in 1:M_len){
+  M_parms[[i]] <- parms
+  M_parms[[i]]$M <- M_seq[i]
+  M_equ[i,] <- steady(y=parms$y0,
+                      parms=M_parms[[i]],
+                      fun=d_web,
+                      times=c(0,Inf),
+                      method="runsteady",
+                      hold=FALSE
+  )$y
+  M_jac[[i]] <- jacobian.full(y=M_equ[i,],fun=d_web,parms=M_parms[[i]],time=0)
+  M_val[i] <- eigen(M_jac[[i]])$values[1] # taking first eigenvalue
+}
+
+par(mfrow=c(2,2))
+plot(M_seq,Re(M_val),type="b",ylab="shrink speed")
+plot(M_seq,Im(M_val),type="b",ylab="spin speed")
+plot(log10(M_seq),Re(M_val),type="b",ylab="shrink speed")
+plot(log10(M_seq),Im(M_val),type="b",ylab="spin speed")
 
 # Perturbations -----------------------------------------------------------
 
