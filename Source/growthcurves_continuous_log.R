@@ -202,7 +202,7 @@ points(trial6[,-1])
 
 # Oscillations ------------------------------------------------------------
 
-### Rotation-scale
+### Rotation-scale plots
 
 Bre <- Re(val)[1] # taking first eigenvalue (arbitrary)
 Bim <- Im(val)[1]
@@ -225,65 +225,222 @@ arrows(x0=equ[1],y0=equ[2],x1=jhatA[1],y1=jhatA[2],col="red",lty=3) # j-hat
 arrows(x0=equ[1],y0=equ[2],x1=ihatB[1],y1=ihatB[2],col="red",lty=2,angle=-180) # i-hat 2
 arrows(x0=equ[1],y0=equ[2],x1=jhatB[1],y1=jhatB[2],col="red",lty=3,angle=-180) # j-hat 2
 
-### Cycle speeds
-# How does timescale similarity of R and C affect oscillation speed?
+### Cycle eigenvectors and values
+  # How does timescale similarity of R and C affect oscillation speed?
 
-# R speed
+oparms <- parms
+# oparms$bd$alpha$b0 <- 100
+# oparms$bd$alpha$h <- -2.373758 + 2
 
-v_len <- 10
-v_seq <- 10^seq(-7,-5,length.out=v_len)
-v_parms <- v_jac <- vector("list",length=v_len)
-v_equ <- matrix(nr=v_len,nc=2)
-v_val <- vector("numeric",length=v_len)
+p_len <- 5
+p_tot <- p_len^3
+v_seq <- 10^seq(-7,-3,length.out=p_len)
+m_seq <- seq(-11,-9,length.out=p_len) # b0 (log scale)
+a_seq <- seq(-7,-5,length.out=p_len)  # b0 (log scale)
+p_dat <- expand.grid(v=v_seq,m=m_seq,a=a_seq)
 
-for(i in 1:v_len){
-  v_parms[[i]] <- parms
-  v_parms[[i]]$v <- v_seq[i]
-  v_equ[i,] <- steady(y=parms$y0,
-           parms=v_parms[[i]],
-           fun=d_web,
-           times=c(0,Inf),
-           method="runsteady",
-           hold=FALSE
-           )$y
-  v_jac[[i]] <- jacobian.full(y=v_equ[i,],fun=d_web,parms=v_parms[[i]],time=0)
-  v_val[i] <- eigen(v_jac[[i]])$values[1] # taking first eigenvalue
-}
+p_parms <- p_jac <- vector("list",length=p_tot)
+p_equ <- matrix(nr=p_tot,nc=2)
+p_vec <- matrix(nr=p_tot,nc=4) # 2 * 2D vectors = 4
+p_val <- matrix(nr=p_tot,nc=2)
+p_bd <- data.frame(a=rep(NA,p_len),h=rep(NA,p_len),alpha=rep(NA,p_len),mu=rep(NA,p_len))
 
-par(mfrow=c(2,2))
-plot(v_seq,Re(v_val),type="b",ylab="shrink speed")
-plot(v_seq,Im(v_val),type="b",ylab="spin speed")
-plot(log10(v_seq),Re(v_val),type="b",ylab="shrink speed")
-plot(log10(v_seq),Im(v_val),type="b",ylab="spin speed")
-  # closer timescales -> shrink speed decreases, spin speed increases
-
-# C speed
-
-M_len <- 10
-M_seq <- 10^seq(-3,0,length.out=M_len)
-M_parms <- M_jac <- vector("list",length=M_len)
-M_equ <- matrix(nr=M_len,nc=2)
-M_val <- vector("numeric",length=M_len)
-
-for(i in 1:M_len){
-  M_parms[[i]] <- parms
-  M_parms[[i]]$M <- M_seq[i]
-  M_equ[i,] <- steady(y=parms$y0,
-                      parms=M_parms[[i]],
+for(i in 1:p_tot){
+  p_parms[[i]] <- oparms
+  p_parms[[i]]$v <- p_dat$v[i]
+  p_parms[[i]]$bd$mu$b0 <- p_dat$m[i]
+  p_parms[[i]]$bd$a$b0 <- p_dat$a[i]
+  p_equ[i,] <- steady(y=oparms$y0,
+                      parms=p_parms[[i]],
                       fun=d_web,
                       times=c(0,Inf),
                       method="runsteady",
                       hold=FALSE
   )$y
-  M_jac[[i]] <- jacobian.full(y=M_equ[i,],fun=d_web,parms=M_parms[[i]],time=0)
-  M_val[i] <- eigen(M_jac[[i]])$values[1] # taking first eigenvalue
+  p_jac[[i]] <- jacobian.full(y=p_equ[i,],fun=d_web,parms=p_parms[[i]],time=0)
+  p_eig <- eigen(p_jac[[i]]) # replaced each loop
+  p_vec[i,] <- p_eig$vectors # storing both eigenvectors
+  p_val[i,] <- p_eig$values # storing both eigenvalues
+  p_bd[i,] <- btf(t=0,p_parms[[i]]$bd,oparms$M,p_parms[[i]])
 }
 
-par(mfrow=c(2,2))
-plot(M_seq,Re(M_val),type="b",ylab="shrink speed")
-plot(M_seq,Im(M_val),type="b",ylab="spin speed")
-plot(log10(M_seq),Re(M_val),type="b",ylab="shrink speed")
-plot(log10(M_seq),Im(M_val),type="b",ylab="spin speed")
+p_TS <- log10( p_bd$mu / p_dat$v )
+p_R0 <- log10( parms$k * p_bd$a / p_bd$mu)
+p_TR <- p_TS - p_R0
+
+p_val_Re <- Re(p_val)
+p_val_Im <- Im(p_val)
+is_feas <- apply(p_equ > -20,1,function(x) sum(x)==2)
+iso <- p_val_Re[,1]==p_val_Re[,2] & is_feas
+iss <- p_val_Re[,1]!=p_val_Re[,2] & is_feas
+
+mypchs <- rep(rep(15:19,each=p_len),times=p_len)
+mycols <- rep(c("black","purple","blue","orange","red"),each=p_len^2)
+
+### Shrink and spin speeds
+
+p_val_o <- p_val[iso,1] # taking first eigenvalue
+p_TS_o <- p_TS[iso]
+p_R0_o <- p_R0[iso]
+p_v_o <- p_bd$mu[iso] # p_dat$v[iso]
+  # adjusts timescale of response (scale-down faster systems more)
+  # I.e. making Thieme's timescale adjustment by C lifespan
+p_TR_o <- p_TR[iso]
+
+cr <- colorRamp(c("blue", "red"))
+scale01 <- function(x) scale(x,center=min(x),scale=max(x)-min(x))
+p_R0_o_scaled <- scale01(p_R0_o)
+mycols_R0 = rgb(cr(p_R0_o_scaled), max=255)
+
+par(mfrow=c(1,2),mar=c(4.5,4.5,2,2))
+plot(p_TR_o,log(-Re(p_val_o)/p_v_o),pch=mypchs[iso],col=mycols_R0,
+  xlab=expression(R[0]/p), ylab="shrink speed")
+plot(p_TR_o,log(Im(p_val_o)/p_v_o),pch=mypchs[iso],col=mycols_R0,
+  xlab=expression(R[0]/p), ylab="spin speed")
+# plot(p_R0_o,Re(p_val_o)/p_v_o,pch=mypchs[iso],col=mycols_R0,
+#   xlab="Interaction strength", ylab="shrink speed")
+# plot(p_R0_o,Im(p_val_o)/p_v_o,pch=mypchs[iso],col=mycols_R0,
+#   xlab="Interaction strength", ylab="spin speed")
+
+### Analytical vs eigenvalue TS
+
+val1 <- p_val_Re[iss,1]
+val2 <- p_val_Re[iss,2]
+p_TS_s <- log10( val1 / val2 )
+p_TR_s <- p_TR[iss]
+p_R0_s <- p_R0[iss]
+p_R0_s_scaled <- scale01(p_R0_s)
+mycols_R0_s = rgb(cr(p_R0_s_scaled), max=255)
+
+par(mfrow=c(1,2))
+plot(p_TS[iss],-p_TS_s,pch=mypchs[iss],col=mycols[iss],
+  xlab="TS (analytic)", ylab="TS (eigenvector)")
+abline(0,1,lty=3,col="gray")
+
+plot(p_TR_s,-p_TS_s,pch=mypchs[iss],col=mycols[iss],
+  xlab=expression(R[0]/p), ylab="TS (eigenvector)")
+abline(0,1,lty=3,col="gray")
+
+par(mfcol=c(2,3))
+plot(p_TS_s,val1,pch=mypchs[iss],col=mycols[iss],
+     xlab=expression(p), ylab=expression(lambda[1]))
+plot(p_TS_s,val2,pch=mypchs[iss],col=mycols[iss],
+     xlab=expression(p), ylab=expression(lambda[2]))
+plot(p_R0_s,val1,pch=mypchs[iss],col=mycols[iss],
+     xlab=expression(R[0]), ylab=expression(lambda[1]))
+plot(p_R0_s,val2,pch=mypchs[iss],col=mycols[iss],
+     xlab=expression(R[0]), ylab=expression(lambda[2]))
+plot(p_TR_s,val1,pch=mypchs[iss],col=mycols[iss],
+     xlab=expression(R[0]/p), ylab=expression(lambda[1]))
+plot(p_TR_s,val2,pch=mypchs[iss],col=mycols[iss],
+     xlab=expression(R[0]/p), ylab=expression(lambda[2]))
+
+### Eigenvectors
+
+p_angle_fast <- ( atan( Re(p_vec[iss,2]) / Re(p_vec[iss,1]) ) + pi ) / pi
+  # y always positive, x always negative (so second quadrant)
+  
+p_angle_slow <- atan( Re(p_vec[iss,4]) / Re(p_vec[iss,3]) ) / pi
+  # y always negative, x always positive (so fourth quadrant)
+
+  # using 2*pi to convert to fractions of a circle
+  # https://en.wikipedia.org/wiki/Polar_coordinate_system#Converting_between_polar_and_Cartesian_coordinates
+
+par(mfcol=c(2,4))
+plot(p_TS[iss],p_angle_fast,pch=mypchs[iss],col=mycols_R0_s,xlab="TS (analytic)")
+plot(p_TS[iss],p_angle_slow,pch=mypchs[iss],col=mycols_R0_s,xlab="TS (analytic)")
+plot(p_TS_s,p_angle_fast,pch=mypchs[iss],col=mycols_R0_s,xlab="TS (eigenvalue)")
+plot(p_TS_s,p_angle_slow,pch=mypchs[iss],col=mycols_R0_s,xlab="TS (eigenvalue)")
+plot(p_R0_s,p_angle_fast,pch=mypchs[iss],col=mycols_R0_s,xlab=expression(R[0]))
+plot(p_R0_s,p_angle_slow,pch=mypchs[iss],col=mycols_R0_s,xlab=expression(R[0]))
+plot(p_TR[iss],p_angle_fast,pch=mypchs[iss],col=mycols_R0_s,xlab=expression(R[0]/p))
+plot(p_TR[iss],p_angle_slow,pch=mypchs[iss],col=mycols_R0_s,xlab=expression(R[0]/p))
+
+par(mfrow=c(1,1))
+plot(p_angle_fast,p_angle_slow,pch=mypchs[iss],col=mycols[iss])
+
+### Equilibrium check
+
+par(mfrow=c(1,2))
+p_TS_feas <- p_TS[is_feas]
+plot(p_TS_feas,p_equ[is_feas,1],pch=mypchs[is_feas],col=mycols[is_feas],xlab=expression(log[10](v/mu)))
+plot(p_TS_feas,p_equ[is_feas,2],pch=mypchs[is_feas],col=mycols[is_feas],xlab=expression(log[10](v/mu)))
+
+### Anaytical oscillations
+# See "Scaling" OneNote file
+
+TS_abiotic_f <- function(R_0,p){
+  delta_lambda <- sqrt(R_0^2 - 4*p*(R_0 - 1))
+  (-R_0 - delta_lambda) / (-R_0 + delta_lambda) # 1/2's cancel
+}
+
+TS_biotic_f <- function(R_0,p){
+  delta_lambda <- sqrt(1 - 4*p*R_0*(R_0 - 1))
+  (-1 - delta_lambda) / (-1 + delta_lambda) # 1/(2*R_0)'s cancel
+}
+
+R_0_seq <- 10^seq(0.01,0.7,length.out=100)
+p_seq <- seq(0.01,0.99,length.out=100)
+TS_abiotic_mat <- sapply(p_seq, function(p) TS_abiotic_f(R_0=R_0_seq,p=p))
+TS_biotic_mat  <- sapply(p_seq, function(p) TS_biotic_f(R_0=R_0_seq,p=p))
+
+par(mfrow=c(2,3),mar=c(4.5,4.5,1.5,1.5))
+matplot(R_0_seq,log(TS_abiotic_mat),type="l",col=heat.colors(100),lty=1)
+matplot(p_seq,t(log(TS_abiotic_mat)),type="l",col=heat.colors(100),lty=1)
+image(R_0_seq,p_seq,log(TS_abiotic_mat))
+matplot(R_0_seq,log(TS_biotic_mat),type="l",col=heat.colors(100),lty=1)
+matplot(p_seq,t(log(TS_biotic_mat)),type="l",col=heat.colors(100),lty=1)
+image(R_0_seq,p_seq,log(TS_biotic_mat))
+
+# Conditions for oscillations:
+par(mfrow=c(1,2))
+curve(x/(4*(1-1/x)),xlim=c(1,10),
+  xlab=expression(R[0]),
+  ylab=expression(p[crit]),
+  main="abiotic"
+  )
+curve(1/(4*x*(x-1)),xlim=c(1,10),
+  xlab=expression(R[0]),
+  ylab=expression(p[crit]),
+  main="biotic"
+)
+
+# Eigenvector angle difference
+
+dtheta_abiotic_f <-  function(R_0,p){
+  delta_lambda <- sqrt(R_0^2 - 4*p*(R_0 - 1))
+  vec1 <- 1/(2*(R_0-1)) * (- R_0 - delta_lambda)
+  vec2 <- 1/(2*(R_0-1)) * (- R_0 + delta_lambda)
+  theta1 <- atan2(vec1,1)
+  theta2 <- atan2(vec2,1)
+  propdiff <- (theta2 - theta1)/(2*pi)
+  return(propdiff)
+}
+
+dtheta_biotic_f <-  function(R_0,p){
+  delta_lambda <- sqrt(1 - 4*p*R_0*(R_0 - 1))
+  vec1 <- 1/(2*R_0*(R_0-1)) * (- 1 - delta_lambda)
+  vec2 <- 1/(2*(R_0-1)) * (- 1 + delta_lambda)
+  theta1 <- atan2(vec1,1)
+  theta2 <- atan2(vec2,1)
+  propdiff <- (theta2 - theta1)/(2*pi)
+  return(propdiff)
+}
+
+dtheta_abiotic_mat <- sapply(p_seq,function(p) dtheta_abiotic_f(R_0_seq,p))
+dtheta_biotic_mat <- sapply(p_seq,function(p) dtheta_biotic_f(R_0_seq,p))
+
+par(mfrow=c(2,3),mar=c(4.5,4.5,1.5,1.5))
+matplot(R_0_seq,dtheta_abiotic_mat,type="l",col=heat.colors(100),lty=1)
+matplot(p_seq,t(dtheta_abiotic_mat),type="l",col=heat.colors(100),lty=1)
+image(R_0_seq,p_seq,dtheta_abiotic_mat)
+matplot(R_0_seq,dtheta_biotic_mat,type="l",col=heat.colors(100),lty=1)
+matplot(p_seq,t(dtheta_biotic_mat),type="l",col=heat.colors(100),lty=1)
+image(R_0_seq,p_seq,dtheta_biotic_mat)
+
+par(mfrow=c(1,2))
+plot(log(TS_abiotic_mat),dtheta_abiotic_mat,main="abiotic")
+plot(log(TS_biotic_mat),dtheta_biotic_mat,main="biotic")
 
 # Perturbations -----------------------------------------------------------
 
