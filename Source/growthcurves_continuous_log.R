@@ -277,6 +277,17 @@ iss <- p_val_Re[,1]!=p_val_Re[,2] & is_feas
 mypchs <- rep(rep(15:19,each=p_len),times=p_len)
 mycols <- rep(c("black","purple","blue","orange","red"),each=p_len^2)
 
+### Determinants
+
+p_ldet <- log(sapply(p_jac[is_feas],detm))
+par(mfrow=c(2,2),mar=c(4.5,4.5,2,2))
+oscol <- ifelse(p_val_Re[,1]==p_val_Re[,2],"red","blue")[is_feas]
+plot(p_R0[is_feas],p_ldet,col=oscol) # ln(ka/mu) => aseq/museq
+plot(p_TS[is_feas],p_ldet,col=oscol) # ln(mu/v) => museq/vseq
+plot(p_TR[is_feas],p_ldet,col=oscol) # p_TS - p_R0 = ln(ka/v) => aseq/vseq
+boxplot(p_ldet ~ oscol)
+  # small determinant => small pushback area => slow return
+
 ### Shrink and spin speeds
 
 p_val_o <- p_val[iso,1] # taking first eigenvalue

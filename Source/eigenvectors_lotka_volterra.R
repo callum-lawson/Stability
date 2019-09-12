@@ -120,7 +120,7 @@ dlnLV2 <- function(t,y,parms){
     N1 <- N[1]
     N2 <- N[2]
     eps1 <- sigma * sin(t*omega)
-    eps2 <- sigma * sin(t*omega - (1 - rho)/2*pi)
+    eps2 <- sigma * sin(t*omega - (1 - rho)/2*pi) # phase shift
     dlnN1 <- dN_Ndt(N1,N2,r1,-1,-alpha) + eps1
     dlnN2 <- dN_Ndt(N2,N1,r2,-1,-alpha) + eps2
     list(c(dlnN1=dlnN1,dlnN2=dlnN2))
@@ -157,3 +157,22 @@ for(i in 1:nsim){
 
 sinval <- cbind(-(alphaseq + 1),alphaseq - 1)
 
+# Different sensitivities -------------------------------------------------
+
+dlnLV3 <- function(t,y,parms){
+  with(parms, {
+    N <- exp(y)
+    N1 <- N[1]
+    N2 <- N[2]
+    eps1 <- sigma[1] * sin(t*omega)
+    eps2 <- sigma[2] * sin(t*omega - (1 - rho)/2*pi) # phase shift
+    dlnN1 <- dN_Ndt(N1,N2,r1,-1,-alpha) + eps1
+    dlnN2 <- dN_Ndt(N2,N1,r2,-1,-alpha) + eps2
+    list(c(dlnN1=dlnN1,dlnN2=dlnN2))
+  })
+}
+
+sinparms$sigma <- c(0.01,0)
+oneonly <- ode(y=equ,times=tseq,func=dlnLV3,parms=c(sinparms,rho=1,alpha=0.5))[,-1]
+plot(oneonly[-(1:50),],xlim=xlim,ylim=ylim,xlab=expression(ln~N[1]),ylab=expression(ln~N[2]))
+matplot(tseq[-(1:50)],oneonly[-(1:50),])
