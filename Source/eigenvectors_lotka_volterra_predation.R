@@ -29,7 +29,30 @@ dx_dt <- function(t,y,parms){
 
 x0 <- c(dx1=0,dx2=0)
 tT <- 10^4
-tseq <- seq(0,10^3,length.out=tT)
+tmax <- 10^3
+tseq <- seq(0,tmax,length.out=tT)
 
 lnxt <- ode(y=x0,times=tseq,func=dx_dt,parms=parms) 
-matplot(lnxt[,1],lnxt[,-1],type="l")
+matplot(tseq,lnxt[,-1],type="l")
+
+# Varying perturbation fluctuation speed ----------------------------------
+
+lzlmin <- -1
+lzlmax <- 3
+nzl <- 20
+zlseq <- 10^seq(lzlmin,lzlmax,length.out=nzl)
+tburn <- table(tseq<(tmax/10))[1] # first 10% of timepoints dropped
+
+parms_temp <- parms
+lnx_sd <- matrix(nr=nzl,nc=2) # two species
+
+for(i in 1:nzl){
+  parms_temp$zl <- zlseq[i]
+  lnxt_temp <- ode(y=x0,times=tseq,func=dx_dt,parms=parms_temp) 
+  lnx_sd[i,] <- apply(lnxt_temp[-(1:tburn),-1],2,sd)
+}
+
+par(mfrow=c(1,2))
+matplot(log10(zlseq),lnx_sd,type="l")
+matplot(log10(zlseq),apply(lnx_sd,1,diff),type="l")
+

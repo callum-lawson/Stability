@@ -7,7 +7,7 @@ require("phaseR")
 # Setup -------------------------------------------------------------------
 
 dN_Ndt <- function(N1,N2,r,a,adash){
-  r + a * N1 + adash * N2
+  r * (1 + a * N1 + adash * N2)
 }
   # r + exp(N1 + a_e) + exp(N2 + adash_e)
   # exp makes it look like Ricker
@@ -172,7 +172,15 @@ dlnLV3 <- function(t,y,parms){
   })
 }
 
-sinparms$sigma <- c(0.01,0)
-oneonly <- ode(y=equ,times=tseq,func=dlnLV3,parms=c(sinparms,rho=1,alpha=0.5))[,-1]
+sinparms2 <- sinparms
+sinparms2$r2 <- 0.01 # one species much faster
+sinparms2$sigma <- c(0,0.01)
+sinparms2$omega <- 2*pi*10 # frequency
+
+tmax2 <- 10 * 2*pi/(sinparms2$omega) # time length = 10 cycles
+tT2 <- 10^4
+tseq2 <- seq(0,tmax2,length.out=tT2)
+
+oneonly <- ode(y=equ,times=tseq2,func=dlnLV3,parms=c(sinparms2,rho=1,alpha=0.5))[,-1]
 plot(oneonly[-(1:50),],xlim=xlim,ylim=ylim,xlab=expression(ln~N[1]),ylab=expression(ln~N[2]))
-matplot(tseq[-(1:50)],oneonly[-(1:50),])
+matplot(tseq2[-(1:50)],oneonly[-(1:50),],pch="+")
