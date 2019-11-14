@@ -175,9 +175,10 @@ dlnLV3 <- function(t,y,parms){
 sinparms2 <- sinparms
 sinparms2$r2 <- 0.01 # one species much faster
 sinparms2$sigma <- c(0,0.01)
-sinparms2$omega <- 2*pi*10 # frequency
+sinparms2$omega <- 2*pi # frequency
 
-tmax2 <- 10 * 2*pi/(sinparms2$omega) # time length = 10 cycles
+ncycles <- 10 # number of environmental cycles to track for
+tmax2 <- ncycles * 2*pi/(sinparms2$omega) 
 tT2 <- 10^4
 tseq2 <- seq(0,tmax2,length.out=tT2)
 

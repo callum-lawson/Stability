@@ -32,8 +32,10 @@ tT <- 10^4
 tmax <- 10^3
 tseq <- seq(0,tmax,length.out=tT)
 
+par(mfrow=c(1,2))
 lnxt <- ode(y=x0,times=tseq,func=dx_dt,parms=parms) 
 matplot(tseq,lnxt[,-1],type="l")
+plot(lnxt[,2],lnxt[,3])
 
 # Varying perturbation fluctuation speed ----------------------------------
 
@@ -52,7 +54,6 @@ for(i in 1:nzl){
   lnx_sd[i,] <- apply(lnxt_temp[-(1:tburn),-1],2,sd)
 }
 
-par(mfrow=c(1,2))
 matplot(log10(zlseq),lnx_sd,type="l")
 matplot(log10(zlseq),apply(lnx_sd,1,diff),type="l")
 
